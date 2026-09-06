@@ -1,0 +1,22 @@
+# Node dependencies
+node_modules/
+
+# Nuxt build output
+.output/
+.nuxt/
+dist/
+
+# Rust / Cargo build artifacts
+/src-tauri/target/
+target/
+
+# Local env files
+.env
+.env.*
+!.env.example
+
+# System & IDE files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

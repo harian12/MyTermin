@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <!-- Background Gradient -->
+    <radialGradient id="bgGrad" cx="50%" cy="40%" r="65%">
+      <stop offset="0%" stop-color="#181a2e"/>
+      <stop offset="60%" stop-color="#0e101d"/>
+      <stop offset="100%" stop-color="#07080f"/>
+    </radialGradient>
+
+    <!-- Glowing Cyber Gradients -->
+    <linearGradient id="neonCyan" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="100%" stop-color="#0284c7"/>
+    </linearGradient>
+
+    <linearGradient id="neonPurple" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#c084fc"/>
+      <stop offset="100%" stop-color="#7e22ce"/>
+    </linearGradient>
+
+    <linearGradient id="neonEmerald" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#34d399"/>
+      <stop offset="100%" stop-color="#059669"/>
+    </linearGradient>
+
+    <linearGradient id="neonAmber" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fbbf24"/>
+      <stop offset="100%" stop-color="#d97706"/>
+    </linearGradient>
+
+    <!-- Glass Core Gradient -->
+    <linearGradient id="glassTop" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2d3748" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#1a202c" stop-opacity="0.9"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Squircle Base Canvas -->
+  <rect width="512" height="512" rx="115" fill="url(#bgGrad)"/>
+  <rect x="16" y="16" width="480" height="480" rx="100" fill="none" stroke="#2a304e" stroke-width="4" stroke-opacity="0.5"/>
+
+  <!-- 4-Quadrant Dynamic Matrix Grid (Isometric Terminal Tiles) -->
+  <!-- Top-Left Tile (Cyan CLI Node) -->
+  <g transform="translate(76, 76)">
+    <rect width="168" height="168" rx="28" fill="#131726" stroke="#38bdf8" stroke-width="4" stroke-opacity="0.8"/>
+    <!-- Terminal Header Dots -->
+    <circle cx="28" cy="28" r="5" fill="#ef4444"/>
+    <circle cx="44" cy="28" r="5" fill="#f59e0b"/>
+    <circle cx="60" cy="28" r="5" fill="#10b981"/>
+    <!-- Terminal Prompt Prompt Glyphs -->
+    <path d="M 32 75 L 64 96 L 32 117" fill="none" stroke="url(#neonCyan)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+    <line x1="80" y1="117" x2="124" y2="117" stroke="url(#neonCyan)" stroke-width="8" stroke-linecap="round"/>
+    <line x1="32" y1="138" x2="90" y2="138" stroke="#38bdf8" stroke-width="4" stroke-linecap="round" stroke-opacity="0.4"/>
+  </g>
+
+  <!-- Top-Right Tile (Purple AI Node) -->
+  <g transform="translate(268, 76)">
+    <rect width="168" height="168" rx="28" fill="#171328" stroke="#c084fc" stroke-width="4" stroke-opacity="0.8"/>
+    <!-- Terminal Header Dots -->
+    <circle cx="28" cy="28" r="5" fill="#475569"/>
+    <circle cx="44" cy="28" r="5" fill="#475569"/>
+    <circle cx="60" cy="28" r="5" fill="#475569"/>
+    <!-- AI Sparkle / Matrix Core -->
+    <path d="M 84 55 Q 84 96 125 96 Q 84 96 84 137 Q 84 96 43 96 Q 84 96 84 55 Z" fill="url(#neonPurple)"/>
+    <circle cx="84" cy="96" r="10" fill="#ffffff"/>
+  </g>
+
+  <!-- Bottom-Left Tile (Emerald Dev Node) -->
+  <g transform="translate(76, 268)">
+    <rect width="168" height="168" rx="28" fill="#0f1f1d" stroke="#34d399" stroke-width="4" stroke-opacity="0.8"/>
+    <!-- Terminal Header Dots -->
+    <circle cx="28" cy="28" r="5" fill="#475569"/>
+    <circle cx="44" cy="28" r="5" fill="#475569"/>
+    <circle cx="60" cy="28" r="5" fill="#475569"/>
+    <!-- Code Brackets Glyphs -->
+    <path d="M 52 75 L 30 96 L 52 117" fill="none" stroke="url(#neonEmerald)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M 116 75 L 138 96 L 116 117" fill="none" stroke="url(#neonEmerald)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+    <line x1="95" y1="72" x2="73" y2="120" stroke="url(#neonEmerald)" stroke-width="6" stroke-linecap="round"/>
+  </g>
+
+  <!-- Bottom-Right Tile (Amber Build Node) -->
+  <g transform="translate(268, 268)">
+    <rect width="168" height="168" rx="28" fill="#1f1a11" stroke="#fbbf24" stroke-width="4" stroke-opacity="0.8"/>
+    <!-- Terminal Header Dots -->
+    <circle cx="28" cy="28" r="5" fill="#475569"/>
+    <circle cx="44" cy="28" r="5" fill="#475569"/>
+    <circle cx="60" cy="28" r="5" fill="#475569"/>
+    <!-- Fast Lightning / CLI Runner Icon -->
+    <path d="M 92 56 L 56 102 L 82 102 L 74 140 L 114 90 L 88 90 Z" fill="url(#neonAmber)"/>
+  </g>
+
+  <!-- Central Nexus Hub (Connecting 4 Quadrants) -->
+  <circle cx="256" cy="256" r="30" fill="#0b0d17" stroke="#6366f1" stroke-width="4"/>
+  <circle cx="256" cy="256" r="14" fill="#818cf8"/>
+  <circle cx="256" cy="256" r="6" fill="#ffffff"/>
+</svg>
