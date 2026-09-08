@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/tauri-apps/tauri/main/crates/tauri-config-schema/schemas/config.json",
   "productName": "MyTermin",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "identifier": "com.mytermin.workspace",
   "build": {
     "beforeDevCommand": "npm.cmd run dev",
@@ -28,7 +28,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis"],
+    "targets": ["nsis", "msi"],
     "resources": ["WebView2Loader.dll", "libunwind.dll"],
     "icon": [
       "icons/32x32.png",

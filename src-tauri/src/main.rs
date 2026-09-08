@@ -42,6 +42,16 @@ fn get_all_pty_stats(state: State<'_, PtyManager>) -> HashMap<String, PtyStats> 
 }
 
 #[tauri::command]
+fn get_pty_cwd(state: State<'_, PtyManager>, id: String) -> Option<String> {
+    state.get_session_cwd(&id)
+}
+
+#[tauri::command]
+fn set_pty_cwd(state: State<'_, PtyManager>, id: String, cwd: String) {
+    state.update_session_cwd(&id, &cwd);
+}
+
+#[tauri::command]
 fn get_available_shells() -> Vec<ShellInfo> {
     let mut shells = Vec::new();
 
@@ -221,6 +231,8 @@ fn main() {
             resize_pty,
             kill_pty,
             get_all_pty_stats,
+            get_pty_cwd,
+            set_pty_cwd,
             get_available_shells,
             save_temp_image,
             save_temp_file,

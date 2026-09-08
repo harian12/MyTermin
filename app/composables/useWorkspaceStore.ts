@@ -52,6 +52,7 @@ export const useWorkspaceStore = () => {
   ])
 
   const activeTerminalId = useState<string>('active-terminal-id', () => 'term-1')
+  const backgroundAlerts = useState<Record<string, 'running' | 'completed'>>('workspace-alerts', () => ({}))
   const currentLayout = useState<LayoutType>('current-layout', () => 'grid-2x2')
   const customPresets = useState<WorkspacePreset[]>('workspace-custom-presets', () => [])
   const hiddenBuiltinPresets = useState<string[]>('workspace-hidden-builtin-presets', () => [])
@@ -292,10 +293,22 @@ export const useWorkspaceStore = () => {
   }
 
   // Duplikat Tab Terminal
-  const duplicateTerminal = (targetTermId?: string) => {
+  const duplicateTerminal = async (targetTermId?: string) => {
     const sourceId = targetTermId || activeTerminalId.value
     const sourceTerm = terminals.value.find(t => t.id === sourceId)
     if (!sourceTerm) return
+
+    let currentCwd = sourceTerm.cwd
+    const { getPtyCwd } = useTauriPty()
+    try {
+      const liveCwd = await getPtyCwd(sourceId)
+      if (liveCwd) {
+        currentCwd = liveCwd
+        sourceTerm.cwd = liveCwd
+      }
+    } catch {
+      // Fallback
+    }
 
     const newId = `term-${Date.now()}`
     const copyTitle = `${sourceTerm.title} (Copy)`
@@ -306,7 +319,7 @@ export const useWorkspaceStore = () => {
       id: newId,
       title: copyTitle,
       shell: sourceTerm.shell,
-      cwd: sourceTerm.cwd,
+      cwd: currentCwd,
       initialCommand: sourceTerm.initialCommand
     }
 
@@ -362,6 +375,8 @@ export const useWorkspaceStore = () => {
     if (term && cwd && cwd !== term.cwd) {
       term.cwd = cwd
       saveSession(false)
+      const { setPtyCwd } = useTauriPty()
+      setPtyCwd(termId, cwd)
     }
   }
 
@@ -417,6 +432,22 @@ export const useWorkspaceStore = () => {
     applyPreset(merged)
   }
 
+  const setTerminalAlert = (termId: string, status: 'running' | 'completed' | null) => {
+    if (!status) {
+      if (backgroundAlerts.value[termId]) {
+        const copy = { ...backgroundAlerts.value }
+        delete copy[termId]
+        backgroundAlerts.value = copy
+      }
+    } else {
+      backgroundAlerts.value = { ...backgroundAlerts.value, [termId]: status }
+    }
+  }
+
+  const clearTerminalAlert = (termId: string) => {
+    setTerminalAlert(termId, null)
+  }
+
   return {
     terminals,
     activeTerminalId,
@@ -443,6 +474,9 @@ export const useWorkspaceStore = () => {
     updateTerminalLastCommand,
     setLayout,
     applyPreset,
-    applyStartupPreset
+    applyStartupPreset,
+    backgroundAlerts,
+    setTerminalAlert,
+    clearTerminalAlert
   }
 }

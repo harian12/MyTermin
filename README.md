@@ -36,10 +36,23 @@ Aplikasi desktop multi-terminal modern untuk Windows yang dibangun menggunakan *
    - Dapat diaktifkan/dinonaktifkan melalui menu Settings.
    - Tombol **Save** manual di title bar untuk menyimpan snapshot sesi kerja.
 
-5. **Kustomisasi Terminal & Tema**
-   - Pilihan shell dinamis: PowerShell, Command Prompt (CMD), Git Bash, WSL Bash.
-   - Tema warna bawaan: Tokyo Night, Catppuccin Mocha, Dracula, One Dark Pro, Nord, Synthwave 84.
-   - Pengaturan ukuran font, opacity latar belakang, dan bentuk kursor (*bar*, *block*, *underline*).
+5. **Pencarian Buffer (`Ctrl+F`) & Export Log**
+   - Search bar interaktif dalam terminal untuk mencari teks riwayat buffer secara real-time dengan dukungan *match case* dan navigasi sebelumnya/berikutnya (`Enter` / `Shift+Enter`).
+   - Export seluruh buffer log terminal aktif ke file teks `.txt` sekali klik langsung dari header tab atau context menu.
+
+6. **Akselerasi GPU (WebGL) & Font Ligatures**
+   - Dukungan hardware-accelerated rendering menggunakan `@xterm/addon-webgl` untuk performa mulus 60 FPS.
+   - Dukungan font ligatures simbol pemrograman (`=>`, `!=`, `===`) via `@xterm/addon-ligatures`.
+   - Pilihan preset font populer (Cascadia Code, Fira Code, JetBrains Mono, MesloLGS NF, Consolas, Source Code Pro) atau font kustom.
+   - Konfigurasi ukuran scrollback buffer hingga 50.000 baris.
+
+7. **Notifikasi Desktop OS & Indikator Status Background**
+   - Indikator visual aktivitas pada tab (titik hijau berkedip saat perintah berjalan di tab latar belakang, titik biru saat selesai).
+   - Notifikasi toast native OS saat proses jangka panjang di background atau jendela terminimalisir selesai dieksekusi.
+
+8. **Kustomisasi Shortcut & Presisi Navigasi**
+   - Pengaturan ulang tombol pintas (*Keybinding Editor*) langsung di modal Settings.
+   - Pelacakan CWD proses shell real-time: duplikasi tab (`Ctrl+Shift+D`) secara cerdas mewarisi direktori kerja aktif terakhir.
 
 ---
 
@@ -48,13 +61,14 @@ Aplikasi desktop multi-terminal modern untuk Windows yang dibangun menggunakan *
 | Shortcut | Aksi |
 |---|---|
 | `Ctrl + K` | Buka **Command Palette** (Pencarian cepat tab, preset, layout, command, theme) |
+| `Ctrl + F` | Buka **Pencarian Buffer** terminal |
 | `Ctrl + T` | Buka tab terminal baru |
 | `Ctrl + W` | Tutup tab terminal aktif |
 | `Ctrl + Tab` | Pindah ke tab berikutnya (*Next Tab*) |
 | `Ctrl + Shift + Tab` | Pindah ke tab sebelumnya (*Previous Tab*) |
 | `Ctrl + Shift + Left / PageUp` | Geser posisi tab aktif ke kiri |
 | `Ctrl + Shift + Right / PageDown` | Geser posisi tab aktif ke kanan |
-| `Ctrl + Shift + D` | Duplikasi tab aktif (*Duplicate Tab*) |
+| `Ctrl + Shift + D` | Duplikasi tab aktif (*Duplicate Tab* dengan CWD sama) |
 | `Ctrl + Shift + G` | Ubah layout ke **4-Grid (2x2)** |
 | `Ctrl + Shift + E` | Ubah layout ke **2-Split Horizontal** |
 | `Ctrl + Shift + O` | Ubah layout ke **2-Split Vertical** |
@@ -120,7 +134,7 @@ npx.cmd @tauri-apps/cli build
 ```
 Hasil file release:
 - **Portable Executable**: `src-tauri/target/release/mytermin.exe`
-- **Installer Windows (.exe Setup)**: `src-tauri/target/release/bundle/nsis/MyTermin_0.1.0_x64-setup.exe`
+- **Installer Windows (.exe Setup)**: `src-tauri/target/release/bundle/nsis/MyTermin_0.1.1_x64-setup.exe`
 
 ---
 
@@ -142,9 +156,9 @@ npx @tauri-apps/cli build
 
 Hasil file release di Linux:
 - **AppImage (Universal Standalone Linux)**:  
-  `src-tauri/target/release/bundle/appimage/mytermin_0.1.0_amd64.AppImage`
+  `src-tauri/target/release/bundle/appimage/mytermin_0.1.1_amd64.AppImage`
 - **Debian/Ubuntu Package (.deb)**:  
-  `src-tauri/target/release/bundle/deb/mytermin_0.1.0_amd64.deb`
+  `src-tauri/target/release/bundle/deb/mytermin_0.1.1_amd64.deb`
 - **Binary Executable Mandiri**:  
   `src-tauri/target/release/mytermin`
 

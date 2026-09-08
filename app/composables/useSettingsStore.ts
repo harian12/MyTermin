@@ -1,4 +1,4 @@
-import type { TerminalSettings, QuickCommand } from '~/types/terminal'
+import { type TerminalSettings, type QuickCommand, type KeybindingConfig, DEFAULT_KEYBINDINGS } from '~/types/terminal'
 
 const SETTINGS_KEY = 'mytermin_settings_v1'
 
@@ -12,17 +12,73 @@ export const DEFAULT_QUICK_COMMANDS: QuickCommand[] = [
 ]
 
 const defaultSettings: TerminalSettings = {
-   fontSize: 14,
-   fontFamily: 'Cascadia Code, Consolas, "Courier New", monospace',
-   cursorStyle: 'bar',
-   cursorBlink: true,
-   theme: 'tokyoNight',
-   defaultShell: 'powershell.exe',
-   opacity: 0.95,
-   autoRestoreSession: true,
-   quickCommands: DEFAULT_QUICK_COMMANDS,
-   startupPresetIds: []
- }
+  fontSize: 14,
+  fontFamily: 'Cascadia Code, Consolas, "Courier New", monospace',
+  fontLigatures: true,
+  cursorStyle: 'bar',
+  cursorBlink: true,
+  theme: 'tokyoNight',
+  defaultShell: 'powershell.exe',
+  opacity: 0.95,
+  scrollback: 5000,
+  enableWebgl: true,
+  enableNotifications: true,
+  keybindings: { ...DEFAULT_KEYBINDINGS },
+  autoRestoreSession: true,
+  quickCommands: DEFAULT_QUICK_COMMANDS,
+  startupPresetIds: []
+}
+
+export const matchesShortcut = (e: KeyboardEvent, shortcut: string): boolean => {
+  if (!shortcut) return false
+  const parts = shortcut.toLowerCase().split('+').map(s => s.trim())
+  const hasCtrl = parts.includes('ctrl') || parts.includes('control')
+  const hasShift = parts.includes('shift')
+  const hasAlt = parts.includes('alt')
+
+  if (e.ctrlKey !== hasCtrl) return false
+  if (e.shiftKey !== hasShift) return false
+  if (e.altKey !== hasAlt) return false
+
+  const keyPart = parts.find(p => !['ctrl', 'control', 'shift', 'alt', 'meta', 'command'].includes(p))
+  if (!keyPart) return false
+
+  const eventKey = e.key.toLowerCase()
+  if (eventKey === keyPart) return true
+  if (keyPart.length === 1 && e.code.toLowerCase() === `key${keyPart}`) return true
+  if (keyPart === 'space' && eventKey === ' ') return true
+  if (keyPart === 'tab' && eventKey === 'tab') return true
+  if (keyPart === 'esc' && eventKey === 'escape') return true
+
+  return false
+}
+
+export const requestDesktopNotification = async () => {
+  if (typeof window !== 'undefined' && 'Notification' in window) {
+    if (Notification.permission === 'default') {
+      try {
+        await Notification.requestPermission()
+      } catch {
+        // Silent
+      }
+    }
+  }
+}
+
+export const sendDesktopNotification = (title: string, body: string) => {
+  if (typeof window !== 'undefined' && 'Notification' in window) {
+    if (Notification.permission === 'granted') {
+      try {
+        new Notification(title, {
+          body,
+          icon: '/icons/icon.ico'
+        })
+      } catch {
+        // Silent
+      }
+    }
+  }
+}
 
 export const useSettingsStore = () => {
   const settings = useState<TerminalSettings>('terminal-settings', () => defaultSettings)
@@ -36,6 +92,10 @@ export const useSettingsStore = () => {
         settings.value = {
           ...defaultSettings,
           ...parsed,
+          keybindings: {
+            ...DEFAULT_KEYBINDINGS,
+            ...(parsed.keybindings || {})
+          },
           quickCommands: parsed.quickCommands && parsed.quickCommands.length > 0
             ? parsed.quickCommands
             : DEFAULT_QUICK_COMMANDS
@@ -44,6 +104,11 @@ export const useSettingsStore = () => {
     } catch (e) {
       console.error('Failed to load settings:', e)
     }
+  }
+
+  const isShortcut = (e: KeyboardEvent, action: keyof KeybindingConfig): boolean => {
+    const sc = settings.value.keybindings?.[action] || DEFAULT_KEYBINDINGS[action]
+    return sc ? matchesShortcut(e, sc) : false
   }
 
   const updateSettings = (newSettings: Partial<TerminalSettings>) => {
@@ -83,6 +148,8 @@ export const useSettingsStore = () => {
     updateSettings,
     addQuickCommand,
     removeQuickCommand,
-    resetQuickCommands
+    resetQuickCommands,
+    isShortcut,
+    requestDesktopNotification
   }
 }

@@ -17,7 +17,8 @@ import {
   RotateCcw,
   Save,
   Check,
-  BookmarkPlus
+  BookmarkPlus,
+  Download
 } from 'lucide-vue-next'
 import { TERMINAL_THEMES } from '~/composables/useThemes'
 
@@ -106,6 +107,30 @@ const allCommands = computed<CommandItem[]>(() => {
       icon: Trash2,
       action: () => {
         if (activeTerminalId.value) removeTerminal(activeTerminalId.value)
+      }
+    },
+    {
+      id: 'term-search',
+      title: 'Find in Terminal Buffer',
+      subtitle: 'Ctrl+F - Buka pencarian teks pada terminal aktif',
+      category: 'Tabs',
+      icon: Search,
+      action: () => {
+        if (activeTerminalId.value && typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent(`terminal-action-${activeTerminalId.value}`, { detail: 'search' }))
+        }
+      }
+    },
+    {
+      id: 'term-export',
+      title: 'Export Terminal Log to File',
+      subtitle: 'Unduh seluruh buffer log terminal aktif (.txt)',
+      category: 'Tabs',
+      icon: Download,
+      action: () => {
+        if (activeTerminalId.value && typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent(`terminal-action-${activeTerminalId.value}`, { detail: 'export' }))
+        }
       }
     }
   )

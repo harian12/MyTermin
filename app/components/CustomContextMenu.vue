@@ -10,7 +10,9 @@ import {
   Columns2,
   Rows2,
   Square,
-  Sparkles
+  Sparkles,
+  Search,
+  Download
 } from 'lucide-vue-next'
 
 const props = defineProps<{
@@ -115,6 +117,27 @@ onBeforeUnmount(() => {
       <div class="flex items-center gap-2">
         <Trash2 class="w-3.5 h-3.5 text-amber-400" />
         <span>Clear Screen</span>
+      </div>
+    </button>
+
+    <button
+      class="w-full flex items-center justify-between px-2.5 py-1.5 text-xs rounded-md hover:bg-accent hover:text-foreground text-foreground/90 transition-colors cursor-pointer"
+      @click="handleAction('search')"
+    >
+      <div class="flex items-center gap-2">
+        <Search class="w-3.5 h-3.5 text-sky-400" />
+        <span>Cari di Buffer</span>
+      </div>
+      <kbd class="text-[10px] text-muted-foreground font-mono">Ctrl+F</kbd>
+    </button>
+
+    <button
+      class="w-full flex items-center justify-between px-2.5 py-1.5 text-xs rounded-md hover:bg-accent hover:text-foreground text-foreground/90 transition-colors cursor-pointer"
+      @click="handleAction('export')"
+    >
+      <div class="flex items-center gap-2">
+        <Download class="w-3.5 h-3.5 text-teal-400" />
+        <span>Export Log ke File</span>
       </div>
     </button>
 

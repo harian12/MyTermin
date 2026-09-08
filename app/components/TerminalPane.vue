@@ -3,6 +3,8 @@ import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import { SearchAddon } from '@xterm/addon-search'
+import { WebglAddon } from '@xterm/addon-webgl'
+import { LigaturesAddon } from '@xterm/addon-ligatures'
 import {
   Trash2,
   Play,
@@ -10,10 +12,16 @@ import {
   Check,
   Activity,
   Cpu,
-  RotateCcw
+  RotateCcw,
+  Search,
+  ArrowUp,
+  ArrowDown,
+  Download,
+  X
 } from 'lucide-vue-next'
 import { TERMINAL_THEMES } from '~/composables/useThemes'
 import type { PtyStats } from '~/types/terminal'
+import { sendDesktopNotification } from '~/composables/useSettingsStore'
 
 interface Props {
   paneId: string
@@ -52,17 +60,21 @@ const {
   getClipboardFiles,
   copyToClipboard
 } = useTauriPty()
-const { settings } = useSettingsStore()
-const { terminals, renameTerminal, updateTerminalCwd, updateTerminalLastCommand } = useWorkspaceStore()
+const { settings, isShortcut } = useSettingsStore()
+const { terminals, renameTerminal, updateTerminalCwd, updateTerminalLastCommand, setTerminalAlert, clearTerminalAlert } = useWorkspaceStore()
 const { togglePalette, openPalette } = useCommandPalette()
 
 let term: Terminal | null = null
 let fitAddon: FitAddon | null = null
 let searchAddon: SearchAddon | null = null
+let webglAddon: WebglAddon | null = null
+let ligaturesAddon: LigaturesAddon | null = null
 let unlistenData: (() => void) | null = null
 let unlistenExit: (() => void) | null = null
 let resizeObserver: ResizeObserver | null = null
 let statsInterval: any = null
+let ptyStreamBuffer = ''
+let wasProcessBusy = false
 
 const isPtyReady = ref(false)
 const isPtyExited = ref(false)
@@ -71,6 +83,12 @@ const isEditingTitle = ref(false)
 const newPaneTitle = ref(props.title)
 const paneStats = ref<PtyStats | null>(null)
 const isFileDraggingOver = ref(false)
+
+// Search bar state
+const isSearchOpen = ref(false)
+const searchQuery = ref('')
+const searchMatchCase = ref(false)
+const searchFound = ref<boolean | null>(null)
 
 const currentTheme = computed(() => {
   return TERMINAL_THEMES[settings.value.theme]?.theme || TERMINAL_THEMES.tokyoNight.theme
@@ -125,6 +143,121 @@ const executeCommand = (cmd: string) => {
   showQuickCommands.value = false
 }
 
+// Search and Export Logic
+const openSearch = () => {
+  isSearchOpen.value = true
+  nextTick(() => {
+    const el = document.getElementById(`search-input-${props.paneId}`) as HTMLInputElement | null
+    el?.focus()
+    el?.select()
+  })
+}
+
+const closeSearch = () => {
+  isSearchOpen.value = false
+  searchQuery.value = ''
+  searchFound.value = null
+  searchAddon?.clearDecorations()
+  term?.focus()
+}
+
+const searchNext = () => {
+  if (!searchAddon || !searchQuery.value) return
+  searchFound.value = searchAddon.findNext(searchQuery.value, {
+    caseSensitive: searchMatchCase.value,
+    incremental: false
+  })
+}
+
+const searchPrev = () => {
+  if (!searchAddon || !searchQuery.value) return
+  searchFound.value = searchAddon.findPrevious(searchQuery.value, {
+    caseSensitive: searchMatchCase.value
+  })
+}
+
+const onSearchInput = () => {
+  if (!searchAddon) return
+  if (!searchQuery.value) {
+    searchFound.value = null
+    return
+  }
+  searchFound.value = searchAddon.findNext(searchQuery.value, {
+    caseSensitive: searchMatchCase.value,
+    incremental: true
+  })
+}
+
+const exportBufferToFile = () => {
+  if (!term) return
+  const buffer = term.buffer.active
+  const lines: string[] = []
+  for (let i = 0; i < buffer.length; i++) {
+    const line = buffer.getLine(i)
+    if (line) {
+      lines.push(line.translateToString(true))
+    }
+  }
+  while (lines.length > 0 && lines[lines.length - 1].trim() === '') {
+    lines.pop()
+  }
+  const content = lines.join('\r\n')
+  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `${props.title.replace(/[^a-zA-Z0-9_-]/g, '_')}_log_${Date.now()}.txt`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}
+
+const parseStreamForCwd = (rawChunk: string) => {
+  // OSC 9;9 (Windows Terminal / ConEmu)
+  const osc9Match = rawChunk.match(/\x1B\]9;9;"?([^"\x07\x1B]+)"?(?:\x07|\x1B\\)/)
+  if (osc9Match && osc9Match[1]) {
+    const p = osc9Match[1].trim()
+    if (p.length >= 2) {
+      updateTerminalCwd(props.paneId, p)
+      return
+    }
+  }
+
+  // OSC 7 (file:// hostname / path)
+  const osc7Match = rawChunk.match(/\x1B\]7;file:\/\/[^/]*\/([^\x07\x1B]+)(?:\x07|\x1B\\)/)
+  if (osc7Match && osc7Match[1]) {
+    let p = decodeURIComponent(osc7Match[1])
+    if (p.startsWith('/') && p.length >= 3 && p[2] === ':') p = p.slice(1)
+    p = p.replace(/\//g, '\\').trim()
+    if (p.length >= 2) {
+      updateTerminalCwd(props.paneId, p)
+      return
+    }
+  }
+
+  // Strip ANSI and match prompts across chunk boundaries
+  const clean = rawChunk.replace(/\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~]|\].*?(?:\x07|\x1B\\))/g, '')
+  ptyStreamBuffer = (ptyStreamBuffer + clean).slice(-1024)
+
+  const psMatches = [...ptyStreamBuffer.matchAll(/PS\s+([A-Za-z]:[\\/][^>\r\n]+)>/g)]
+  if (psMatches.length > 0) {
+    const matched = psMatches[psMatches.length - 1][1].trim()
+    if (matched.length >= 2) {
+      updateTerminalCwd(props.paneId, matched)
+      return
+    }
+  }
+
+  const cmdMatches = [...ptyStreamBuffer.matchAll(/(?:^|[\r\n])\s*([A-Za-z]:[\\/][^>\r\n]+)>/g)]
+  if (cmdMatches.length > 0) {
+    const matched = cmdMatches[cmdMatches.length - 1][1].trim()
+    if (matched.length >= 2) {
+      updateTerminalCwd(props.paneId, matched)
+    }
+  }
+}
+
 const initTerminal = async () => {
   if (!terminalContainer.value) return
 
@@ -134,6 +267,7 @@ const initTerminal = async () => {
     cursorStyle: settings.value.cursorStyle,
     cursorBlink: settings.value.cursorBlink,
     theme: currentTheme.value,
+    scrollback: settings.value.scrollback || 5000,
     allowProposedApi: true,
     smoothScrollDuration: 0,
     convertEol: false,
@@ -148,8 +282,42 @@ const initTerminal = async () => {
   term.loadAddon(searchAddon)
   term.loadAddon(webLinksAddon)
 
-  // Forward critical shortcuts (Ctrl+C selection copy, Ctrl+Tab, Ctrl+T, Ctrl+W, Ctrl+K, etc.)
+  if (settings.value.fontLigatures !== false) {
+    try {
+      ligaturesAddon = new LigaturesAddon()
+      term.loadAddon(ligaturesAddon)
+    } catch (e) {
+      console.warn('Ligatures addon skipped:', e)
+      ligaturesAddon = null
+    }
+  }
+
+  if (settings.value.enableWebgl !== false) {
+    try {
+      webglAddon = new WebglAddon()
+      webglAddon.onContextLoss(() => {
+        webglAddon?.dispose()
+        webglAddon = null
+      })
+      term.loadAddon(webglAddon)
+    } catch (e) {
+      console.warn('WebGL addon skipped, using DOM renderer:', e)
+      webglAddon = null
+    }
+  }
+
+  // Forward critical shortcuts (Ctrl+C selection copy, Ctrl+Tab, Custom Keybindings, etc.)
   term.attachCustomKeyEventHandler((event: KeyboardEvent) => {
+    // Search Buffer
+    if (isShortcut(event, 'searchBuffer')) {
+      if (event.type === 'keydown') {
+        event.preventDefault()
+        event.stopPropagation()
+        openSearch()
+      }
+      return false
+    }
+
     // Ctrl+C: If text is selected in xterm, copy to clipboard. Otherwise let xterm send SIGINT (\x03)
     if (event.ctrlKey && !event.shiftKey && (event.key === 'c' || event.key === 'C' || event.code === 'KeyC')) {
       const selection = term?.getSelection()
@@ -173,7 +341,8 @@ const initTerminal = async () => {
       return false
     }
 
-    if (event.ctrlKey && (event.key === 'k' || event.key === 'K' || event.code === 'KeyK' || event.keyCode === 75)) {
+    // Command Palette
+    if (isShortcut(event, 'commandPalette')) {
       if (event.type === 'keydown') {
         event.preventDefault()
         event.stopPropagation()
@@ -181,15 +350,24 @@ const initTerminal = async () => {
       }
       return false
     }
+
     if (event.ctrlKey && event.key === 'Tab') {
       return false // Allow window to handle cyclic tab switch
     }
-    if (event.ctrlKey && (event.key === 't' || event.key === 'T')) {
-      return false // Allow Ctrl+T
+
+    // Custom Keybindings to bubble to window handler
+    if (
+      isShortcut(event, 'newTab') ||
+      isShortcut(event, 'closeTab') ||
+      isShortcut(event, 'duplicateTab') ||
+      isShortcut(event, 'splitHorizontal') ||
+      isShortcut(event, 'splitVertical') ||
+      isShortcut(event, 'grid2x2') ||
+      isShortcut(event, 'singleView')
+    ) {
+      return false
     }
-    if (event.ctrlKey && (event.key === 'w' || event.key === 'W')) {
-      return false // Allow Ctrl+W (Close Tab)
-    }
+
     if (event.ctrlKey && event.shiftKey) {
       return false // Allow layout, duplicate & tab reorder shortcuts
     }
@@ -197,7 +375,12 @@ const initTerminal = async () => {
   })
 
   term.onKey(({ domEvent }) => {
-    if (domEvent.ctrlKey && (domEvent.key === 'k' || domEvent.key === 'K' || domEvent.code === 'KeyK' || domEvent.keyCode === 75)) {
+    if (isShortcut(domEvent, 'searchBuffer')) {
+      domEvent.preventDefault()
+      domEvent.stopPropagation()
+      openSearch()
+    }
+    if (isShortcut(domEvent, 'commandPalette')) {
       domEvent.preventDefault()
       domEvent.stopPropagation()
       openPalette()
@@ -217,28 +400,7 @@ const initTerminal = async () => {
 
     unlistenData = await onPtyData(props.paneId, (data) => {
       term?.write(data)
-
-      // Strip ANSI escape sequences to accurately read directory prompt
-      const cleanData = data.replace(/\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g, '')
-
-      // Detect current working directory from terminal prompts
-      // Windows PowerShell: PS D:\ or PS C:\Users\USER\project>
-      // Windows CMD: D:\> or C:\Users\USER>
-      const psMatch = cleanData.match(/PS\s+([A-Za-z]:\\[^>\r\n]*)/)
-      if (psMatch && psMatch[1]) {
-        const detected = psMatch[1].trim()
-        if (detected.length >= 2) {
-          updateTerminalCwd(props.paneId, detected)
-        }
-      } else {
-        const cmdMatch = cleanData.match(/(?:^|\r|\n)\s*([A-Za-z]:\\[^>\r\n]*)/)
-        if (cmdMatch && cmdMatch[1]) {
-          const detected = cmdMatch[1].trim()
-          if (detected.length >= 2) {
-            updateTerminalCwd(props.paneId, detected)
-          }
-        }
-      }
+      parseStreamForCwd(data)
     })
 
     unlistenExit = await onPtyExit(props.paneId, () => {
@@ -334,18 +496,7 @@ const restartTerminalSession = async (silent = false) => {
 
     unlistenData = await onPtyData(props.paneId, (data) => {
       term?.write(data)
-      const cleanData = data.replace(/\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g, '')
-      const psMatch = cleanData.match(/PS\s+([A-Za-z]:\\[^>\r\n]*)/)
-      if (psMatch && psMatch[1]) {
-        const detected = psMatch[1].trim()
-        if (detected.length >= 2) updateTerminalCwd(props.paneId, detected)
-      } else {
-        const cmdMatch = cleanData.match(/(?:^|\r|\n)\s*([A-Za-z]:\\[^>\r\n]*)/)
-        if (cmdMatch && cmdMatch[1]) {
-          const detected = cmdMatch[1].trim()
-          if (detected.length >= 2) updateTerminalCwd(props.paneId, detected)
-        }
-      }
+      parseStreamForCwd(data)
     })
 
     unlistenExit = await onPtyExit(props.paneId, () => {
@@ -454,6 +605,8 @@ defineExpose({
   copySelection,
   pasteClipboard,
   clearTerminal,
+  openSearch,
+  exportBufferToFile,
   focus: () => term?.focus()
 })
 
@@ -466,6 +619,7 @@ watch(
   () => props.isActive,
   (active) => {
     if (active) {
+      clearTerminalAlert(props.paneId)
       nextTick(() => {
         term?.focus()
       })
@@ -477,6 +631,7 @@ watch(
   () => props.isTabActive,
   (isActive) => {
     if (isActive) {
+      clearTerminalAlert(props.paneId)
       nextTick(() => {
         setTimeout(() => {
           safeFit()
@@ -508,12 +663,97 @@ watch(
   }
 )
 
+watch(
+  () => settings.value.fontFamily,
+  (newFamily) => {
+    if (term && newFamily) {
+      term.options.fontFamily = newFamily
+      safeFit()
+    }
+  }
+)
+
+watch(
+  () => settings.value.fontLigatures,
+  (enabled) => {
+    if (enabled) {
+      if (!ligaturesAddon && term) {
+        try {
+          ligaturesAddon = new LigaturesAddon()
+          term.loadAddon(ligaturesAddon)
+        } catch {
+          ligaturesAddon = null
+        }
+      }
+    } else if (ligaturesAddon) {
+      ligaturesAddon.dispose()
+      ligaturesAddon = null
+    }
+  }
+)
+
+watch(
+  () => settings.value.scrollback,
+  (newScrollback) => {
+    if (term && newScrollback) {
+      term.options.scrollback = newScrollback
+    }
+  }
+)
+
+watch(
+  () => settings.value.enableWebgl,
+  (enabled) => {
+    if (enabled) {
+      if (!webglAddon && term) {
+        try {
+          webglAddon = new WebglAddon()
+          webglAddon.onContextLoss(() => {
+            webglAddon?.dispose()
+            webglAddon = null
+          })
+          term.loadAddon(webglAddon)
+        } catch {
+          webglAddon = null
+        }
+      }
+    } else if (webglAddon) {
+      webglAddon.dispose()
+      webglAddon = null
+    }
+  }
+)
+
 const fetchStats = async () => {
   if (!isTauri.value || !isPtyReady.value || isPtyExited.value) return
   try {
     const all = await getAllPtyStats()
     if (all && all[props.paneId]) {
       paneStats.value = all[props.paneId]
+      const isBusy = paneStats.value.child_count > 0 || paneStats.value.cpu_usage > 5.0
+
+      if (isBusy) {
+        wasProcessBusy = true
+        if (!props.isTabActive) {
+          setTerminalAlert(props.paneId, 'running')
+        }
+      } else if (wasProcessBusy) {
+        wasProcessBusy = false
+        if (!props.isTabActive) {
+          setTerminalAlert(props.paneId, 'completed')
+        }
+        // Kirim OS desktop notification jika jendela di-minimize atau tab di background
+        if (settings.value.enableNotifications !== false) {
+          const isBackground = !props.isTabActive || (typeof document !== 'undefined' && (document.hidden || !document.hasFocus()))
+          if (isBackground) {
+            sendDesktopNotification(
+              'MyTermin - Proses Selesai',
+              `Perintah di tab "${props.title}" telah selesai dieksekusi.`
+            )
+          }
+        }
+      }
+
       // Jika Rust sysinfo mendeteksi CWD proses aktif (misal opencode, node, dsb), update direktori tab
       if (paneStats.value.cwd) {
         updateTerminalCwd(props.paneId, paneStats.value.cwd)
@@ -533,6 +773,13 @@ const fetchStats = async () => {
   }
 }
 
+const handleTerminalAction = (e: any) => {
+  const act = e?.detail
+  if (act === 'search') openSearch()
+  else if (act === 'export') exportBufferToFile()
+  else if (act === 'clear') clearTerminal()
+}
+
 onMounted(() => {
   nextTick(() => {
     initTerminal()
@@ -540,13 +787,23 @@ onMounted(() => {
   if (isTauri.value) {
     statsInterval = setInterval(fetchStats, 2000)
   }
+  if (typeof window !== 'undefined') {
+    window.addEventListener(`terminal-action-${props.paneId}`, handleTerminalAction)
+  }
 })
 
 onBeforeUnmount(async () => {
+  if (typeof window !== 'undefined') {
+    window.removeEventListener(`terminal-action-${props.paneId}`, handleTerminalAction)
+  }
   if (statsInterval) clearInterval(statsInterval)
   resizeObserver?.disconnect()
   if (unlistenData) unlistenData()
   if (unlistenExit) unlistenExit()
+  ligaturesAddon?.dispose()
+  ligaturesAddon = null
+  webglAddon?.dispose()
+  webglAddon = null
   await killPty(props.paneId)
   term?.dispose()
 })
@@ -680,6 +937,26 @@ onBeforeUnmount(async () => {
           variant="ghost"
           size="icon"
           class="h-6 w-6 text-muted-foreground hover:text-foreground"
+          title="Cari di Buffer (Ctrl+F)"
+          @click.stop="openSearch"
+        >
+          <Search class="w-3 h-3 text-sky-400" />
+        </UiButton>
+
+        <UiButton
+          variant="ghost"
+          size="icon"
+          class="h-6 w-6 text-muted-foreground hover:text-foreground"
+          title="Export Log ke File (.txt)"
+          @click.stop="exportBufferToFile"
+        >
+          <Download class="w-3 h-3 text-teal-400" />
+        </UiButton>
+
+        <UiButton
+          variant="ghost"
+          size="icon"
+          class="h-6 w-6 text-muted-foreground hover:text-foreground"
           title="Clear Buffer"
           @click.stop="clearTerminal"
         >
@@ -697,6 +974,64 @@ onBeforeUnmount(async () => {
       @dragleave="handleContainerDragLeave"
       @drop="handleContainerDrop"
     >
+      <!-- Floating Search Bar (Ctrl+F) -->
+      <div
+        v-if="isSearchOpen"
+        class="absolute top-2 right-4 z-40 flex items-center gap-1.5 bg-[#151622]/95 backdrop-blur-md border border-border/80 rounded-lg px-2.5 py-1.5 shadow-2xl animate-in fade-in zoom-in-95 text-xs select-none"
+        @click.stop
+      >
+        <Search class="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+        <input
+          :id="`search-input-${props.paneId}`"
+          v-model="searchQuery"
+          type="text"
+          placeholder="Cari... (Enter / Shift+Enter)"
+          :class="[
+            'bg-background border rounded px-2 py-0.5 text-xs text-foreground outline-none w-48 font-mono transition-colors',
+            searchFound === false ? 'border-rose-500 text-rose-300' : 'border-border focus:border-primary'
+          ]"
+          @input="onSearchInput"
+          @keydown.enter.exact.prevent="searchNext"
+          @keydown.shift.enter.exact.prevent="searchPrev"
+          @keydown.esc.prevent="closeSearch"
+        />
+
+        <button
+          class="p-1 hover:bg-accent rounded text-muted-foreground hover:text-foreground transition-colors"
+          title="Match Sebelumnya (Shift+Enter)"
+          @click.stop="searchPrev"
+        >
+          <ArrowUp class="w-3.5 h-3.5" />
+        </button>
+
+        <button
+          class="p-1 hover:bg-accent rounded text-muted-foreground hover:text-foreground transition-colors"
+          title="Match Berikutnya (Enter)"
+          @click.stop="searchNext"
+        >
+          <ArrowDown class="w-3.5 h-3.5" />
+        </button>
+
+        <button
+          :class="[
+            'px-1.5 py-0.5 rounded text-[10px] font-mono transition-colors',
+            searchMatchCase ? 'bg-primary text-primary-foreground font-semibold' : 'hover:bg-accent text-muted-foreground hover:text-foreground'
+          ]"
+          title="Match Case (Aa)"
+          @click.stop="searchMatchCase = !searchMatchCase; onSearchInput()"
+        >
+          Aa
+        </button>
+
+        <button
+          class="p-1 hover:bg-accent rounded text-muted-foreground hover:text-foreground transition-colors ml-1"
+          title="Tutup Pencarian (Esc)"
+          @click.stop="closeSearch"
+        >
+          <X class="w-3.5 h-3.5" />
+        </button>
+      </div>
+
       <!-- Drop File Visual Overlay -->
       <div
         v-if="isFileDraggingOver"
@@ -709,7 +1044,6 @@ onBeforeUnmount(async () => {
           Lepaskan file untuk menyisipkan path ke terminal
         </span>
       </div>
-    </div>
+        </div>
   </div>
-</template>
-        !['powershell.exe', 'cmd.exe', 'bash.exe                                                                                                                                                                                                                                                                                                                             
+</template>                                                                                                                                                                                                                                                                                                                             

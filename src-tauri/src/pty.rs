@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::sync::{Arc, Mutex};
-use sysinfo::{Pid, ProcessesToUpdate, System};
+use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, System, UpdateKind};
 use tauri::{AppHandle, Emitter};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -29,6 +29,7 @@ pub struct PtySession {
     pub child: Box<dyn Child + Send>,
     pub master: Box<dyn MasterPty + Send>,
     pub writer: Box<dyn Write + Send>,
+    pub cwd: Option<String>,
 }
 
 #[derive(Clone, Default)]
@@ -85,11 +86,16 @@ impl PtyManager {
             }
         }
 
+        let mut effective_cwd: Option<String> = None;
         if let Some(dir) = cwd {
             let clean_dir = dir.trim_matches('"').trim();
             if !clean_dir.is_empty() && std::path::Path::new(clean_dir).exists() {
                 cmd.cwd(clean_dir);
+                effective_cwd = Some(clean_dir.to_string());
             }
+        }
+        if effective_cwd.is_none() {
+            effective_cwd = std::env::current_dir().ok().map(|p| p.to_string_lossy().to_string());
         }
 
         let child = pair
@@ -138,6 +144,7 @@ impl PtyManager {
                 child,
                 master: pair.master,
                 writer,
+                cwd: effective_cwd,
             },
         );
 
@@ -187,8 +194,66 @@ impl PtyManager {
         Ok(())
     }
 
+    pub fn update_session_cwd(&self, id: &str, cwd: &str) {
+        if let Ok(mut sessions) = self.sessions.lock() {
+            if let Some(session) = sessions.get_mut(id) {
+                let clean = cwd.trim_matches('"').trim();
+                if !clean.is_empty() {
+                    session.cwd = Some(clean.to_string());
+                }
+            }
+        }
+    }
+
+    pub fn get_session_cwd(&self, id: &str) -> Option<String> {
+        let mut sessions = self.sessions.lock().ok()?;
+        let session = sessions.get_mut(id)?;
+        let raw_pid = session.pid;
+
+        if let Some(pid) = raw_pid {
+            let parent_sys_pid = Pid::from_u32(pid);
+            if let Ok(mut sys) = self.sys.lock() {
+                sys.refresh_processes_specifics(
+                    ProcessesToUpdate::All,
+                    true,
+                    ProcessRefreshKind::nothing()
+                        .with_exe(UpdateKind::OnlyIfNotSet)
+                        .with_cwd(UpdateKind::Always),
+                );
+
+                // Cek anak proses terlebih dahulu
+                for (_p_id, p_info) in sys.processes() {
+                    if let Some(p_parent) = p_info.parent() {
+                        if p_parent == parent_sys_pid {
+                            if let Some(child_cwd) = p_info.cwd() {
+                                let c_str = child_cwd.to_string_lossy().to_string();
+                                if !c_str.is_empty() {
+                                    session.cwd = Some(c_str.clone());
+                                    return Some(c_str);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Cek proses shell utama
+                if let Some(proc) = sys.process(parent_sys_pid) {
+                    if let Some(c) = proc.cwd() {
+                        let path_str = c.to_string_lossy().to_string();
+                        if !path_str.is_empty() {
+                            session.cwd = Some(path_str.clone());
+                            return Some(path_str);
+                        }
+                    }
+                }
+            }
+        }
+
+        session.cwd.clone()
+    }
+
     pub fn get_all_stats(&self) -> HashMap<String, PtyStats> {
-        let sessions = match self.sessions.lock() {
+        let mut sessions = match self.sessions.lock() {
             Ok(s) => s,
             Err(_) => return HashMap::new(),
         };
@@ -198,11 +263,20 @@ impl PtyManager {
             Err(_) => return HashMap::new(),
         };
 
-        sys.refresh_processes(ProcessesToUpdate::All, true);
+        sys.refresh_processes_specifics(
+            ProcessesToUpdate::All,
+            true,
+            ProcessRefreshKind::nothing()
+                .with_memory()
+                .with_cpu()
+                .with_disk_usage()
+                .with_exe(UpdateKind::OnlyIfNotSet)
+                .with_cwd(UpdateKind::Always),
+        );
 
         let mut stats_map = HashMap::new();
 
-        for (id, session) in sessions.iter() {
+        for (id, session) in sessions.iter_mut() {
             if let Some(raw_pid) = session.pid {
                 let parent_sys_pid = Pid::from_u32(raw_pid);
                 let mut total_cpu = 0.0f32;
@@ -249,6 +323,12 @@ impl PtyManager {
 
                 let memory_mb = (total_mem_bytes as f32) / (1024.0 * 1024.0);
 
+                if let Some(ref cwd_str) = detected_cwd {
+                    session.cwd = Some(cwd_str.clone());
+                } else if detected_cwd.is_none() && session.cwd.is_some() {
+                    detected_cwd = session.cwd.clone();
+                }
+
                 stats_map.insert(
                     id.clone(),
                     PtyStats {
@@ -271,7 +351,7 @@ impl PtyManager {
                         memory_mb: 0.0,
                         is_running: true,
                         child_count: 0,
-                        cwd: None,
+                        cwd: session.cwd.clone(),
                     },
                 );
             }

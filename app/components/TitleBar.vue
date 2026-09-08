@@ -23,6 +23,7 @@ const {
   activeTerminalId,
   currentLayout,
   saveNotification,
+  backgroundAlerts,
   addTerminal,
   duplicateTerminal,
   removeTerminal,
@@ -196,6 +197,18 @@ const closeWindow = async () => {
           @dblclick="startRename(term.id, term.title)"
         >
           <AppLogo :size="13" class="opacity-80 flex-shrink-0" />
+
+          <!-- Background Process Alert Indicator -->
+          <span
+            v-if="backgroundAlerts[term.id] && activeTerminalId !== term.id"
+            :class="[
+              'w-2 h-2 rounded-full flex-shrink-0 transition-all',
+              backgroundAlerts[term.id] === 'running'
+                ? 'bg-emerald-400 animate-pulse shadow-sm shadow-emerald-400/50'
+                : 'bg-sky-400 shadow-sm shadow-sky-400/60'
+            ]"
+            :title="backgroundAlerts[term.id] === 'running' ? 'Perintah sedang berjalan di background' : 'Perintah selesai dijalankan!'"
+          />
 
           <!-- Inline Edit Tab Name -->
           <div v-if="editingTermId === term.id" class="flex items-center gap-1" @click.stop>

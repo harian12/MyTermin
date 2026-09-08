@@ -18,6 +18,7 @@ const {
   applyPreset
 } = useWorkspaceStore()
 const { writePty, pasteFromClipboard } = useTauriPty()
+const { isShortcut, requestDesktopNotification } = useSettingsStore()
 
 const isPresetModalOpen = ref(false)
 const isSettingsModalOpen = ref(false)
@@ -62,6 +63,16 @@ const handleContextMenuAction = async (action: string) => {
     if (contextMenuPaneId.value) {
       writePty(contextMenuPaneId.value, 'clear\r')
     }
+  } else if (action === 'search') {
+    const target = contextMenuPaneId.value || activeTerminalId.value
+    if (target && typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent(`terminal-action-${target}`, { detail: 'search' }))
+    }
+  } else if (action === 'export') {
+    const target = contextMenuPaneId.value || activeTerminalId.value
+    if (target && typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent(`terminal-action-${target}`, { detail: 'export' }))
+    }
   } else if (action === 'command-palette') {
     openPalette()
   } else if (action === 'new-tab') {
@@ -96,22 +107,28 @@ const handleKeydown = (e: KeyboardEvent) => {
     return
   }
 
-  // Ctrl+T: New terminal tab
-  if (e.ctrlKey && (e.key === 't' || e.key === 'T')) {
+  // Custom Keybindings
+  if (isShortcut(e, 'newTab')) {
     e.preventDefault()
     addTerminal()
     return
   }
 
-  // Ctrl+K: Open Command Palette
-  if (e.ctrlKey && (e.key === 'k' || e.key === 'K' || e.keyCode === 75)) {
+  if (isShortcut(e, 'commandPalette')) {
     e.preventDefault()
     togglePalette()
     return
   }
 
-  // Ctrl+W: Close active terminal tab
-  if (e.ctrlKey && (e.key === 'w' || e.key === 'W')) {
+  if (isShortcut(e, 'searchBuffer')) {
+    e.preventDefault()
+    if (activeTerminalId.value && typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent(`terminal-action-${activeTerminalId.value}`, { detail: 'search' }))
+    }
+    return
+  }
+
+  if (isShortcut(e, 'closeTab')) {
     e.preventDefault()
     if (activeTerminalId.value) {
       removeTerminal(activeTerminalId.value)
@@ -119,7 +136,37 @@ const handleKeydown = (e: KeyboardEvent) => {
     return
   }
 
-  // Layout, Duplicate & Tab Reorder Shortcuts
+  if (isShortcut(e, 'duplicateTab')) {
+    e.preventDefault()
+    duplicateTerminal()
+    return
+  }
+
+  if (isShortcut(e, 'splitHorizontal')) {
+    e.preventDefault()
+    setLayout('split-h')
+    return
+  }
+
+  if (isShortcut(e, 'splitVertical')) {
+    e.preventDefault()
+    setLayout('split-v')
+    return
+  }
+
+  if (isShortcut(e, 'grid2x2')) {
+    e.preventDefault()
+    setLayout('grid-2x2')
+    return
+  }
+
+  if (isShortcut(e, 'singleView')) {
+    e.preventDefault()
+    setLayout('single')
+    return
+  }
+
+  // Tab Reorder Shortcuts
   if (e.ctrlKey && e.shiftKey) {
     if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
       e.preventDefault()
@@ -135,21 +182,6 @@ const handleKeydown = (e: KeyboardEvent) => {
         moveTerminalTab(curIdx, curIdx + 1)
       }
       return
-    } else if (e.key === 'D' || e.key === 'd') {
-      e.preventDefault()
-      duplicateTerminal()
-    } else if (e.key === 'G' || e.key === 'g') {
-      e.preventDefault()
-      setLayout('grid-2x2')
-    } else if (e.key === 'E' || e.key === 'e') {
-      e.preventDefault()
-      setLayout('split-h')
-    } else if (e.key === 'O' || e.key === 'o') {
-      e.preventDefault()
-      setLayout('split-v')
-    } else if (e.key === 'S' || e.key === 's') {
-      e.preventDefault()
-      setLayout('single')
     } else if (e.key === 'P' || e.key === 'p') {
       e.preventDefault()
       isPresetModalOpen.value = true
@@ -179,6 +211,7 @@ onMounted(() => {
   }
   window.addEventListener('keydown', handleKeydown, true)
   window.addEventListener('contextmenu', handleGlobalContextMenu)
+  requestDesktopNotification()
   window.addEventListener('mytermin-open-palette', () => {
     isCommandPaletteOpen.value = true
   })

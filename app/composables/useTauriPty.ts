@@ -31,6 +31,24 @@ export const useTauriPty = () => {
     }
   }
 
+  const getPtyCwd = async (id: string): Promise<string | null> => {
+    if (!isTauri.value) return null
+    try {
+      return await invoke<string | null>('get_pty_cwd', { id })
+    } catch (e) {
+      return null
+    }
+  }
+
+  const setPtyCwd = async (id: string, cwd: string): Promise<void> => {
+    if (!isTauri.value) return
+    try {
+      await invoke('set_pty_cwd', { id, cwd })
+    } catch (e) {
+      // Silent
+    }
+  }
+
   const createPty = async (
     id: string,
     shell?: string,
@@ -135,6 +153,8 @@ export const useTauriPty = () => {
     isTauri,
     getAvailableShells,
     getAllPtyStats,
+    getPtyCwd,
+    setPtyCwd,
     createPty,
     writePty,
     resizePty,
