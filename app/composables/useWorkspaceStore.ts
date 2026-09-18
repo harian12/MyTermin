@@ -319,8 +319,7 @@ export const useWorkspaceStore = () => {
       id: newId,
       title: copyTitle,
       shell: sourceTerm.shell,
-      cwd: currentCwd,
-      initialCommand: sourceTerm.initialCommand
+      cwd: currentCwd
     }
 
     if (sourceIdx !== -1) {

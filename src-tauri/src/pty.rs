@@ -76,13 +76,16 @@ impl PtyManager {
         });
 
         let mut cmd = CommandBuilder::new(&target_shell);
+        cmd.env("TERM", "xterm-256color");
+        cmd.env("COLORTERM", "truecolor");
+        cmd.env("PYTHONIOENCODING", "utf-8");
 
         if cfg!(target_os = "windows") {
             let lower = target_shell.to_lowercase();
             if lower.ends_with("powershell.exe") || lower.ends_with("pwsh.exe") || lower == "powershell" || lower == "pwsh" {
-                cmd.args(["-NoExit", "-NoLogo"]);
+                cmd.args(["-NoExit", "-NoLogo", "-Command", "[Console]::OutputEncoding=[System.Text.Encoding]::UTF8; [Console]::InputEncoding=[System.Text.Encoding]::UTF8; chcp 65001 > $null"]);
             } else if lower.ends_with("cmd.exe") || lower == "cmd" {
-                cmd.args(["/K"]);
+                cmd.args(["/K", "chcp 65001 > nul"]);
             }
         }
 
@@ -117,17 +120,51 @@ impl PtyManager {
         let session_id = id.clone();
         let app_handle = app.clone();
 
-        // Background reader thread
+        // Background reader thread with UTF-8 byte boundary preservation
         std::thread::spawn(move || {
             let mut buf = [0u8; 4096];
+            let mut leftover = Vec::new();
             let event_name = format!("pty-data-{}", session_id);
             loop {
                 match reader.read(&mut buf) {
                     Ok(n) if n > 0 => {
-                        let data = String::from_utf8_lossy(&buf[..n]).to_string();
-                        let _ = app_handle.emit(&event_name, data);
+                        let combined = if leftover.is_empty() {
+                            buf[..n].to_vec()
+                        } else {
+                            let mut c = std::mem::take(&mut leftover);
+                            c.extend_from_slice(&buf[..n]);
+                            c
+                        };
+
+                        match std::str::from_utf8(&combined) {
+                            Ok(valid_str) => {
+                                let _ = app_handle.emit(&event_name, valid_str);
+                            }
+                            Err(e) => {
+                                let valid_up_to = e.valid_up_to();
+                                if valid_up_to > 0 {
+                                    if let Ok(valid_str) = std::str::from_utf8(&combined[..valid_up_to]) {
+                                        let _ = app_handle.emit(&event_name, valid_str);
+                                    }
+                                }
+                                if let Some(error_len) = e.error_len() {
+                                    // Invalid sequence encountered: drop invalid slice, try next
+                                    let remaining_start = valid_up_to + error_len;
+                                    if remaining_start < combined.len() {
+                                        leftover = combined[remaining_start..].to_vec();
+                                    }
+                                } else {
+                                    // Incomplete sequence at boundary: hold for next chunk
+                                    leftover = combined[valid_up_to..].to_vec();
+                                }
+                            }
+                        }
                     }
                     _ => {
+                        if !leftover.is_empty() {
+                            let data = String::from_utf8_lossy(&leftover).to_string();
+                            let _ = app_handle.emit(&event_name, data);
+                        }
                         let exit_event = format!("pty-exit-{}", session_id);
                         let _ = app_handle.emit(&exit_event, ());
                         break;

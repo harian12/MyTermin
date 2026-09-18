@@ -5,6 +5,7 @@ import { WebLinksAddon } from '@xterm/addon-web-links'
 import { SearchAddon } from '@xterm/addon-search'
 import { WebglAddon } from '@xterm/addon-webgl'
 import { LigaturesAddon } from '@xterm/addon-ligatures'
+import { Unicode11Addon } from '@xterm/addon-unicode11'
 import {
   Trash2,
   Play,
@@ -271,16 +272,19 @@ const initTerminal = async () => {
     allowProposedApi: true,
     smoothScrollDuration: 0,
     convertEol: false,
-    windowsMode: true
+    windowsMode: false
   })
 
   fitAddon = new FitAddon()
   searchAddon = new SearchAddon()
   const webLinksAddon = new WebLinksAddon()
+  const unicode11Addon = new Unicode11Addon()
 
   term.loadAddon(fitAddon)
   term.loadAddon(searchAddon)
   term.loadAddon(webLinksAddon)
+  term.loadAddon(unicode11Addon)
+  term.unicode.activeVersion = '11'
 
   if (settings.value.fontLigatures !== false) {
     try {
