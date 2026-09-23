@@ -2,58 +2,57 @@
 import {
   Plus,
   X,
-  Square,
-  Columns2,
-  Rows2,
-  LayoutGrid as GridIcon,
   Sparkles,
   Settings,
   Minus,
   Maximize2,
   Pencil,
   Check,
-  Copy,
-  Search
+  Search,
+  FolderKanban,
+  PanelLeft,
+  GitBranch,
+  Keyboard
 } from 'lucide-vue-next'
 import { getCurrentWindow } from '@tauri-apps/api/window'
-import type { LayoutType } from '~/types/terminal'
+import { useProjectExplorer } from '~/composables/useProjectExplorer'
 
 const {
-  terminals,
-  activeTerminalId,
-  currentLayout,
-  saveNotification,
-  backgroundAlerts,
-  addTerminal,
-  duplicateTerminal,
-  removeTerminal,
-  moveTerminalTab,
-  renameTerminal,
-  setLayout
+  workstations,
+  activeWorkstationId,
+  isSidebarOpen,
+  toggleSidebar,
+  addWorkstation,
+  switchWorkstation,
+  renameWorkstation,
+  removeWorkstation,
+  moveWorkstationTab,
+  saveNotification
 } = useWorkspaceStore()
 const { isTauri } = useTauriPty()
+const { gitBranch } = useProjectExplorer()
 
 const emit = defineEmits<{
   (e: 'open-presets'): void
   (e: 'open-settings'): void
   (e: 'open-palette'): void
+  (e: 'open-shortcuts'): void
 }>()
 
-const editingTermId = ref<string | null>(null)
-const editingTitle = ref('')
+const editingWsId = ref<string | null>(null)
+const editingName = ref('')
 
-// Drag Tab Reorder Logic (Pointer Based - Safe from Tauri Drag Region)
+// Drag Workstation Tab Reorder Logic
 const isDraggingTab = ref(false)
 const dragStartIndex = ref<number | null>(null)
 const currentDragIndex = ref<number | null>(null)
 const startX = ref(0)
 const hasMoved = ref(false)
 
-const handleTabPointerDown = (e: PointerEvent, index: number, termId: string) => {
-  // Hanya klik kiri dan bukan saat sedang edit title atau klik tombol aksi
-  if (e.button !== 0 || editingTermId.value === termId) return
+const handleTabPointerDown = (e: PointerEvent, index: number, wsId: string) => {
+  if (e.button !== 0 || editingWsId.value === wsId) return
   const target = e.target as HTMLElement
-  if (target.closest('button') || target.closest('input') || target.closest('.opacity-0')) {
+  if (target.closest('button') || target.closest('input')) {
     return
   }
 
@@ -71,14 +70,13 @@ const handleTabPointerDown = (e: PointerEvent, index: number, termId: string) =>
 
     if (!isDraggingTab.value) return
 
-    // Temukan tab elemen yang sedang di-hover mouse
-    const tabElements = document.querySelectorAll<HTMLElement>('[data-tab-index]')
+    const tabElements = document.querySelectorAll<HTMLElement>('[data-ws-tab-index]')
     tabElements.forEach((el) => {
       const rect = el.getBoundingClientRect()
-      const idx = Number(el.getAttribute('data-tab-index'))
+      const idx = Number(el.getAttribute('data-ws-tab-index'))
       if (moveEvt.clientX >= rect.left && moveEvt.clientX <= rect.right) {
         if (currentDragIndex.value !== null && currentDragIndex.value !== idx) {
-          moveTerminalTab(currentDragIndex.value, idx)
+          moveWorkstationTab(currentDragIndex.value, idx)
           currentDragIndex.value = idx
         }
       }
@@ -103,26 +101,26 @@ const handleTabPointerDown = (e: PointerEvent, index: number, termId: string) =>
   window.addEventListener('pointercancel', handlePointerUp)
 }
 
-const handleTabClick = (termId: string) => {
+const handleTabClick = (wsId: string) => {
   if (!hasMoved.value) {
-    activeTerminalId.value = termId
+    switchWorkstation(wsId)
   }
 }
 
-const startRename = (termId: string, currentTitle: string) => {
-  editingTermId.value = termId
-  editingTitle.value = currentTitle
+const startRename = (wsId: string, currentName: string) => {
+  editingWsId.value = wsId
+  editingName.value = currentName
   nextTick(() => {
-    const input = document.getElementById(`tab-rename-input-${termId}`)
+    const input = document.getElementById(`ws-rename-input-${wsId}`)
     input?.focus()
   })
 }
 
-const finishRename = (termId: string) => {
-  if (editingTitle.value.trim()) {
-    renameTerminal(termId, editingTitle.value.trim())
+const finishRename = (wsId: string) => {
+  if (editingName.value.trim()) {
+    renameWorkstation(wsId, editingName.value.trim())
   }
-  editingTermId.value = null
+  editingWsId.value = null
 }
 
 const minimizeWindow = async () => {
@@ -167,7 +165,7 @@ const closeWindow = async () => {
     class="flex items-center justify-between h-10 bg-[#12131a] border-b border-border select-none px-2 z-40 relative"
     data-tauri-drag-region
   >
-    <!-- Left: App Brand & Terminal Tabs List -->
+    <!-- Left: App Brand & Workstation Tabs -->
     <div class="flex items-center gap-1.5 max-w-[65%] overflow-x-auto no-scrollbar">
       <div
         class="flex items-center gap-2 px-2 text-white font-bold text-sm tracking-wide flex-shrink-0 cursor-default"
@@ -177,93 +175,92 @@ const closeWindow = async () => {
         <span class="text-white font-bold tracking-wide">MyTermin</span>
       </div>
 
-      <!-- Terminal Tabs (Draggable & Reorderable) -->
+      <!-- Toggle Sidebar Button -->
+      <button
+        :class="[
+          'p-1.5 rounded transition-colors mr-1 cursor-pointer',
+          isSidebarOpen ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:bg-[#181924] hover:text-foreground'
+        ]"
+        title="Toggle Sidebar Workstation (Ctrl+B)"
+        @click="toggleSidebar"
+      >
+        <PanelLeft class="w-3.5 h-3.5" />
+      </button>
+
+      <!-- Workstation Tabs (Draggable & Reorderable) -->
       <div class="flex items-center gap-1">
         <div
-          v-for="(term, index) in terminals"
-          :key="term.id"
-          :data-tab-index="index"
+          v-for="(ws, index) in workstations"
+          :key="ws.id"
+          :data-ws-tab-index="index"
           :class="[
             'group flex items-center gap-1.5 px-3 py-1 text-xs rounded-t-md transition-all border-b-2 font-medium cursor-pointer relative select-none touch-none',
-            activeTerminalId === term.id
+            activeWorkstationId === ws.id
               ? 'bg-[#1e1f2b] text-foreground border-primary'
               : 'text-muted-foreground hover:bg-[#181924] hover:text-foreground border-transparent',
             isDraggingTab && currentDragIndex === index
               ? 'ring-2 ring-primary bg-primary/20 scale-[1.03] z-20 shadow-md shadow-black/50'
               : ''
           ]"
-          @pointerdown="handleTabPointerDown($event, index, term.id)"
-          @click="handleTabClick(term.id)"
-          @dblclick="startRename(term.id, term.title)"
+          @pointerdown="handleTabPointerDown($event, index, ws.id)"
+          @click="handleTabClick(ws.id)"
+          @dblclick="startRename(ws.id, ws.name)"
         >
-          <AppLogo :size="13" class="opacity-80 flex-shrink-0" />
+          <FolderKanban class="w-3.5 h-3.5 text-primary/80 flex-shrink-0" />
 
-          <!-- Background Process Alert Indicator -->
-          <span
-            v-if="backgroundAlerts[term.id] && activeTerminalId !== term.id"
-            :class="[
-              'w-2 h-2 rounded-full flex-shrink-0 transition-all',
-              backgroundAlerts[term.id] === 'running'
-                ? 'bg-emerald-400 animate-pulse shadow-sm shadow-emerald-400/50'
-                : 'bg-sky-400 shadow-sm shadow-sky-400/60'
-            ]"
-            :title="backgroundAlerts[term.id] === 'running' ? 'Perintah sedang berjalan di background' : 'Perintah selesai dijalankan!'"
-          />
-
-          <!-- Inline Edit Tab Name -->
-          <div v-if="editingTermId === term.id" class="flex items-center gap-1" @click.stop>
+          <!-- Inline Edit Workstation Name -->
+          <div v-if="editingWsId === ws.id" class="flex items-center gap-1" @click.stop>
             <input
-              :id="`tab-rename-input-${term.id}`"
-              v-model="editingTitle"
+              :id="`ws-rename-input-${ws.id}`"
+              v-model="editingName"
               type="text"
               class="w-24 px-1 py-0.5 text-xs bg-background border border-primary rounded text-foreground outline-none"
-              @keydown.enter="finishRename(term.id)"
-              @blur="finishRename(term.id)"
+              @keydown.enter="finishRename(ws.id)"
+              @blur="finishRename(ws.id)"
             />
             <button
               class="p-0.5 text-emerald-400 hover:text-emerald-300"
-              @click.stop="finishRename(term.id)"
+              @click.stop="finishRename(ws.id)"
             >
               <Check class="w-3 h-3" />
             </button>
           </div>
 
-          <span v-else class="max-w-[130px] truncate pointer-events-none" :title="`${term.title} (Double-click to rename, Drag to reorder)`">
-            {{ term.title }}
+          <span v-else class="max-w-[130px] truncate pointer-events-none" :title="`${ws.name} (Double-click to rename, Drag to reorder)`">
+            {{ ws.name }}
           </span>
 
-          <!-- Tab Actions: Duplicate, Rename, Close -->
+          <!-- Workstation Terminal Count Tag -->
+          <span class="text-[10px] px-1 py-0.1 bg-secondary text-muted-foreground rounded-full font-mono">
+            {{ ws.terminals.length }}
+          </span>
+
+          <!-- Workstation Actions: Rename, Close -->
           <div class="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
             <span
+              v-if="editingWsId !== ws.id"
               class="hover:bg-accent rounded p-0.5 text-muted-foreground hover:text-foreground cursor-pointer"
-              title="Duplikat Tab Terminal"
-              @click.stop="duplicateTerminal(term.id)"
-            >
-              <Copy class="w-2.5 h-2.5" />
-            </span>
-            <span
-              v-if="editingTermId !== term.id"
-              class="hover:bg-accent rounded p-0.5 text-muted-foreground hover:text-foreground cursor-pointer"
-              title="Rename Terminal"
-              @click.stop="startRename(term.id, term.title)"
+              title="Rename Workstation"
+              @click.stop="startRename(ws.id, ws.name)"
             >
               <Pencil class="w-2.5 h-2.5" />
             </span>
             <span
+              v-if="workstations.length > 1"
               class="hover:bg-accent rounded p-0.5 text-muted-foreground hover:text-foreground cursor-pointer"
-              title="Close Terminal (Ctrl+W)"
-              @click.stop="removeTerminal(term.id)"
+              title="Tutup Workstation"
+              @click.stop="removeWorkstation(ws.id)"
             >
               <X class="w-3 h-3" />
             </span>
           </div>
         </div>
 
-        <!-- Add Terminal Tab Button -->
+        <!-- Add Workstation Tab Button -->
         <button
           class="p-1 rounded hover:bg-[#1e1f2b] text-muted-foreground hover:text-foreground transition-colors cursor-pointer flex-shrink-0"
-          title="New Terminal Tab (Ctrl+T)"
-          @click="addTerminal()"
+          title="Workstation Baru"
+          @click="addWorkstation()"
         >
           <Plus class="w-3.5 h-3.5" />
         </button>
@@ -280,49 +277,14 @@ const closeWindow = async () => {
 
     <!-- Right Controls -->
     <div class="flex items-center gap-1.5" data-tauri-drag-region>
-      <!-- Quick Layout Selector (Single, 2 Col, 2 Row, 4-Grid) -->
-      <div class="flex items-center bg-[#171822] rounded-md p-0.5 border border-border/40">
-        <button
-          :class="[
-            'p-1 rounded text-xs transition-colors cursor-pointer',
-            currentLayout === 'single' ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:text-foreground'
-          ]"
-          title="Single Terminal View"
-          @click="setLayout('single')"
-        >
-          <Square class="w-3.5 h-3.5" />
-        </button>
-        <button
-          :class="[
-            'p-1 rounded text-xs transition-colors cursor-pointer',
-            currentLayout === 'split-h' ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:text-foreground'
-          ]"
-          title="2 Terminal Split (Side-by-Side)"
-          @click="setLayout('split-h')"
-        >
-          <Columns2 class="w-3.5 h-3.5" />
-        </button>
-        <button
-          :class="[
-            'p-1 rounded text-xs transition-colors cursor-pointer',
-            currentLayout === 'split-v' ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:text-foreground'
-          ]"
-          title="2 Terminal Split (Stacked)"
-          @click="setLayout('split-v')"
-        >
-          <Rows2 class="w-3.5 h-3.5" />
-        </button>
-        <button
-          :class="[
-            'p-1 rounded text-xs transition-colors cursor-pointer font-semibold flex items-center gap-1',
-            currentLayout === 'grid-2x2' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-primary hover:bg-primary/10'
-          ]"
-          title="4-Terminal Grid (2x2 Quad)"
-          @click="setLayout('grid-2x2')"
-        >
-          <GridIcon class="w-3.5 h-3.5" />
-          <span class="text-[10px] px-0.5">4-Grid</span>
-        </button>
+      <!-- Git Branch Indicator -->
+      <div
+        v-if="gitBranch"
+        class="hidden md:flex items-center gap-1 px-2 py-1 rounded bg-[#181924] border border-border/50 text-[11px] text-primary font-mono select-none"
+        :title="`Git Branch Aktif: ${gitBranch}`"
+      >
+        <GitBranch class="w-3 h-3 text-primary flex-shrink-0" />
+        <span class="max-w-[120px] truncate font-semibold">{{ gitBranch }}</span>
       </div>
 
       <!-- Command Palette Launcher -->
@@ -330,7 +292,7 @@ const closeWindow = async () => {
         variant="ghost"
         size="sm"
         class="h-7 text-xs gap-1.5 text-muted-foreground hover:text-foreground border border-border/40 hover:bg-[#1c1d2b] px-2"
-        title="Open Command Palette (Ctrl+K)"
+        title="Buka Command Palette (Ctrl+K)"
         @click="emit('open-palette')"
       >
         <Search class="w-3.5 h-3.5 text-white/80" />
@@ -347,6 +309,17 @@ const closeWindow = async () => {
       >
         <Sparkles class="w-3.5 h-3.5 text-indigo-400" />
         <span class="text-[11px]">Presets</span>
+      </UiButton>
+
+      <!-- Keyboard Shortcuts Cheatsheet Button -->
+      <UiButton
+        variant="ghost"
+        size="icon"
+        class="h-7 w-7 text-muted-foreground hover:text-foreground"
+        title="Keyboard Shortcuts (F1)"
+        @click="emit('open-shortcuts')"
+      >
+        <Keyboard class="w-3.5 h-3.5" />
       </UiButton>
 
       <!-- Settings Button -->

@@ -6,6 +6,10 @@ export default defineNuxtConfig({
   },
   devtools: { enabled: false },
   ssr: false, // SPA Mode untuk Tauri Desktop
+  devServer: {
+    port: 3420,
+    host: '127.0.0.1'
+  },
   modules: [
     '@nuxtjs/tailwindcss'
   ],

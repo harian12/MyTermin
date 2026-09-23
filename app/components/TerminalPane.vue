@@ -61,7 +61,7 @@ const {
   getClipboardFiles,
   copyToClipboard
 } = useTauriPty()
-const { settings, isShortcut } = useSettingsStore()
+const { settings, isShortcut, updateSettings } = useSettingsStore()
 const { terminals, renameTerminal, updateTerminalCwd, updateTerminalLastCommand, setTerminalAlert, clearTerminalAlert } = useWorkspaceStore()
 const { togglePalette, openPalette } = useCommandPalette()
 
@@ -341,6 +341,34 @@ const initTerminal = async () => {
         event.preventDefault()
         event.stopPropagation()
         pasteClipboard()
+      }
+      return false
+    }
+
+    // Terminal Font Zoom: Ctrl + = / Ctrl + + / Ctrl + - / Ctrl + 0 (also Numpad)
+    if (event.ctrlKey && !event.altKey && (event.key === '=' || event.key === '+' || event.code === 'NumpadAdd')) {
+      if (event.type === 'keydown') {
+        event.preventDefault()
+        event.stopPropagation()
+        zoomIn()
+      }
+      return false
+    }
+
+    if (event.ctrlKey && !event.altKey && (event.key === '-' || event.code === 'NumpadSubtract')) {
+      if (event.type === 'keydown') {
+        event.preventDefault()
+        event.stopPropagation()
+        zoomOut()
+      }
+      return false
+    }
+
+    if (event.ctrlKey && !event.altKey && (event.key === '0' || event.code === 'Numpad0')) {
+      if (event.type === 'keydown') {
+        event.preventDefault()
+        event.stopPropagation()
+        zoomReset()
       }
       return false
     }
@@ -784,6 +812,31 @@ const handleTerminalAction = (e: any) => {
   else if (act === 'clear') clearTerminal()
 }
 
+// Terminal Font Zoom (Ctrl + Wheel / Ctrl + = / Ctrl + - / Ctrl + 0)
+const MIN_FONT_SIZE = 8
+const MAX_FONT_SIZE = 32
+
+const applyFontSize = (size: number) => {
+  const clamped = Math.min(Math.max(Math.round(size), MIN_FONT_SIZE), MAX_FONT_SIZE)
+  if (clamped === settings.value.fontSize) return
+  updateSettings({ fontSize: clamped })
+}
+
+const zoomIn = () => applyFontSize((settings.value.fontSize || 14) + 1)
+const zoomOut = () => applyFontSize((settings.value.fontSize || 14) - 1)
+const zoomReset = () => applyFontSize(14)
+
+const handleWheelZoom = (e: WheelEvent) => {
+  if (!e.ctrlKey) return
+  e.preventDefault()
+  e.stopPropagation()
+  if (e.deltaY < 0) {
+    zoomIn()
+  } else if (e.deltaY > 0) {
+    zoomOut()
+  }
+}
+
 onMounted(() => {
   nextTick(() => {
     initTerminal()
@@ -794,12 +847,16 @@ onMounted(() => {
   if (typeof window !== 'undefined') {
     window.addEventListener(`terminal-action-${props.paneId}`, handleTerminalAction)
   }
+  nextTick(() => {
+    terminalContainer.value?.addEventListener('wheel', handleWheelZoom, { passive: false })
+  })
 })
 
 onBeforeUnmount(async () => {
   if (typeof window !== 'undefined') {
     window.removeEventListener(`terminal-action-${props.paneId}`, handleTerminalAction)
   }
+  terminalContainer.value?.removeEventListener('wheel', handleWheelZoom)
   if (statsInterval) clearInterval(statsInterval)
   resizeObserver?.disconnect()
   if (unlistenData) unlistenData()
@@ -857,7 +914,7 @@ onBeforeUnmount(async () => {
           </button>
         </div>
 
-        <!-- Process & Health Monitor Badge -->
+        <!-- Process Status Badge -->
         <div v-if="isTauri && paneStats" class="flex items-center gap-1.5 pl-1">
           <!-- Status Dot -->
           <div
@@ -872,20 +929,13 @@ onBeforeUnmount(async () => {
             :title="isPtyExited ? 'Process Completed' : (paneStats.cpu_usage > 2.0 || paneStats.child_count > 0) ? 'Active Workload' : 'Idle'"
           />
 
-          <!-- Process Name & Live Metrics -->
+          <!-- Process Name -->
           <div
             v-if="!isPtyExited"
             class="flex items-center gap-1.5 text-[10px] font-mono text-muted-foreground bg-background/40 px-1.5 py-0.5 rounded border border-border/30"
           >
-            <span class="text-foreground/80 font-medium truncate max-w-[80px]" :title="paneStats.process_name">
+            <span class="text-foreground/80 font-medium truncate max-w-[100px]" :title="paneStats.process_name">
               {{ paneStats.process_name }}
-            </span>
-            <span :class="paneStats.cpu_usage > 15 ? 'text-amber-400 font-semibold' : 'text-muted-foreground/80'">
-              {{ paneStats.cpu_usage }}%
-            </span>
-            <span class="opacity-40">|</span>
-            <span class="text-muted-foreground/80">
-              {{ paneStats.memory_mb }}MB
             </span>
           </div>
           <button

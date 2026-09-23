@@ -12,6 +12,7 @@ import {
   Trash2,
   Copy,
   Folder,
+  FolderKanban,
   Palette,
   Play,
   RotateCcw,
@@ -34,6 +35,10 @@ const emit = defineEmits<{
 }>()
 
 const {
+  workstations,
+  activeWorkstationId,
+  switchWorkstation,
+  addWorkstation,
   terminals,
   activeTerminalId,
   currentLayout,
@@ -60,13 +65,38 @@ interface CommandItem {
   id: string
   title: string
   subtitle?: string
-  category: 'Tabs' | 'Layout' | 'Quick Commands' | 'Themes' | 'Presets' | 'System'
+  category: 'Workstations' | 'Tabs' | 'Layout' | 'Quick Commands' | 'Themes' | 'Presets' | 'System'
   icon: any
   action: () => void
 }
 
 const allCommands = computed<CommandItem[]>(() => {
   const list: CommandItem[] = []
+
+  // 0. Workstations
+  workstations.value.forEach((ws) => {
+    list.push({
+      id: `ws-${ws.id}`,
+      title: `Switch Workstation: ${ws.name}`,
+      subtitle: `${ws.terminals.length} Terminal (${ws.layout}) ${ws.id === activeWorkstationId.value ? '• Active' : ''}`,
+      category: 'Workstations',
+      icon: FolderKanban,
+      action: () => {
+        switchWorkstation(ws.id)
+      }
+    })
+  })
+
+  list.push({
+    id: 'ws-new',
+    title: 'New Workstation',
+    subtitle: 'Buat workstation / ruang kerja baru',
+    category: 'Workstations',
+    icon: Plus,
+    action: () => {
+      addWorkstation()
+    }
+  })
 
   // 1. Terminal Tabs Navigation
   terminals.value.forEach((term, idx) => {

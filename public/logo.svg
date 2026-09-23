@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Background Solid Slate-900 (Clean, modern tech) -->
+  <rect width="512" height="512" rx="128" fill="#0f172a" />
+
+  <!-- Subtle Window Controls -->
+  <circle cx="104" cy="104" r="14" fill="#334155" />
+  <circle cx="152" cy="104" r="14" fill="#334155" />
+  <circle cx="200" cy="104" r="14" fill="#334155" />
+
+  <!-- ">" Prompt -->
+  <path d="M144 216 L224 276 L144 336" fill="none" stroke="#f8fafc" stroke-width="44" stroke-linecap="round" stroke-linejoin="round" />
+  
+  <!-- "_" Blinking Cursor Concept -->
+  <line x1="264" y1="336" x2="368" y2="336" stroke="#10b981" stroke-width="44" stroke-linecap="round" />
+</svg>

@@ -23,7 +23,9 @@
     "@xterm/xterm": "^5.5.0",
     "clsx": "^2.1.1",
     "lucide-vue-next": "^0.475.0",
+    "monaco-editor": "^0.56.0",
     "pinia": "^2.3.1",
+    "prettier": "^3.9.8",
     "radix-vue": "^1.9.15",
     "tailwind-merge": "^3.0.1",
     "vue": "^3.5.13"

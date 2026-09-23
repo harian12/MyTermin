@@ -1,63 +1,66 @@
-import type { TerminalTab, WorkspacePreset, LayoutType, TerminalSettings } from '~/types/terminal'
+import type { TerminalTab, WorkspacePreset, LayoutType, TerminalSettings, Workstation } from '~/types/terminal'
 
-const STORAGE_KEY = 'mytermin_session_v4'
+const STORAGE_KEY = 'mytermin_session_v5'
 const CUSTOM_PRESETS_KEY = 'mytermin_custom_presets_v1'
 
-const defaultBuiltInPresets: WorkspacePreset[] = [
-  {
-    id: 'ai-quad',
-    name: 'OpenCode + Codex 4-Grid',
-    description: '4 Terminal: OpenCode, Codex, Dev Server, & Git Watcher',
-    layout: 'grid-2x2',
-    icon: 'sparkles',
-    isCustom: false,
-    terminals: [
-      { title: 'OpenCode Assistant', command: 'opencode\r' },
-      { title: 'Codex AI CLI', command: 'codex\r' },
-      { title: 'Dev Server', command: 'npm run dev\r' },
-      { title: 'Git & Shell', command: 'git status\r' }
-    ]
-  },
-  {
-    id: 'dual-ai',
-    name: 'OpenCode + Terminal (Side-by-Side)',
-    description: '2 Terminal vertikal untuk coding & eksekusi cepat',
-    layout: 'split-h',
-    icon: 'bot',
-    isCustom: false,
-    terminals: [
-      { title: 'OpenCode', command: 'opencode\r' },
-      { title: 'CLI Console' }
-    ]
-  },
-  {
-    id: 'fullstack-grid',
-    name: 'Fullstack 4-Grid Workspace',
-    description: 'Frontend, Backend API, Database, & CLI Console',
-    layout: 'grid-2x2',
-    icon: 'layout-grid',
-    isCustom: false,
-    terminals: [
-      { title: 'Frontend Server', command: 'npm run dev\r' },
-      { title: 'Backend API', command: 'cargo run\r' },
-      { title: 'Database / Docker' },
-      { title: 'CLI Console' }
-    ]
-  }
-]
+const defaultBuiltInPresets: WorkspacePreset[] = []
+
+const createDefaultWorkstation = (id = 'ws-1', name = 'Workstation 1'): Workstation => ({
+  id,
+  name,
+  layout: 'grid-2x2',
+  activeTerminalId: 'term-1',
+  terminals: [{ id: 'term-1', title: 'Terminal 1' }]
+})
 
 export const useWorkspaceStore = () => {
-  const terminals = useState<TerminalTab[]>('workspace-terminals', () => [
-    { id: 'term-1', title: 'Terminal 1' }
+  const workstations = useState<Workstation[]>('workspace-workstations', () => [
+    createDefaultWorkstation()
   ])
+  const activeWorkstationId = useState<string>('active-workstation-id', () => 'ws-1')
+  const isSidebarOpen = useState<boolean>('workspace-sidebar-open', () => true)
 
-  const activeTerminalId = useState<string>('active-terminal-id', () => 'term-1')
   const backgroundAlerts = useState<Record<string, 'running' | 'completed'>>('workspace-alerts', () => ({}))
-  const currentLayout = useState<LayoutType>('current-layout', () => 'grid-2x2')
   const customPresets = useState<WorkspacePreset[]>('workspace-custom-presets', () => [])
   const hiddenBuiltinPresets = useState<string[]>('workspace-hidden-builtin-presets', () => [])
   const saveNotification = useState<string | null>('save-notification', () => null)
   const { settings, initSettings } = useSettingsStore()
+
+  // Computed Active Workstation
+  const activeWorkstation = computed<Workstation>(() => {
+    return workstations.value.find(w => w.id === activeWorkstationId.value) || workstations.value[0] || createDefaultWorkstation()
+  })
+
+  // Proxy getters & setters for active workstation
+  const terminals = computed<TerminalTab[]>({
+    get: () => activeWorkstation.value.terminals,
+    set: (val) => {
+      const ws = workstations.value.find(w => w.id === activeWorkstationId.value)
+      if (ws) {
+        ws.terminals = val
+      }
+    }
+  })
+
+  const activeTerminalId = computed<string>({
+    get: () => activeWorkstation.value.activeTerminalId,
+    set: (val) => {
+      const ws = workstations.value.find(w => w.id === activeWorkstationId.value)
+      if (ws) {
+        ws.activeTerminalId = val
+      }
+    }
+  })
+
+  const currentLayout = computed<LayoutType>({
+    get: () => activeWorkstation.value.layout,
+    set: (val) => {
+      const ws = workstations.value.find(w => w.id === activeWorkstationId.value)
+      if (ws) {
+        ws.layout = val
+      }
+    }
+  })
 
   const allPresets = computed<WorkspacePreset[]>(() => {
     const builtins = defaultBuiltInPresets.filter(p => !hiddenBuiltinPresets.value.includes(p.id))
@@ -73,14 +76,14 @@ export const useWorkspaceStore = () => {
     if (typeof window === 'undefined') return
     try {
       const data = {
-        terminals: terminals.value,
-        activeTerminalId: activeTerminalId.value,
-        currentLayout: currentLayout.value,
+        workstations: workstations.value,
+        activeWorkstationId: activeWorkstationId.value,
+        isSidebarOpen: isSidebarOpen.value,
         savedAt: new Date().toISOString()
       }
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
       if (showNotification) {
-        saveNotification.value = 'Sesi terminal berhasil disimpan!'
+        saveNotification.value = 'Sesi workstation berhasil disimpan!'
         setTimeout(() => {
           saveNotification.value = null
         }, 2500)
@@ -110,31 +113,146 @@ export const useWorkspaceStore = () => {
     }
   }
 
-  // Save current workspace state as custom preset.
-  // If customTerminals provided (non-empty), use those instead of the live workspace.
-    const saveCurrentAsPreset = (
-      name: string,
-      description: string,
-      icon = 'sparkles',
-      customTerminals?: { title: string; command?: string; shell?: string; cwd?: string }[]
-    ): WorkspacePreset => {
-      const sourceTerminals = customTerminals && customTerminals.length > 0
-        ? customTerminals
-        : terminals.value.map(t => ({
-            title: t.title,
-            command: t.initialCommand,
-            shell: t.shell,
-            cwd: t.cwd
-          }))
-     const newPreset: WorkspacePreset = {
-       id: `custom-preset-${Date.now()}`,
-       name: name.trim() || `Workspace Preset (${currentLayout.value})`,
-       description: description.trim() || `${sourceTerminals.length} Terminal - Layout ${currentLayout.value}`,
-       layout: currentLayout.value,
-       icon,
-       isCustom: true,
-       terminals: sourceTerminals
-     }
+  // Workstation management
+  const addWorkstation = (name?: string, layout: LayoutType = 'grid-2x2', initialTerminals?: TerminalTab[]) => {
+    const num = workstations.value.length + 1
+    const newWsId = `ws-${Date.now()}`
+    const termList = initialTerminals && initialTerminals.length > 0
+      ? initialTerminals
+      : []
+
+    const newWs: Workstation = {
+      id: newWsId,
+      name: name?.trim() || `Workstation ${num}`,
+      layout,
+      activeTerminalId: termList[0]?.id || '',
+      terminals: termList
+    }
+
+    workstations.value.push(newWs)
+    activeWorkstationId.value = newWsId
+    saveSession(false)
+    return newWs
+  }
+
+  const switchWorkstation = (wsId: string) => {
+    if (workstations.value.some(w => w.id === wsId)) {
+      activeWorkstationId.value = wsId
+      saveSession(false)
+    }
+  }
+
+  const renameWorkstation = (wsId: string, newName: string) => {
+    const ws = workstations.value.find(w => w.id === wsId)
+    if (ws && newName.trim()) {
+      ws.name = newName.trim()
+      saveSession(false)
+    }
+  }
+
+  const removeWorkstation = async (wsId: string) => {
+    const idx = workstations.value.findIndex(w => w.id === wsId)
+    if (idx === -1) return
+
+    // Konfirmasi bila ada proses terminal yang masih berjalan di workstation ini
+    const wsTerminals = workstations.value[idx].terminals
+    const hasRunning = wsTerminals.some(t => backgroundAlerts.value[t.id] === 'running')
+    if (hasRunning) {
+      const { showAppConfirm } = useAppDialog()
+      const ok = await showAppConfirm(
+        `Workstation "${workstations.value[idx].name}" masih memiliki proses terminal yang berjalan. Tutup tetap?`,
+        'Konfirmasi Tutup Workstation',
+        'warning',
+        'Tutup'
+      )
+      if (!ok) return
+    }
+
+    workstations.value.splice(idx, 1)
+    if (workstations.value.length === 0) {
+      const fresh = createDefaultWorkstation()
+      workstations.value = [fresh]
+      activeWorkstationId.value = fresh.id
+    } else if (activeWorkstationId.value === wsId) {
+      activeWorkstationId.value = workstations.value[Math.max(0, idx - 1)].id
+    }
+    saveSession(false)
+  }
+
+  const moveWorkstationTab = (fromIndex: number, toIndex: number) => {
+    if (
+      fromIndex < 0 ||
+      fromIndex >= workstations.value.length ||
+      toIndex < 0 ||
+      toIndex >= workstations.value.length ||
+      fromIndex === toIndex
+    ) {
+      return
+    }
+    const [moved] = workstations.value.splice(fromIndex, 1)
+    workstations.value.splice(toIndex, 0, moved)
+    saveSession(false)
+  }
+
+  const nextWorkstation = () => {
+    if (workstations.value.length <= 1) return
+    const curIdx = workstations.value.findIndex((w) => w.id === activeWorkstationId.value)
+    const nextIdx = (curIdx + 1) % workstations.value.length
+    activeWorkstationId.value = workstations.value[nextIdx].id
+    saveSession(false)
+  }
+
+  const prevWorkstation = () => {
+    if (workstations.value.length <= 1) return
+    const curIdx = workstations.value.findIndex((w) => w.id === activeWorkstationId.value)
+    const prevIdx = (curIdx - 1 + workstations.value.length) % workstations.value.length
+    activeWorkstationId.value = workstations.value[prevIdx].id
+    saveSession(false)
+  }
+
+  const toggleSidebar = () => {
+    isSidebarOpen.value = !isSidebarOpen.value
+    saveSession(false)
+  }
+
+  // Save custom preset with one or more dynamic workstation cards
+  const saveCustomPreset = (
+    name: string,
+    description: string,
+    icon = 'sparkles',
+    workstationsList: {
+      name: string
+      folderPath?: string
+      layout: LayoutType
+      terminals: { title: string; command?: string; shell?: string; cwd?: string }[]
+    }[]
+  ): WorkspacePreset => {
+    const wsConfigs: PresetWorkstationConfig[] = workstationsList.map((w, idx) => ({
+      id: `preset-ws-${Date.now()}-${idx + 1}`,
+      name: w.name.trim() || `Workstation ${idx + 1}`,
+      folderPath: w.folderPath,
+      layout: w.layout || 'grid-2x2',
+      terminals: w.terminals.map((t, tIdx) => ({
+        title: t.title.trim() || `Terminal ${tIdx + 1}`,
+        command: t.command?.trim(),
+        shell: t.shell,
+        cwd: t.cwd || w.folderPath
+      }))
+    }))
+
+    const firstWs = wsConfigs[0]
+    const totalTerms = wsConfigs.reduce((acc, w) => acc + w.terminals.length, 0)
+    const newPreset: WorkspacePreset = {
+      id: `custom-preset-${Date.now()}`,
+      name: name.trim() || (wsConfigs.length > 1 ? `Workspace (${wsConfigs.length} Workstation)` : `${firstWs?.name || 'Workstation'} Preset`),
+      description: description.trim() || `${wsConfigs.length} Workstation, total ${totalTerms} Terminal`,
+      layout: firstWs?.layout || 'grid-2x2',
+      icon,
+      folderPath: firstWs?.folderPath,
+      isCustom: true,
+      workstations: wsConfigs,
+      terminals: firstWs?.terminals || []
+    }
 
     customPresets.value = [newPreset, ...customPresets.value]
     if (typeof window !== 'undefined') {
@@ -153,11 +271,9 @@ export const useWorkspaceStore = () => {
     return newPreset
   }
 
-  // Update existing preset (custom or override built-in)
   const updatePreset = (updated: WorkspacePreset) => {
     const isBuiltin = defaultBuiltInPresets.some(p => p.id === updated.id)
     if (isBuiltin) {
-      // Hide built-in, save as custom preset with same details
       if (!hiddenBuiltinPresets.value.includes(updated.id)) {
         hiddenBuiltinPresets.value = [...hiddenBuiltinPresets.value, updated.id]
         if (typeof window !== 'undefined') {
@@ -168,7 +284,6 @@ export const useWorkspaceStore = () => {
           }
         }
       }
-      // Add as custom preset
       const newCustom: WorkspacePreset = {
         ...updated,
         id: `custom-preset-${Date.now()}`,
@@ -176,7 +291,6 @@ export const useWorkspaceStore = () => {
       }
       customPresets.value = [newCustom, ...customPresets.value]
     } else {
-      // Update existing custom preset in place
       const idx = customPresets.value.findIndex(p => p.id === updated.id)
       if (idx !== -1) {
         customPresets.value[idx] = { ...updated, isCustom: true }
@@ -198,7 +312,6 @@ export const useWorkspaceStore = () => {
     }, 2500)
   }
 
-  // Delete custom preset
   const deleteCustomPreset = (presetId: string) => {
     customPresets.value = customPresets.value.filter(p => p.id !== presetId)
     if (typeof window !== 'undefined') {
@@ -210,7 +323,6 @@ export const useWorkspaceStore = () => {
     }
   }
 
-  // Delete preset: custom dihapus permanen, built-in disembunyikan (hidden list persisted)
   const deletePreset = (presetId: string) => {
     const isBuiltin = defaultBuiltInPresets.some(p => p.id === presetId)
     if (isBuiltin) {
@@ -236,15 +348,36 @@ export const useWorkspaceStore = () => {
     loadCustomPresets()
     try {
       if (!settings.value.autoRestoreSession) {
-        return // User disabled auto-restore
+        return
       }
-      const raw = localStorage.getItem(STORAGE_KEY)
-      if (raw) {
-        const parsed = JSON.parse(raw)
-        if (Array.isArray(parsed.terminals)) {
-          terminals.value = parsed.terminals
-          activeTerminalId.value = parsed.activeTerminalId || (parsed.terminals[0]?.id ?? '')
-          currentLayout.value = parsed.currentLayout || 'grid-2x2'
+
+      // Check new storage first
+      const rawV5 = localStorage.getItem(STORAGE_KEY)
+      if (rawV5) {
+        const parsed = JSON.parse(rawV5)
+        if (Array.isArray(parsed.workstations) && parsed.workstations.length > 0) {
+          workstations.value = parsed.workstations
+          activeWorkstationId.value = parsed.activeWorkstationId || parsed.workstations[0].id
+          if (typeof parsed.isSidebarOpen === 'boolean') {
+            isSidebarOpen.value = parsed.isSidebarOpen
+          }
+          return
+        }
+      }
+
+      // Fallback migration from older v4 session
+      const rawV4 = localStorage.getItem('mytermin_session_v4')
+      if (rawV4) {
+        const parsed = JSON.parse(rawV4)
+        if (Array.isArray(parsed.terminals) && parsed.terminals.length > 0) {
+          workstations.value = [{
+            id: 'ws-1',
+            name: 'Workstation 1',
+            layout: parsed.currentLayout || 'grid-2x2',
+            activeTerminalId: parsed.activeTerminalId || parsed.terminals[0].id,
+            terminals: parsed.terminals
+          }]
+          activeWorkstationId.value = 'ws-1'
         }
       }
     } catch (e) {
@@ -255,6 +388,7 @@ export const useWorkspaceStore = () => {
   const clearSavedSession = () => {
     if (typeof window !== 'undefined') {
       localStorage.removeItem(STORAGE_KEY)
+      localStorage.removeItem('mytermin_session_v4')
       saveNotification.value = 'Sesi tersimpan telah dibersihkan.'
       setTimeout(() => {
         saveNotification.value = null
@@ -262,7 +396,7 @@ export const useWorkspaceStore = () => {
     }
   }
 
-  // Cyclic navigation: Ctrl+Tab
+  // Cyclic navigation: Ctrl+Tab inside active workstation
   const nextTab = () => {
     if (terminals.value.length === 0) return
     const idx = terminals.value.findIndex(t => t.id === activeTerminalId.value)
@@ -270,7 +404,6 @@ export const useWorkspaceStore = () => {
     activeTerminalId.value = terminals.value[nextIdx].id
   }
 
-  // Cyclic navigation: Ctrl+Shift+Tab
   const prevTab = () => {
     if (terminals.value.length === 0) return
     const idx = terminals.value.findIndex(t => t.id === activeTerminalId.value)
@@ -279,23 +412,27 @@ export const useWorkspaceStore = () => {
   }
 
   const addTerminal = (presetTerminal?: { title: string; command?: string; shell?: string; cwd?: string }) => {
-    const termNum = terminals.value.length + 1
+    const ws = workstations.value.find(w => w.id === activeWorkstationId.value)
+    if (!ws) return
+    const termNum = ws.terminals.length + 1
     const newId = `term-${Date.now()}`
-    terminals.value.push({
+    const targetCwd = presetTerminal?.cwd || ws.folderPath
+    ws.terminals.push({
       id: newId,
       title: presetTerminal?.title || `Terminal ${termNum}`,
       initialCommand: presetTerminal?.command,
       shell: presetTerminal?.shell,
-      cwd: presetTerminal?.cwd
+      cwd: targetCwd
     })
-    activeTerminalId.value = newId
+    ws.activeTerminalId = newId
     saveSession(false)
   }
 
-  // Duplikat Tab Terminal
   const duplicateTerminal = async (targetTermId?: string) => {
-    const sourceId = targetTermId || activeTerminalId.value
-    const sourceTerm = terminals.value.find(t => t.id === sourceId)
+    const ws = workstations.value.find(w => w.id === activeWorkstationId.value)
+    if (!ws) return
+    const sourceId = targetTermId || ws.activeTerminalId
+    const sourceTerm = ws.terminals.find(t => t.id === sourceId)
     if (!sourceTerm) return
 
     let currentCwd = sourceTerm.cwd
@@ -312,57 +449,60 @@ export const useWorkspaceStore = () => {
 
     const newId = `term-${Date.now()}`
     const copyTitle = `${sourceTerm.title} (Copy)`
-    
-    // Sisipkan tepat di samping tab yang diduplikasi
-    const sourceIdx = terminals.value.findIndex(t => t.id === sourceId)
+    const sourceIdx = ws.terminals.findIndex(t => t.id === sourceId)
     const newTerm: TerminalTab = {
       id: newId,
       title: copyTitle,
       shell: sourceTerm.shell,
-      cwd: currentCwd
+      cwd: currentCwd || ws.folderPath
     }
 
     if (sourceIdx !== -1) {
-      terminals.value.splice(sourceIdx + 1, 0, newTerm)
+      ws.terminals.splice(sourceIdx + 1, 0, newTerm)
     } else {
-      terminals.value.push(newTerm)
+      ws.terminals.push(newTerm)
     }
 
-    activeTerminalId.value = newId
+    ws.activeTerminalId = newId
     saveSession(false)
   }
 
-  // Hapus terminal (bisa sampai 0/kosong)
   const removeTerminal = (termId: string) => {
-    const idx = terminals.value.findIndex(t => t.id === termId)
+    const ws = workstations.value.find(w => w.id === activeWorkstationId.value)
+    if (!ws) return
+    const idx = ws.terminals.findIndex(t => t.id === termId)
     if (idx !== -1) {
-      terminals.value.splice(idx, 1)
-      if (terminals.value.length === 0) {
-        activeTerminalId.value = ''
-      } else if (activeTerminalId.value === termId) {
-        activeTerminalId.value = terminals.value[Math.max(0, idx - 1)].id
+      ws.terminals.splice(idx, 1)
+      if (ws.terminals.length === 0) {
+        ws.activeTerminalId = ''
+      } else if (ws.activeTerminalId === termId) {
+        ws.activeTerminalId = ws.terminals[Math.max(0, idx - 1)].id
       }
       saveSession(false)
     }
   }
 
   const moveTerminalTab = (fromIndex: number, toIndex: number) => {
+    const ws = workstations.value.find(w => w.id === activeWorkstationId.value)
+    if (!ws) return
     if (
       fromIndex < 0 ||
-      fromIndex >= terminals.value.length ||
+      fromIndex >= ws.terminals.length ||
       toIndex < 0 ||
-      toIndex >= terminals.value.length ||
+      toIndex >= ws.terminals.length ||
       fromIndex === toIndex
     ) {
       return
     }
-    const [movedTab] = terminals.value.splice(fromIndex, 1)
-    terminals.value.splice(toIndex, 0, movedTab)
+    const [movedTab] = ws.terminals.splice(fromIndex, 1)
+    ws.terminals.splice(toIndex, 0, movedTab)
     saveSession(false)
   }
 
   const renameTerminal = (termId: string, newTitle: string) => {
-    const term = terminals.value.find(t => t.id === termId)
+    const ws = workstations.value.find(w => w.id === activeWorkstationId.value)
+    if (!ws) return
+    const term = ws.terminals.find(t => t.id === termId)
     if (term && newTitle.trim()) {
       term.title = newTitle.trim()
       saveSession(false)
@@ -370,7 +510,9 @@ export const useWorkspaceStore = () => {
   }
 
   const updateTerminalCwd = (termId: string, cwd: string) => {
-    const term = terminals.value.find(t => t.id === termId)
+    const ws = workstations.value.find(w => w.id === activeWorkstationId.value)
+    if (!ws) return
+    const term = ws.terminals.find(t => t.id === termId)
     if (term && cwd && cwd !== term.cwd) {
       term.cwd = cwd
       saveSession(false)
@@ -380,7 +522,9 @@ export const useWorkspaceStore = () => {
   }
 
   const updateTerminalLastCommand = (termId: string, cmd: string) => {
-    const term = terminals.value.find(t => t.id === termId)
+    const ws = workstations.value.find(w => w.id === activeWorkstationId.value)
+    if (!ws) return
+    const term = ws.terminals.find(t => t.id === termId)
     const cleanCmd = cmd.trim()
     if (term && cleanCmd && cleanCmd !== 'clear' && cleanCmd !== 'cls' && cleanCmd !== 'exit') {
       if (term.lastCommand !== cleanCmd) {
@@ -391,31 +535,109 @@ export const useWorkspaceStore = () => {
   }
 
   const setLayout = (layout: LayoutType) => {
-    currentLayout.value = layout
-    saveSession(false)
+    const ws = workstations.value.find(w => w.id === activeWorkstationId.value)
+    if (ws) {
+      ws.layout = layout
+      saveSession(false)
+    }
   }
 
-  const applyPreset = (preset: WorkspacePreset) => {
-    currentLayout.value = preset.layout
-    terminals.value = preset.terminals.map((t, idx) => ({
+  const applyPreset = (preset: WorkspacePreset, asNewWorkstation = false) => {
+    // If preset contains multiple workstation cards
+    if (preset.workstations && preset.workstations.length > 0) {
+      if (asNewWorkstation) {
+        let firstCreatedId: string | null = null
+        for (const wsConfig of preset.workstations) {
+          const termList: TerminalTab[] = wsConfig.terminals.map((t, idx) => ({
+            id: `term-${Date.now()}-${Math.random().toString(36).substr(2, 5)}-${idx + 1}`,
+            title: t.title,
+            initialCommand: t.command,
+            shell: t.shell,
+            cwd: t.cwd || wsConfig.folderPath
+          }))
+          const newWs = addWorkstation(wsConfig.name, wsConfig.layout, termList)
+          if (wsConfig.folderPath) {
+            newWs.folderPath = wsConfig.folderPath
+          }
+          if (!firstCreatedId) firstCreatedId = newWs.id
+        }
+        if (firstCreatedId) {
+          activeWorkstationId.value = firstCreatedId
+        }
+        saveSession(false)
+        return
+      } else {
+        // Apply 1st workstation to active, and add the remaining as new
+        const first = preset.workstations[0]
+        const currentWs = workstations.value.find(w => w.id === activeWorkstationId.value)
+        if (currentWs && first) {
+          currentWs.layout = first.layout
+          currentWs.name = first.name
+          if (first.folderPath) currentWs.folderPath = first.folderPath
+          currentWs.terminals = first.terminals.map((t, idx) => ({
+            id: `term-${Date.now()}-${idx + 1}`,
+            title: t.title,
+            initialCommand: t.command,
+            shell: t.shell,
+            cwd: t.cwd || first.folderPath
+          }))
+          currentWs.activeTerminalId = currentWs.terminals[0]?.id || ''
+        }
+        // If there are more workstations in the preset, add them as new tabs
+        for (let i = 1; i < preset.workstations.length; i++) {
+          const wsConfig = preset.workstations[i]
+          const termList: TerminalTab[] = wsConfig.terminals.map((t, idx) => ({
+            id: `term-${Date.now()}-${idx + 1}`,
+            title: t.title,
+            initialCommand: t.command,
+            shell: t.shell,
+            cwd: t.cwd || wsConfig.folderPath
+          }))
+          const newWs = addWorkstation(wsConfig.name, wsConfig.layout, termList)
+          if (wsConfig.folderPath) newWs.folderPath = wsConfig.folderPath
+        }
+        saveSession(false)
+        return
+      }
+    }
+
+    // Fallback for single preset
+    const termList: TerminalTab[] = (preset.terminals || []).map((t, idx) => ({
       id: `term-${Date.now()}-${idx + 1}`,
       title: t.title,
       initialCommand: t.command,
       shell: t.shell,
-      cwd: t.cwd
+      cwd: t.cwd || preset.folderPath
     }))
-    activeTerminalId.value = terminals.value[0]?.id || ''
-    saveSession(false)
+
+    if (asNewWorkstation) {
+      const newWs = addWorkstation(preset.name, preset.layout, termList)
+      if (preset.folderPath) {
+        newWs.folderPath = preset.folderPath
+      }
+      activeWorkstationId.value = newWs.id
+      saveSession(false)
+    } else {
+      const ws = workstations.value.find(w => w.id === activeWorkstationId.value)
+      if (ws) {
+        ws.layout = preset.layout
+        ws.name = preset.name
+        if (preset.folderPath) {
+          ws.folderPath = preset.folderPath
+        }
+        ws.terminals = termList
+        ws.activeTerminalId = ws.terminals[0]?.id || ''
+        saveSession(false)
+      }
+    }
   }
 
-  // Apply startup presets if configured in settings (multiple supported)
   const applyStartupPreset = (settings: TerminalSettings) => {
     const ids = settings.startupPresetIds || []
     if (ids.length === 0) return
     const all = [...customPresets.value, ...defaultBuiltInPresets]
     const selected = all.filter(p => ids.includes(p.id))
     if (selected.length === 0) return
-    // Merge terminals from all selected presets, layout from the first
     const first = selected[0]
     const merged: WorkspacePreset = {
       ...first,
@@ -448,6 +670,18 @@ export const useWorkspaceStore = () => {
   }
 
   return {
+    workstations,
+    activeWorkstationId,
+    activeWorkstation,
+    isSidebarOpen,
+    toggleSidebar,
+    addWorkstation,
+    switchWorkstation,
+    nextWorkstation,
+    prevWorkstation,
+    renameWorkstation,
+    removeWorkstation,
+    moveWorkstationTab,
     terminals,
     activeTerminalId,
     activeTerminal,
@@ -458,7 +692,7 @@ export const useWorkspaceStore = () => {
     initFromStorage,
     saveSession,
     clearSavedSession,
-    saveCurrentAsPreset,
+    saveCustomPreset,
     updatePreset,
     deleteCustomPreset,
     deletePreset,

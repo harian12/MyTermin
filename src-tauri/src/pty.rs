@@ -324,10 +324,12 @@ impl PtyManager {
 
                 let mut detected_cwd: Option<String> = None;
 
+                // Ambil proses utama atau anak proses yang paling aktif
+                let mut max_proc_mem = 0u64;
                 if let Some(proc) = sys.process(parent_sys_pid) {
                     is_running = true;
                     total_cpu += proc.cpu_usage();
-                    total_mem_bytes += proc.memory();
+                    max_proc_mem = max_proc_mem.max(proc.memory());
                     main_proc_name = proc.name().to_string_lossy().to_string();
                     if let Some(c) = proc.cwd() {
                         let path_str = c.to_string_lossy().to_string();
@@ -338,12 +340,13 @@ impl PtyManager {
                 }
 
                 // Temukan anak proses (misal: node.exe, cargo.exe, opencode.exe yang di-spawn di dalam PowerShell)
+                let mut child_mem_sum = 0u64;
                 for (_p_id, p_info) in sys.processes() {
                     if let Some(p_parent) = p_info.parent() {
                         if p_parent == parent_sys_pid {
                             child_count += 1;
                             total_cpu += p_info.cpu_usage();
-                            total_mem_bytes += p_info.memory();
+                            child_mem_sum += p_info.memory();
                             let child_name = p_info.name().to_string_lossy().to_string();
                             if !child_name.is_empty() && child_name != "conhost.exe" {
                                 main_proc_name = child_name;
@@ -358,7 +361,15 @@ impl PtyManager {
                     }
                 }
 
-                let memory_mb = (total_mem_bytes as f32) / (1024.0 * 1024.0);
+                // Jika ada child process aktif (seperti opencode/node), gunakan memory child process utama
+                // agar tidak overcount shared mapped DLLs antara parent dan child
+                let effective_mem = if child_count > 0 {
+                    child_mem_sum
+                } else {
+                    max_proc_mem
+                };
+
+                let memory_mb = (effective_mem as f32) / (1024.0 * 1024.0);
 
                 if let Some(ref cwd_str) = detected_cwd {
                     session.cwd = Some(cwd_str.clone());

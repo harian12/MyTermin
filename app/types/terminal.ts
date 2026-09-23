@@ -9,10 +9,41 @@ export interface TerminalTab {
   lastCommand?: string
 }
 
+export interface Workstation {
+  id: string
+  name: string
+  folderPath?: string
+  icon?: string
+  layout: LayoutType
+  activeTerminalId: string
+  terminals: TerminalTab[]
+}
+
+export interface FileEntry {
+  name: string
+  path: string
+  is_dir: boolean
+  size?: number
+  gitStatus?: string
+}
+
 export interface ShellOption {
   name: string
   path: string
   icon: string
+}
+
+export interface PresetWorkstationConfig {
+  id: string
+  name: string
+  folderPath?: string
+  layout: LayoutType
+  terminals: {
+    title: string
+    command?: string
+    shell?: string
+    cwd?: string
+  }[]
 }
 
 export interface WorkspacePreset {
@@ -21,7 +52,10 @@ export interface WorkspacePreset {
   description: string
   layout: LayoutType
   icon: string
+  folderPath?: string
+  openFiles?: string[]
   isCustom?: boolean
+  workstations?: PresetWorkstationConfig[]
   terminals: {
     title: string
     command?: string
@@ -74,7 +108,7 @@ export const DEFAULT_KEYBINDINGS: Required<KeybindingConfig> = {
   splitHorizontal: 'Ctrl+Shift+E',
   splitVertical: 'Ctrl+Shift+O',
   grid2x2: 'Ctrl+Shift+G',
-  singleView: 'Ctrl+Shift+S'
+  singleView: 'Ctrl+Shift+L'
 }
 
 export interface TerminalSettings {

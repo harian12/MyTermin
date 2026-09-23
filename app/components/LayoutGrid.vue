@@ -1,8 +1,190 @@
 <script setup lang="ts">
-import { Plus, Sparkles, Command } from 'lucide-vue-next'
+import {
+  Plus,
+  Sparkles,
+  Command,
+  Terminal,
+  Square,
+  Columns2,
+  Rows2,
+  LayoutGrid as GridIcon,
+  X,
+  Maximize2,
+  Minimize2,
+  FolderOpen,
+  Clock
+} from 'lucide-vue-next'
 import type { LayoutType, TerminalTab } from '~/types/terminal'
+import { useEditorStore } from '~/composables/useEditorStore'
+import { useProjectExplorer } from '~/composables/useProjectExplorer'
 
-const { terminals, activeTerminalId, currentLayout, addTerminal } = useWorkspaceStore()
+const {
+  workstations,
+  activeWorkstationId,
+  terminals,
+  activeTerminalId,
+  activeWorkstation,
+  currentLayout,
+  addTerminal,
+  removeTerminal,
+  renameTerminal,
+  moveTerminalTab,
+  setLayout
+} = useWorkspaceStore()
+
+const { viewportMode, openFiles } = useEditorStore()
+const { pickFolder, setWorkstationFolder, recentProjects } = useProjectExplorer()
+
+const editingTermId = ref<string | null>(null)
+const editingTitle = ref('')
+
+// Drag Terminal Tab Reorder Logic
+const isDraggingTab = ref(false)
+const dragStartIndex = ref<number | null>(null)
+const currentDragIndex = ref<number | null>(null)
+const startX = ref(0)
+const hasMoved = ref(false)
+
+const handleTabPointerDown = (e: PointerEvent, index: number, termId: string) => {
+  if (e.button !== 0 || editingTermId.value === termId) return
+  const target = e.target as HTMLElement
+  if (target.closest('button') || target.closest('input')) {
+    return
+  }
+
+  dragStartIndex.value = index
+  currentDragIndex.value = index
+  startX.value = e.clientX
+  hasMoved.value = false
+
+  const handlePointerMove = (moveEvt: PointerEvent) => {
+    const deltaX = Math.abs(moveEvt.clientX - startX.value)
+    if (deltaX > 4) {
+      hasMoved.value = true
+      isDraggingTab.value = true
+    }
+
+    if (!isDraggingTab.value) return
+
+    const tabElements = document.querySelectorAll<HTMLElement>('[data-term-tab-index]')
+    tabElements.forEach((el) => {
+      const rect = el.getBoundingClientRect()
+      const idx = Number(el.getAttribute('data-term-tab-index'))
+      if (moveEvt.clientX >= rect.left && moveEvt.clientX <= rect.right) {
+        if (currentDragIndex.value !== null && currentDragIndex.value !== idx) {
+          moveTerminalTab(currentDragIndex.value, idx)
+          currentDragIndex.value = idx
+        }
+      }
+    })
+  }
+
+  const handlePointerUp = () => {
+    window.removeEventListener('pointermove', handlePointerMove)
+    window.removeEventListener('pointerup', handlePointerUp)
+    window.removeEventListener('pointercancel', handlePointerUp)
+
+    setTimeout(() => {
+      isDraggingTab.value = false
+      dragStartIndex.value = null
+      currentDragIndex.value = null
+      hasMoved.value = false
+    }, 50)
+  }
+
+  window.addEventListener('pointermove', handlePointerMove)
+  window.addEventListener('pointerup', handlePointerUp)
+  window.addEventListener('pointercancel', handlePointerUp)
+}
+
+const handleTabClick = (termId: string) => {
+  if (!hasMoved.value) {
+    activeTerminalId.value = termId
+  }
+}
+
+const startRenameTab = (term: TerminalTab) => {
+  editingTermId.value = term.id
+  editingTitle.value = term.title
+  nextTick(() => {
+    const input = document.getElementById(`tab-rename-input-${term.id}`)
+    input?.focus()
+  })
+}
+
+const finishRenameTab = (termId: string) => {
+  if (editingTitle.value.trim()) {
+    renameTerminal(termId, editingTitle.value.trim())
+  }
+  editingTermId.value = null
+}
+
+const allWorkstationTerminals = computed(() => {
+  const list: { wsId: string; term: TerminalTab }[] = []
+  for (const ws of workstations.value) {
+    for (const term of ws.terminals) {
+      list.push({ wsId: ws.id, term })
+    }
+  }
+  return list
+})
+
+const isTerminalVisibleInGrid = (wsId: string, termId: string): boolean => {
+  if (wsId !== activeWorkstationId.value) return false
+  return isTerminalVisible(termId)
+}
+
+// Resizable Split for 2-Terminal View (split-h & split-v)
+const terminalSplitPercent = ref(50)
+const isDraggingTerminalSplit = ref(false)
+
+const startTerminalSplitDrag = (e: MouseEvent) => {
+  e.preventDefault()
+  isDraggingTerminalSplit.value = true
+
+  const onMouseMove = (moveEvt: MouseEvent) => {
+    if (!isDraggingTerminalSplit.value) return
+    const container = document.getElementById('terminal-grid-container')
+    if (!container) return
+    const rect = container.getBoundingClientRect()
+    if (currentLayout.value === 'split-h') {
+      const relX = moveEvt.clientX - rect.left
+      const percent = Math.min(Math.max((relX / rect.width) * 100, 15), 85)
+      terminalSplitPercent.value = Math.round(percent)
+    } else if (currentLayout.value === 'split-v') {
+      const relY = moveEvt.clientY - rect.top
+      const percent = Math.min(Math.max((relY / rect.height) * 100, 15), 85)
+      terminalSplitPercent.value = Math.round(percent)
+    }
+  }
+
+  const onMouseUp = () => {
+    isDraggingTerminalSplit.value = false
+    window.removeEventListener('mousemove', onMouseMove)
+    window.removeEventListener('mouseup', onMouseUp)
+  }
+
+  window.addEventListener('mousemove', onMouseMove)
+  window.addEventListener('mouseup', onMouseUp)
+}
+
+const handleOpenProjectFolder = async (folderPath?: string) => {
+  const folder = folderPath || (await pickFolder())
+  if (folder) {
+    await setWorkstationFolder(folder)
+    if (terminals.value.length === 0) {
+      addTerminal({ cwd: folder })
+    }
+  }
+}
+
+const toggleFullscreenTerminal = () => {
+  if (viewportMode.value === 'terminal-full') {
+    viewportMode.value = 'split'
+  } else {
+    viewportMode.value = 'terminal-full'
+  }
+}
 
 const emit = defineEmits<{
   (e: 'focus', termId: string): void
@@ -101,128 +283,277 @@ const gridClass = computed(() => {
 </script>
 
 <template>
-  <div class="w-full h-full p-2 bg-background relative flex flex-col min-h-0 min-w-0">
-    <!-- Empty State saat tidak ada terminal yang terbuka -->
-    <div
-      v-if="terminals.length === 0"
-      class="w-full h-full flex flex-col items-center justify-center border border-dashed border-border/60 rounded-xl bg-[#12131a]/60 p-6 text-center animate-in fade-in zoom-in-95"
-    >
-      <div class="mb-5 flex items-center justify-center">
-        <div class="p-3.5 rounded-2xl bg-[#18181b] border border-white/20 shadow-2xl shadow-white/5">
-          <svg width="72" height="72" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect x="20" y="20" width="472" height="472" rx="100" fill="#18181b" stroke="#ffffff" stroke-opacity="0.3" stroke-width="16" />
-            <!-- Top-Left -->
-            <rect x="52" y="52" width="180" height="180" rx="36" fill="#27272a" stroke="#ffffff" stroke-opacity="0.8" stroke-width="12" />
-            <path d="M 90 115 L 132 142 L 90 169" fill="none" stroke="#ffffff" stroke-width="18" stroke-linecap="round" stroke-linejoin="round" />
-            <line x1="150" y1="169" x2="194" y2="169" stroke="#ffffff" stroke-width="18" stroke-linecap="round" />
-            <!-- Top-Right -->
-            <rect x="280" y="52" width="180" height="180" rx="36" fill="#27272a" stroke="#ffffff" stroke-opacity="0.8" stroke-width="12" />
-            <path d="M 370 85 Q 370 142 425 142 Q 370 142 370 199 Q 370 142 315 142 Q 370 142 370 85 Z" fill="#ffffff" />
-            <circle cx="370" cy="142" r="10" fill="#18181b" />
-            <!-- Bottom-Left -->
-            <rect x="52" y="280" width="180" height="180" rx="36" fill="#27272a" stroke="#ffffff" stroke-opacity="0.8" stroke-width="12" />
-            <path d="M 100 342 L 76 370 L 100 398" fill="none" stroke="#ffffff" stroke-width="16" stroke-linecap="round" stroke-linejoin="round" />
-            <path d="M 184 342 L 208 370 L 184 398" fill="none" stroke="#ffffff" stroke-width="16" stroke-linecap="round" stroke-linejoin="round" />
-            <line x1="156" y1="334" x2="128" y2="406" stroke="#ffffff" stroke-width="14" stroke-linecap="round" />
-            <!-- Bottom-Right -->
-            <rect x="280" y="280" width="180" height="180" rx="36" fill="#27272a" stroke="#ffffff" stroke-opacity="0.8" stroke-width="12" />
-            <path d="M 390 322 L 340 376 L 372 376 L 356 428 L 412 366 L 378 366 Z" fill="#ffffff" />
-            <!-- Central Badge -->
-            <circle cx="256" cy="256" r="42" fill="#18181b" stroke="#ffffff" stroke-width="12" />
-            <circle cx="256" cy="256" r="18" fill="#ffffff" />
-          </svg>
+  <div class="w-full h-full bg-[#12131a] relative flex flex-col min-h-0 min-w-0 select-none overflow-hidden">
+    <!-- Top Terminal Tabs & Grid Toolbar (Mirip Tabs Code Editor) -->
+    <div class="flex items-center justify-between h-9 bg-[#0d0e14] border-b border-border px-1 overflow-x-auto no-scrollbar flex-shrink-0">
+      <!-- Left: Terminal Tabs List -->
+      <div class="flex items-center gap-1 overflow-x-auto no-scrollbar flex-1 min-w-0">
+        <div
+          v-for="(term, index) in terminals"
+          :key="term.id"
+          :data-term-tab-index="index"
+          :class="[
+            'group flex items-center gap-1.5 px-3 py-1 text-xs rounded-t font-mono cursor-pointer border-t-2 transition-all select-none relative touch-none',
+            activeTerminalId === term.id
+              ? 'bg-[#181924] text-foreground border-primary font-medium shadow-sm'
+              : 'text-muted-foreground hover:bg-[#14151f] hover:text-foreground border-transparent',
+            isDraggingTab && currentDragIndex === index
+              ? 'ring-2 ring-primary bg-primary/20 scale-[1.02] z-20 shadow-md shadow-black/50'
+              : ''
+          ]"
+          :title="`${term.title} (Double-click to rename, Drag to reorder)`"
+          @pointerdown="handleTabPointerDown($event, index, term.id)"
+          @click="handleTabClick(term.id)"
+          @dblclick="startRenameTab(term)"
+        >
+          <Terminal class="w-3.5 h-3.5 text-primary flex-shrink-0" />
+          <input
+            v-if="editingTermId === term.id"
+            :id="`tab-rename-input-${term.id}`"
+            v-model="editingTitle"
+            type="text"
+            class="px-1 py-0.2 text-xs bg-background border border-primary rounded text-foreground outline-none w-28 font-mono"
+            @keydown.enter="finishRenameTab(term.id)"
+            @blur="finishRenameTab(term.id)"
+            @click.stop
+          />
+          <span v-else class="truncate max-w-[120px] pointer-events-none">{{ term.title }}</span>
+
+          <!-- Close Terminal Tab Button -->
+          <button
+            v-if="terminals.length > 1 && editingTermId !== term.id"
+            class="p-0.5 rounded hover:bg-white/10 text-muted-foreground hover:text-foreground transition-colors ml-0.5 opacity-0 group-hover:opacity-100"
+            title="Tutup Terminal"
+            @click.stop="removeTerminal(term.id)"
+          >
+            <X class="w-3 h-3" />
+          </button>
         </div>
-      </div>
 
-      <h2 class="text-lg font-bold text-foreground tracking-tight">Tidak Ada Terminal Terbuka</h2>
-      <p class="text-xs text-muted-foreground max-w-sm mt-1 mb-6">
-        Semua sesi terminal telah ditutup. Buka tab terminal baru atau jalankan preset workspace favorit Anda.
-      </p>
-
-      <div class="flex items-center gap-3">
-        <UiButton
-          variant="default"
-          size="default"
-          class="gap-2 font-semibold shadow-md"
+        <!-- Add New Terminal Button -->
+        <button
+          class="p-1 rounded hover:bg-[#181924] text-muted-foreground hover:text-foreground transition-colors ml-1"
+          title="Buka Terminal Baru (Ctrl+T)"
           @click="addTerminal()"
         >
-          <Plus class="w-4 h-4" />
-          <span>Buka Terminal Baru</span>
-          <UiBadge variant="secondary" class="ml-1 text-[10px] bg-white/20 text-white">Ctrl+T</UiBadge>
-        </UiButton>
-
-        <UiButton
-          variant="outline"
-          size="default"
-          class="gap-2 border-border/60 hover:bg-accent"
-          @click="emit('open-presets')"
-        >
-          <Sparkles class="w-4 h-4 text-indigo-400" />
-          <span>Buka Presets</span>
-        </UiButton>
+          <Plus class="w-3.5 h-3.5" />
+        </button>
       </div>
 
-      <!-- Shortcut helper pills -->
-      <div class="flex flex-wrap items-center justify-center gap-3 mt-8 pt-6 border-t border-border/30 text-[11px] text-muted-foreground">
-        <div class="flex items-center gap-1.5 bg-background/50 px-2.5 py-1 rounded-md border border-border/30">
-          <kbd class="px-1.5 py-0.5 rounded bg-muted text-[10px] font-mono text-foreground">Ctrl + K</kbd>
-          <span>Command Palette</span>
+      <!-- Right: Layout Grid Switchers & Presets -->
+      <div class="flex items-center gap-1 pl-2 flex-shrink-0">
+        <!-- Layout Grid Switcher -->
+        <div class="flex items-center bg-[#181924] p-0.5 rounded border border-border/50">
+          <button
+            :class="[
+              'p-1 rounded transition-colors',
+              currentLayout === 'single' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+            ]"
+            title="Single Terminal"
+            @click="setLayout('single')"
+          >
+            <Square class="w-3 h-3" />
+          </button>
+          <button
+            :class="[
+              'p-1 rounded transition-colors',
+              currentLayout === 'split-h' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+            ]"
+            title="Split Horizontal (2 Kolom)"
+            @click="setLayout('split-h')"
+          >
+            <Columns2 class="w-3 h-3" />
+          </button>
+          <button
+            :class="[
+              'p-1 rounded transition-colors',
+              currentLayout === 'split-v' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+            ]"
+            title="Split Vertikal (2 Baris)"
+            @click="setLayout('split-v')"
+          >
+            <Rows2 class="w-3 h-3" />
+          </button>
+          <button
+            :class="[
+              'p-1 rounded transition-colors',
+              currentLayout === 'grid-2x2' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+            ]"
+            title="Grid 2x2"
+            @click="setLayout('grid-2x2')"
+          >
+            <GridIcon class="w-3 h-3" />
+          </button>
         </div>
-        <div class="flex items-center gap-1.5 bg-background/50 px-2.5 py-1 rounded-md border border-border/30">
-          <kbd class="px-1.5 py-0.5 rounded bg-muted text-[10px] font-mono text-foreground">Ctrl + T</kbd>
-          <span>Tab Baru</span>
-        </div>
-        <div class="flex items-center gap-1.5 bg-background/50 px-2.5 py-1 rounded-md border border-border/30">
-          <kbd class="px-1.5 py-0.5 rounded bg-muted text-[10px] font-mono text-foreground">Ctrl + W</kbd>
-          <span>Tutup Tab</span>
-        </div>
-        <div class="flex items-center gap-1.5 bg-background/50 px-2.5 py-1 rounded-md border border-border/30">
-          <kbd class="px-1.5 py-0.5 rounded bg-muted text-[10px] font-mono text-foreground">Ctrl + Tab</kbd>
-          <span>Pindah Tab</span>
-        </div>
-        <div class="flex items-center gap-1.5 bg-background/50 px-2.5 py-1 rounded-md border border-border/30">
-          <kbd class="px-1.5 py-0.5 rounded bg-muted text-[10px] font-mono text-foreground">Ctrl + Shift + D</kbd>
-          <span>Duplikat</span>
-        </div>
-        <div class="flex items-center gap-1.5 bg-background/50 px-2.5 py-1 rounded-md border border-border/30">
-          <kbd class="px-1.5 py-0.5 rounded bg-muted text-[10px] font-mono text-foreground">Ctrl + Shift + G</kbd>
-          <span>4-Grid</span>
-        </div>
+
+        <!-- Presets Button -->
+        <button
+          class="p-1 rounded hover:bg-[#181924] text-muted-foreground hover:text-foreground transition-colors"
+          title="Buka Preset Workspace"
+          @click="emit('open-presets')"
+        >
+          <Sparkles class="w-3.5 h-3.5 text-indigo-400" />
+        </button>
+
+        <!-- Maximize / Restore Terminal Button -->
+        <button
+          v-if="openFiles.length > 0"
+          class="p-1 rounded hover:bg-[#181924] text-muted-foreground hover:text-foreground transition-colors"
+          :title="viewportMode === 'terminal-full' ? 'Kembalikan Tampilan Split' : 'Fullscreen Terminal'"
+          @click="toggleFullscreenTerminal"
+        >
+          <Minimize2 v-if="viewportMode === 'terminal-full'" class="w-3.5 h-3.5" />
+          <Maximize2 v-else class="w-3.5 h-3.5" />
+        </button>
       </div>
     </div>
 
-    <!-- Persistent Dynamic Grid Container (Semua Tab tetap hidup di DOM agar PTY tidak mati) -->
-    <div
-      v-else
-      :class="[
-        'w-full h-full gap-2 transition-all duration-200 min-h-0 min-w-0',
-        gridClass
-      ]"
-    >
-      <template v-for="(term, idx) in terminals" :key="term.id">
-        <div
-          v-show="isTerminalVisible(term.id)"
-          :class="[
-            'w-full h-full min-h-0 min-w-0 overflow-hidden',
-            // Jika 3 terminal pada layout 2x2, buat terminal ke-3 melebar (span-2) di baris bawah
-            currentLayout === 'grid-2x2' && visibleCount === 3 && term.id === visibleTerminals[2]?.id ? 'col-span-2' : ''
-          ]"
-        >
-          <TerminalPane
-            :pane-id="term.id"
-            :title="term.title"
-            :shell="term.shell"
-            :cwd="term.cwd"
-            :initial-command="term.initialCommand"
-            :last-command="term.lastCommand"
-            :is-active="activeTerminalId === term.id"
-            :is-tab-active="isTerminalVisible(term.id)"
-            @focus="activeTerminalId = $event"
-            @close="emit('close', $event)"
-            @contextmenu="emit('contextmenu', $event)"
-          />
+    <!-- Terminal Content Area -->
+    <div class="flex-1 w-full h-full p-1.5 relative overflow-hidden min-h-0 min-w-0">
+      <!-- Empty State saat tidak ada terminal yang terbuka -->
+      <div
+        v-if="terminals.length === 0"
+        class="w-full h-full flex flex-col items-center justify-center border border-dashed border-border/60 rounded-xl bg-[#12131a]/60 p-6 text-center animate-in fade-in zoom-in-95"
+      >
+        <div class="p-3.5 rounded-2xl bg-[#181924] border border-border/80 shadow-xl mb-4 text-primary">
+          <FolderOpen class="w-8 h-8" />
         </div>
-      </template>
+
+        <h2 class="text-base font-bold text-foreground tracking-tight">
+          {{ activeWorkstation.folderPath ? `Project: ${activeWorkstation.name}` : 'Pilih File Project / Mulai Terminal' }}
+        </h2>
+        <p class="text-xs text-muted-foreground max-w-sm mt-1 mb-5">
+          {{
+            activeWorkstation.folderPath
+              ? `Direktori kerja aktif: ${activeWorkstation.folderPath}`
+              : 'Buka folder project agar terminal dan editor otomatis terhubung dengan direktori kerja Anda.'
+          }}
+        </p>
+
+        <div class="flex flex-wrap items-center justify-center gap-2">
+          <!-- Buka Folder Project Button -->
+          <UiButton
+            variant="default"
+            size="sm"
+            class="gap-1.5 font-medium shadow-md bg-primary hover:bg-primary/90 text-primary-foreground"
+            @click="handleOpenProjectFolder()"
+          >
+            <FolderOpen class="w-3.5 h-3.5" />
+            <span>{{ activeWorkstation.folderPath ? 'Ganti Folder Project' : 'Pilih Folder Project' }}</span>
+          </UiButton>
+
+          <!-- Buka Terminal Baru Button -->
+          <UiButton
+            variant="secondary"
+            size="sm"
+            class="gap-1.5 font-medium border border-border/60"
+            @click="addTerminal()"
+          >
+            <Plus class="w-3.5 h-3.5" />
+            <span>Terminal Baru</span>
+          </UiButton>
+        </div>
+
+        <!-- Quick Recent Projects List in Empty State -->
+        <div
+          v-if="!activeWorkstation.folderPath && recentProjects.length > 0"
+          class="mt-6 pt-5 border-t border-border/40 w-full max-w-md"
+        >
+          <div class="flex items-center justify-center gap-1.5 text-[11px] font-semibold text-muted-foreground mb-2">
+            <Clock class="w-3 h-3 text-primary" />
+            <span>Buka Project Terakhir</span>
+          </div>
+
+          <div class="flex flex-wrap justify-center gap-1.5 max-h-28 overflow-y-auto">
+            <button
+              v-for="rec in recentProjects.slice(0, 5)"
+              :key="rec.path"
+              class="px-2.5 py-1 rounded-md bg-[#161722] hover:bg-primary/20 text-foreground text-xs border border-border/50 hover:border-primary/50 transition-colors truncate max-w-[180px] font-mono"
+              :title="rec.path"
+              @click="handleOpenProjectFolder(rec.path)"
+            >
+              {{ rec.name }}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Persistent Dynamic Grid Container for All Workstations (PTY stays alive in background) -->
+      <div
+        v-else
+        id="terminal-grid-container"
+        :class="[
+          'w-full h-full min-h-0 min-w-0 transition-none',
+          currentLayout === 'split-h' && visibleCount === 2 ? 'flex flex-row' :
+          currentLayout === 'split-v' && visibleCount === 2 ? 'flex flex-col' :
+          'grid gap-1.5 ' + gridClass
+        ]"
+      >
+        <template v-for="item in allWorkstationTerminals" :key="item.term.id">
+          <!-- Terminal Pane Viewport -->
+          <div
+            v-show="isTerminalVisibleInGrid(item.wsId, item.term.id)"
+            :style="{
+              width: (currentLayout === 'split-h' && visibleCount === 2 && item.term.id === visibleTerminals[0]?.id)
+                ? `${terminalSplitPercent}%`
+                : (currentLayout === 'split-h' && visibleCount === 2)
+                ? `${100 - terminalSplitPercent}%`
+                : '100%',
+              height: (currentLayout === 'split-v' && visibleCount === 2 && item.term.id === visibleTerminals[0]?.id)
+                ? `${terminalSplitPercent}%`
+                : (currentLayout === 'split-v' && visibleCount === 2)
+                ? `${100 - terminalSplitPercent}%`
+                : '100%'
+            }"
+            :class="[
+              'min-h-0 min-w-0 overflow-hidden flex-shrink-0 relative transition-none',
+              currentLayout === 'grid-2x2' && visibleCount === 3 && item.term.id === visibleTerminals[2]?.id ? 'col-span-2' : ''
+            ]"
+          >
+            <TerminalPane
+              :pane-id="item.term.id"
+              :title="item.term.title"
+              :shell="item.term.shell"
+              :cwd="item.term.cwd"
+              :initial-command="item.term.initialCommand"
+              :last-command="item.term.lastCommand"
+              :is-active="activeWorkstationId === item.wsId && activeTerminalId === item.term.id"
+              :is-tab-active="isTerminalVisibleInGrid(item.wsId, item.term.id)"
+              @focus="activeTerminalId = $event"
+              @close="emit('close', $event)"
+              @contextmenu="emit('contextmenu', $event)"
+            />
+          </div>
+
+          <!-- Draggable Divider Between Terminal 1 and Terminal 2 -->
+          <div
+            v-if="
+              item.wsId === activeWorkstationId &&
+              item.term.id === visibleTerminals[0]?.id &&
+              visibleCount === 2 &&
+              (currentLayout === 'split-h' || currentLayout === 'split-v')
+            "
+            :class="[
+              'bg-border hover:bg-primary flex-shrink-0 transition-colors z-10 select-none flex items-center justify-center group',
+              currentLayout === 'split-h' ? 'w-1.5 h-full cursor-col-resize' : 'h-1.5 w-full cursor-row-resize'
+            ]"
+            @mousedown="startTerminalSplitDrag"
+          >
+            <div
+              :class="[
+                'bg-muted-foreground/30 group-hover:bg-primary-foreground rounded-full',
+                currentLayout === 'split-h' ? 'w-0.5 h-6' : 'h-0.5 w-6'
+              ]"
+            />
+          </div>
+        </template>
+      </div>
     </div>
   </div>
 </template>
+
+<style scoped>
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+</style>
