@@ -17,6 +17,7 @@ import {
   Sparkles,
   AlertTriangle,
   GitBranch,
+  GitCompare,
   FolderOpen,
   WrapText
 } from 'lucide-vue-next'
@@ -60,6 +61,7 @@ const { gitBranch, revealInExplorer } = useProjectExplorer()
 
 const isCopied = ref(false)
 const isFormatting = ref(false)
+const renderDiffSideBySide = ref(true)
 const monacoRef = ref<InstanceType<typeof MonacoEditor> | null>(null)
 const secondaryMonacoRef = ref<InstanceType<typeof MonacoEditor> | null>(null)
 
@@ -235,8 +237,23 @@ const toggleFullscreenEditor = () => {
 
       <!-- Editor Actions Right -->
       <div v-if="activeFile" class="flex items-center gap-1 pl-2 flex-shrink-0">
+        <!-- Diff Toggle (Side-by-Side vs Inline) -->
+        <button
+          v-if="activeFile.isDiff"
+          :class="[
+            'flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium transition-colors',
+            renderDiffSideBySide ? 'bg-primary/20 text-primary' : 'bg-secondary text-foreground'
+          ]"
+          :title="renderDiffSideBySide ? 'Beralih ke Tampilan Diff Inline' : 'Beralih ke Tampilan Diff Berdampingan (Side-by-Side)'"
+          @click="renderDiffSideBySide = !renderDiffSideBySide"
+        >
+          <GitCompare class="w-3 h-3 text-emerald-400" />
+          <span>{{ renderDiffSideBySide ? 'Side-by-Side' : 'Inline' }}</span>
+        </button>
+
         <!-- Toggle Word Wrap Button (Alt+Z) -->
         <button
+          v-if="!activeFile.isDiff"
           :class="[
             'p-1 rounded transition-colors',
             isWordWrap ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:bg-accent hover:text-foreground'
@@ -374,6 +391,7 @@ const toggleFullscreenEditor = () => {
             :original-value="activeFile.diffOriginalContent || ''"
             :modified-value="activeFile.content"
             :filename="activeFile.name"
+            :render-side-by-side="renderDiffSideBySide"
             @update:modified-value="updateContent(activeFile.id, $event)"
             @save="saveFile"
           />

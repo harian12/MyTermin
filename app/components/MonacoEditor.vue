@@ -102,7 +102,17 @@ onMounted(() => {
       'editorLineNumber.foreground': '#4b5563',
       'editorLineNumber.activeForeground': '#a5b4fc',
       'editor.selectionBackground': '#2d3748',
-      'editor.inactiveSelectionBackground': '#1f2937'
+      'editor.inactiveSelectionBackground': '#1f2937',
+      // Git Diff Highlighting Colors (GitHub & VS Code style: Green + Red)
+      'diffEditor.insertedTextBackground': '#10b98130',
+      'diffEditor.insertedLineBackground': '#10b98115',
+      'diffEditor.removedTextBackground': '#ef444430',
+      'diffEditor.removedLineBackground': '#ef444418',
+      'diffEditorGutter.insertedLineBackground': '#10b98140',
+      'diffEditorGutter.removedLineBackground': '#ef444440',
+      'diffEditorOverview.insertedForeground': '#10b981',
+      'diffEditorOverview.removedForeground': '#ef4444',
+      'diffEditor.diagonalFill': '#181924'
     }
   })
 

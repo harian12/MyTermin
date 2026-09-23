@@ -216,34 +216,39 @@ export const useEditorStore = () => {
     if (!filePath) return
     const filename = filePath.split(/[\\/]/).pop() || filePath
     const diffTabId = `diff-${filePath}`
-    const existing = openFiles.value.find((f) => f.id === diffTabId)
+
+    // Cek apakah file sedang dibuka di tab editor reguler
+    const openRegular = openFiles.value.find(f => f.path === filePath && !f.isDiff)
+    let currentContent = openRegular ? openRegular.content : ''
+
+    if (!currentContent && isTauri.value) {
+      try {
+        const { invoke } = await import('@tauri-apps/api/core')
+        currentContent = await invoke<string>('read_file_content', { path: filePath })
+      } catch (e: any) {
+        currentContent = ''
+      }
+    }
 
     if (viewportMode.value === 'terminal-full') {
       viewportMode.value = 'split'
     }
 
+    const existing = openFiles.value.find((f) => f.id === diffTabId)
     if (existing) {
       existing.diffOriginalContent = headContent
+      existing.content = currentContent
+      existing.originalContent = currentContent
       activeFileId.value = existing.id
       return
-    }
-
-    let content = ''
-    if (isTauri.value) {
-      try {
-        const { invoke } = await import('@tauri-apps/api/core')
-        content = await invoke<string>('read_file_content', { path: filePath })
-      } catch (e: any) {
-        content = ''
-      }
     }
 
     const newItem: OpenFileItem = {
       id: diffTabId,
       name: `${filename} (Diff)`,
       path: filePath,
-      content,
-      originalContent: content,
+      content: currentContent,
+      originalContent: currentContent,
       isDirty: false,
       isDiff: true,
       diffOriginalContent: headContent
@@ -514,6 +519,20 @@ export const useEditorStore = () => {
     }
   }
 
+  const nextFileTab = () => {
+    if (openFiles.value.length <= 1) return
+    const curIdx = openFiles.value.findIndex(f => f.id === activeFileId.value)
+    const nextIdx = (curIdx + 1) % openFiles.value.length
+    activeFileId.value = openFiles.value[nextIdx].id
+  }
+
+  const prevFileTab = () => {
+    if (openFiles.value.length <= 1) return
+    const curIdx = openFiles.value.findIndex(f => f.id === activeFileId.value)
+    const prevIdx = (curIdx - 1 + openFiles.value.length) % openFiles.value.length
+    activeFileId.value = openFiles.value[prevIdx].id
+  }
+
   const copyRelativePath = async (filePath: string) => {
     const root = (activeWorkstation.value.folderPath || '').replace(/\\/g, '/').replace(/\/+$/, '')
     const norm = filePath.replace(/\\/g, '/')
@@ -558,6 +577,8 @@ export const useEditorStore = () => {
     closeTabsToTheRight,
     closeAllTabs,
     closeActiveFile,
+    nextFileTab,
+    prevFileTab,
     copyRelativePath
   }
 }

@@ -2,12 +2,19 @@
 import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import * as monaco from 'monaco-editor'
 
-const props = defineProps<{
-  originalValue: string
-  modifiedValue: string
-  filename: string
-  readonly?: boolean
-}>()
+const props = withDefaults(
+  defineProps<{
+    originalValue: string
+    modifiedValue: string
+    filename: string
+    readonly?: boolean
+    renderSideBySide?: boolean
+  }>(),
+  {
+    readonly: false,
+    renderSideBySide: true
+  }
+)
 
 const emit = defineEmits<{
   (e: 'update:modifiedValue', value: string): void
@@ -21,7 +28,8 @@ let modifiedModel: monaco.editor.ITextModel | null = null
 let resizeObserver: ResizeObserver | null = null
 
 const getLanguageFromFilename = (filename: string): string => {
-  const ext = filename.split('.').pop()?.toLowerCase() || ''
+  const clean = filename.replace(/\s*\(Diff\)$/i, '')
+  const ext = clean.split('.').pop()?.toLowerCase() || ''
   const mapping: Record<string, string> = {
     ts: 'typescript',
     tsx: 'typescript',
@@ -47,8 +55,49 @@ const getLanguageFromFilename = (filename: string): string => {
   return mapping[ext] || 'plaintext'
 }
 
+const ensureTheme = () => {
+  monaco.editor.defineTheme('mytermin-dark', {
+    base: 'vs-dark',
+    inherit: true,
+    rules: [
+      { token: 'comment', foreground: '6272a4', fontStyle: 'italic' },
+      { token: 'keyword', foreground: 'ff79c6', fontStyle: 'bold' },
+      { token: 'identifier', foreground: 'f8f8f2' },
+      { token: 'string', foreground: 'f1fa8c' },
+      { token: 'number', foreground: 'bd93f9' },
+      { token: 'type', foreground: '8be9fd' },
+      { token: 'function', foreground: '50fa7b' }
+    ],
+    colors: {
+      'editor.background': '#0d0e14',
+      'editor.foreground': '#f8f8f2',
+      'editor.lineHighlightBackground': '#181924',
+      'editorCursor.foreground': '#6366f1',
+      'editorWhitespace.foreground': '#282a36',
+      'editorIndentGuide.background': '#1e1f2e',
+      'editorIndentGuide.activeBackground': '#4b5563',
+      'editorLineNumber.foreground': '#4b5563',
+      'editorLineNumber.activeForeground': '#a5b4fc',
+      'editor.selectionBackground': '#2d3748',
+      'editor.inactiveSelectionBackground': '#1f2937',
+      // Git Diff Highlighting Colors (GitHub & VS Code style: Green + Red)
+      'diffEditor.insertedTextBackground': '#10b98130',
+      'diffEditor.insertedLineBackground': '#10b98115',
+      'diffEditor.removedTextBackground': '#ef444430',
+      'diffEditor.removedLineBackground': '#ef444415',
+      'diffEditorGutter.insertedLineBackground': '#10b98140',
+      'diffEditorGutter.removedLineBackground': '#ef444440',
+      'diffEditorOverview.insertedForeground': '#10b981',
+      'diffEditorOverview.removedForeground': '#ef4444',
+      'diffEditor.diagonalFill': '#181924'
+    }
+  })
+}
+
 onMounted(() => {
   if (!containerRef.value) return
+
+  ensureTheme()
 
   const language = getLanguageFromFilename(props.filename)
   originalModel = monaco.editor.createModel(props.originalValue, language)
@@ -60,12 +109,17 @@ onMounted(() => {
     fontSize: 13,
     fontFamily: '"JetBrains Mono", "Fira Code", Consolas, Menlo, monospace',
     fontLigatures: true,
-    renderSideBySide: true,
-    readOnly: props.readonly || false,
+    renderSideBySide: props.renderSideBySide,
+    readOnly: props.readonly,
     originalEditable: false,
     smoothScrolling: true,
     scrollBeyondLastLine: false,
-    padding: { top: 8, bottom: 8 }
+    padding: { top: 8, bottom: 8 },
+    diffCodeLens: true,
+    renderIndicators: true,
+    renderMarginRevertIcon: true,
+    enableSplitViewResizing: true,
+    diffAlgorithm: 'advanced'
   })
 
   diffEditor.setModel({
@@ -108,6 +162,13 @@ watch(
     if (originalModel && originalModel.getValue() !== newVal) {
       originalModel.setValue(newVal)
     }
+  }
+)
+
+watch(
+  () => props.renderSideBySide,
+  (val) => {
+    diffEditor?.updateOptions({ renderSideBySide: val })
   }
 )
 

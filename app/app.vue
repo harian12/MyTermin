@@ -32,10 +32,13 @@ const {
   isTerminalVisible,
   viewportMode,
   splitOrientation,
+  openFiles,
   activeFile,
   activeFileId,
   closeActiveFile,
   reopenClosedTab,
+  nextFileTab,
+  prevFileTab,
   initEditorSession,
   saveEditorSession,
   saveAll
@@ -328,13 +331,28 @@ const handleKeydown = (e: KeyboardEvent) => {
     return
   }
 
-  // Cyclic navigation: Ctrl+Tab (Terminal Tabs) & Ctrl+Shift+Tab (Workstations)
+  // Cyclic navigation: Context-aware Ctrl+Tab & Ctrl+Shift+Tab
   if (e.ctrlKey && (e.key === 'Tab' || e.code === 'Tab')) {
     e.preventDefault()
-    if (e.shiftKey) {
-      nextWorkstation()
+    const activeEl = typeof document !== 'undefined' ? document.activeElement : null
+    const isInsideEditor = Boolean(
+      activeEl?.closest('.monaco-editor') ||
+      activeEl?.closest('#code-editor-pane') ||
+      activeEl?.closest('#editor-terminal-container > div:first-child')
+    )
+
+    if (isInsideEditor && isEditorVisible.value && openFiles.value.length > 0) {
+      if (e.shiftKey) {
+        prevFileTab()
+      } else {
+        nextFileTab()
+      }
     } else {
-      nextTab()
+      if (e.shiftKey) {
+        nextWorkstation()
+      } else {
+        nextTab()
+      }
     }
     return
   }
