@@ -93,6 +93,7 @@ const {
 } = useProjectExplorer()
 
 const { openFile, openGitDiffTab } = useEditorStore()
+const { showAppAlert, showAppConfirm, showAppPrompt } = useAppDialog()
 
 const emit = defineEmits<{
   (e: 'open-presets'): void
@@ -213,7 +214,7 @@ const handleCommit = async () => {
         commitResultMsg.value = null
       }, 2500)
     } else {
-      alert(`Gagal commit: ${res.error}`)
+      await showAppAlert(`Gagal commit: ${res.error}`, 'Git Commit Error')
     }
   } finally {
     isCommitting.value = false
@@ -237,7 +238,7 @@ const handlePush = async () => {
       commitResultMsg.value = 'Push berhasil!'
       setTimeout(() => { commitResultMsg.value = null }, 2500)
     } else {
-      alert(`Push gagal: ${res.error}`)
+      await showAppAlert(`Push gagal: ${res.error}`, 'Git Push Error')
     }
   } finally {
     isPushing.value = false
@@ -253,7 +254,7 @@ const handlePull = async () => {
       commitResultMsg.value = 'Pull berhasil!'
       setTimeout(() => { commitResultMsg.value = null }, 2500)
     } else {
-      alert(`Pull gagal: ${res.error}`)
+      await showAppAlert(`Pull gagal: ${res.error}`, 'Git Pull Error')
     }
   } finally {
     isPulling.value = false
@@ -295,7 +296,12 @@ const toggleHistory = async () => {
 const handleNewFile = async (parentPath?: string) => {
   const root = parentPath || activeWorkstation.value?.folderPath
   if (!root) return
-  const name = window.prompt('Nama file baru (contoh: index.ts):')
+  const name = await showAppPrompt(
+    'Masukkan nama file baru beserta ekstensi:',
+    'Buat File Baru',
+    '',
+    'contoh: index.ts, style.css'
+  )
   if (!name || !name.trim()) return
 
   const fullPath = `${root.replace(/[\\/]+$/, '')}/${name.trim()}`.replace(/\//g, '\\')
@@ -309,7 +315,12 @@ const handleNewFile = async (parentPath?: string) => {
 const handleNewFolder = async (parentPath?: string) => {
   const root = parentPath || activeWorkstation.value?.folderPath
   if (!root) return
-  const name = window.prompt('Nama folder baru:')
+  const name = await showAppPrompt(
+    'Masukkan nama folder baru:',
+    'Buat Folder Baru',
+    '',
+    'contoh: components, utils'
+  )
   if (!name || !name.trim()) return
 
   const fullPath = `${root.replace(/[\\/]+$/, '')}/${name.trim()}`.replace(/\//g, '\\')
@@ -320,7 +331,11 @@ const handleNewFolder = async (parentPath?: string) => {
 }
 
 const handleRenameEntry = async (entry: FileEntry) => {
-  const newName = window.prompt('Ubah nama menjadi:', entry.name)
+  const newName = await showAppPrompt(
+    `Ubah nama "${entry.name}" menjadi:`,
+    'Ubah Nama',
+    entry.name
+  )
   if (!newName || !newName.trim() || newName.trim() === entry.name) return
 
   const parentDir = entry.path.substring(0, Math.max(entry.path.lastIndexOf('\\'), entry.path.lastIndexOf('/')))
@@ -333,10 +348,16 @@ const handleRenameEntry = async (entry: FileEntry) => {
 
 const handleDeleteEntry = async (entry: FileEntry) => {
   const typeStr = entry.is_dir ? 'folder' : 'file'
-  if (!window.confirm(`Yakin ingin menghapus ${typeStr} "${entry.name}" secara permanen?`)) return
+  const ok = await showAppConfirm(
+    `Yakin ingin menghapus ${typeStr} "${entry.name}" secara permanen? Tindakan ini tidak dapat dibatalkan.`,
+    `Hapus ${typeStr.charAt(0).toUpperCase() + typeStr.slice(1)}`,
+    'destructive',
+    'Hapus'
+  )
+  if (!ok) return
 
-  const ok = await deletePath(entry.path)
-  if (ok) {
+  const success = await deletePath(entry.path)
+  if (success) {
     await loadProjectFiles()
   }
 }

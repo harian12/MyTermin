@@ -215,7 +215,7 @@ export const useProjectExplorer = () => {
       await fetchBranches()
       return true
     } catch (e: any) {
-      alert(`Gagal beralih branch: ${e?.message || e}`)
+      await showAppAlert(`Gagal beralih branch: ${e?.message || e}`, 'Git Branch Error')
       return false
     }
   }
@@ -231,7 +231,7 @@ export const useProjectExplorer = () => {
       await fetchBranches()
       return true
     } catch (e: any) {
-      alert(`Gagal membuat branch: ${e?.message || e}`)
+      await showAppAlert(`Gagal membuat branch: ${e?.message || e}`, 'Git Branch Error')
       return false
     }
   }
@@ -310,7 +310,13 @@ export const useProjectExplorer = () => {
   const discardFile = async (relPath: string, isUntracked = false): Promise<boolean> => {
     const root = activeWorkstation.value.folderPath
     if (!root || !isTauri.value) return false
-    if (!window.confirm(`Batalkan semua perubahan pada file "${relPath}"?`)) return false
+    const ok = await showAppConfirm(
+      `Batalkan semua perubahan pada file "${relPath}"? Tindakan ini tidak dapat dibatalkan.`,
+      'Batalkan Perubahan',
+      'destructive',
+      'Batalkan Perubahan'
+    )
+    if (!ok) return false
     try {
       const { invoke } = await import('@tauri-apps/api/core')
       await invoke('git_discard', { repoPath: root, relPath, isUntracked })
@@ -318,7 +324,7 @@ export const useProjectExplorer = () => {
       await scanProjectFiles()
       return true
     } catch (e: any) {
-      alert(`Gagal membatalkan perubahan: ${e?.message || e}`)
+      await showAppAlert(`Gagal membatalkan perubahan: ${e?.message || e}`, 'Git Error')
       return false
     }
   }
@@ -463,7 +469,7 @@ export const useProjectExplorer = () => {
       await scanProjectFiles()
       return true
     } catch (e: any) {
-      alert(e?.message || e || 'Gagal membuat file')
+      await showAppAlert(e?.message || e || 'Gagal membuat file', 'File Error')
       return false
     }
   }
@@ -476,7 +482,7 @@ export const useProjectExplorer = () => {
       await invoke('create_dir', { path: dirPath })
       return true
     } catch (e: any) {
-      alert(e?.message || e || 'Gagal membuat folder')
+      await showAppAlert(e?.message || e || 'Gagal membuat folder', 'Folder Error')
       return false
     }
   }
@@ -491,7 +497,7 @@ export const useProjectExplorer = () => {
       await scanProjectFiles()
       return true
     } catch (e: any) {
-      alert(e?.message || e || 'Gagal mengubah nama')
+      await showAppAlert(e?.message || e || 'Gagal mengubah nama', 'Rename Error')
       return false
     }
   }
@@ -506,7 +512,7 @@ export const useProjectExplorer = () => {
       await scanProjectFiles()
       return true
     } catch (e: any) {
-      alert(e?.message || e || 'Gagal menghapus target')
+      await showAppAlert(e?.message || e || 'Gagal menghapus target', 'Delete Error')
       return false
     }
   }
