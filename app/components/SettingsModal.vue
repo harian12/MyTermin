@@ -20,11 +20,13 @@ const { getAvailableShells } = useTauriPty()
 const {
   status: updateStatus,
   statusMessage: updateStatusMessage,
+  currentAppVersion,
   newVersion,
   downloadProgress,
   isChecking: isCheckingUpdate,
   isDownloading: isDownloadingUpdate,
   hasUpdate,
+  fetchCurrentVersion,
   checkForUpdates,
   downloadAndInstall,
 } = useUpdater()
@@ -106,6 +108,7 @@ const onFontPresetChange = (val: string) => {
 
 onMounted(async () => {
   shells.value = await getAvailableShells()
+  fetchCurrentVersion()
 })
 </script>
 
@@ -402,6 +405,9 @@ onMounted(async () => {
             <UiLabel class="text-xs font-semibold flex items-center gap-1.5">
               <Sparkles class="w-3.5 h-3.5 text-blue-400" />
               <span>Pembaruan Aplikasi</span>
+              <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                v{{ currentAppVersion }}
+              </span>
             </UiLabel>
             <p class="text-[11px] text-muted-foreground">
               Periksa dan pasang versi terbaru MyTermin secara otomatis

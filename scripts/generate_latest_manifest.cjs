@@ -18,16 +18,20 @@ if (!fs.existsSync(nsisSig)) {
 }
 
 const signature = fs.readFileSync(nsisSig, 'utf8').trim();
+const downloadUrl = `https://github.com/${REPO_OWNER}/${REPO_NAME}/releases/download/${tagName}/MyTermin_${version}_x64-setup.exe`;
+
+const platformPayload = {
+  signature: signature,
+  url: downloadUrl
+};
 
 const latestJson = {
   version: version,
   notes: `Release ${tagName} - Multi-Terminal & Code Editor Workspace with Auto Update Support.`,
   pub_date: new Date().toISOString(),
   platforms: {
-    'windows-x86_64': {
-      signature: signature,
-      url: `https://github.com/${REPO_OWNER}/${REPO_NAME}/releases/download/${tagName}/MyTermin_${version}_x64-setup.exe`
-    }
+    'windows-x86_64': platformPayload,
+    'windows-x86_64-nsis': platformPayload
   }
 };
 

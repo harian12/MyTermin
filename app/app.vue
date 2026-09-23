@@ -52,8 +52,10 @@ const { showAppConfirm } = useAppDialog()
 const { backgroundAlerts } = useWorkspaceStore()
 const {
   status: updateStatus,
+  currentAppVersion,
   newVersion,
   hasUpdate,
+  fetchCurrentVersion,
   checkForUpdates,
   downloadAndInstall,
 } = useUpdater()
@@ -63,6 +65,7 @@ const isSettingsModalOpen = ref(false)
 const isQuickPickerOpen = ref(false)
 const isGlobalSearchOpen = ref(false)
 const isShortcutsOpen = ref(false)
+const isUpdateModalOpen = ref(false)
 const { isOpen: isCommandPaletteOpen, togglePalette, openPalette } = useCommandPalette()
 
 // Window State Persistence (size / position / maximized)
@@ -476,9 +479,13 @@ onMounted(() => {
   
   // Background check for update pada startup
   if (isTauri.value) {
-    setTimeout(() => {
-      checkForUpdates(true)
-    }, 3000)
+    fetchCurrentVersion()
+    setTimeout(async () => {
+      const hasNew = await checkForUpdates(true)
+      if (hasNew) {
+        isUpdateModalOpen.value = true
+      }
+    }, 2500)
   }
 
   window.addEventListener('beforeunload', () => {
@@ -600,7 +607,7 @@ onBeforeUnmount(() => {
           v-if="hasUpdate"
           class="flex items-center gap-1.5 px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30 hover:bg-blue-500/30 transition-colors animate-pulse"
           :title="`Versi baru v${newVersion} tersedia. Buka Pengaturan untuk memperbarui.`"
-          @click="isSettingsModalOpen = true"
+          @click="isUpdateModalOpen = true"
         >
           <Sparkles class="w-3 h-3 text-blue-400" />
           <span class="text-[10px] font-semibold">Update v{{ newVersion }}</span>
@@ -621,6 +628,15 @@ onBeforeUnmount(() => {
         <!-- Terminal Count -->
         <span class="text-muted-foreground/60 hidden md:inline">
           {{ terminals.length }} Terminal
+        </span>
+
+        <!-- App Version Badge -->
+        <span
+          class="text-muted-foreground/80 hover:text-foreground cursor-pointer transition-colors"
+          title="Klik untuk membuka Pengaturan Pembaruan"
+          @click="isSettingsModalOpen = true"
+        >
+          v{{ currentAppVersion }}
         </span>
 
         <!-- Layout Indicator -->
@@ -654,5 +670,6 @@ onBeforeUnmount(() => {
     />
     <PresetModal v-model:open="isPresetModalOpen" />
     <SettingsModal v-model:open="isSettingsModalOpen" />
+    <UpdateNotificationModal v-model:open="isUpdateModalOpen" />
   </div>
 </template>
