@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { GitBranch, FolderOpen, Rows2, Columns2 } from 'lucide-vue-next'
+import { GitBranch, FolderOpen, Rows2, Columns2, Sparkles } from 'lucide-vue-next'
 import { useWorkspaceStore } from '~/composables/useWorkspaceStore'
 import { useEditorStore } from '~/composables/useEditorStore'
 import { useProjectExplorer } from '~/composables/useProjectExplorer'
+import { useUpdater } from '~/composables/useUpdater'
 
 const {
   workstations,
@@ -49,6 +50,13 @@ const { isTauri, writePty, pasteFromClipboard } = useTauriPty()
 const { isShortcut, requestDesktopNotification } = useSettingsStore()
 const { showAppConfirm } = useAppDialog()
 const { backgroundAlerts } = useWorkspaceStore()
+const {
+  status: updateStatus,
+  newVersion,
+  hasUpdate,
+  checkForUpdates,
+  downloadAndInstall,
+} = useUpdater()
 
 const isPresetModalOpen = ref(false)
 const isSettingsModalOpen = ref(false)
@@ -465,6 +473,14 @@ onMounted(() => {
   window.addEventListener('keydown', handleKeydown, true)
   requestDesktopNotification()
   setupWindowStatePersistence()
+  
+  // Background check for update pada startup
+  if (isTauri.value) {
+    setTimeout(() => {
+      checkForUpdates(true)
+    }, 3000)
+  }
+
   window.addEventListener('beforeunload', () => {
     saveSession(false)
     saveEditorSession()
@@ -579,6 +595,17 @@ onBeforeUnmount(() => {
 
       <!-- Right: Sessions & Layout info -->
       <div class="flex items-center gap-3.5 flex-shrink-0">
+        <!-- Update Available Badge -->
+        <button
+          v-if="hasUpdate"
+          class="flex items-center gap-1.5 px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30 hover:bg-blue-500/30 transition-colors animate-pulse"
+          :title="`Versi baru v${newVersion} tersedia. Buka Pengaturan untuk memperbarui.`"
+          @click="isSettingsModalOpen = true"
+        >
+          <Sparkles class="w-3 h-3 text-blue-400" />
+          <span class="text-[10px] font-semibold">Update v{{ newVersion }}</span>
+        </button>
+
         <!-- Split Orientation Toggle Button -->
         <button
           v-if="isEditorVisible"

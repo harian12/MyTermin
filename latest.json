@@ -1,0 +1,11 @@
+{
+  "version": "0.2.1",
+  "notes": "Release v0.2.1 - Multi-Terminal & Code Editor Workspace with Auto Update Support.",
+  "pub_date": "2026-09-23T14:45:17.881Z",
+  "platforms": {
+    "windows-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcjU5M1ZFMWtCZWZ2UUViSlBlU2JpYmMzWUNJN3BCMFhqWnp4TS9YZ1RkWDJZcnVFU3NiSjlsZjR2cFZhRmF3TmNYUm9OWWtkNERXRUY3T0J4My9tTVV5NjBOell0QUFvPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkwMTc0NzA5CWZpbGU6TXlUZXJtaW5fMC4yLjFfeDY0LXNldHVwLmV4ZQp1UFliemhLSTlJWjRKbk9PdGpPZ0g1WGRCTndCK2V3QUVTN1FEdExCdi93MSt6eGJwOXRQRFBrRHkwQzZVaEpjM0pqSWxoRlVQU1dkbzB6cTRlbGhEZz09Cg==",
+      "url": "https://github.com/harian12/MyTermin/releases/download/v0.2.1/MyTermin_0.2.1_x64-setup.exe"
+    }
+  }
+}
