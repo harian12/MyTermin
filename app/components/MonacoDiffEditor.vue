@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
+import { ref, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import * as monaco from 'monaco-editor'
 import { computeLineDiff } from '~/utils/diffComputer'
 
@@ -27,6 +27,9 @@ let diffEditor: monaco.editor.IStandaloneDiffEditor | null = null
 let originalModel: monaco.editor.ITextModel | null = null
 let modifiedModel: monaco.editor.ITextModel | null = null
 let resizeObserver: ResizeObserver | null = null
+
+let originalDecorationsCollection: monaco.editor.IEditorDecorationsCollection | null = null
+let modifiedDecorationsCollection: monaco.editor.IEditorDecorationsCollection | null = null
 
 const getLanguageFromFilename = (filename: string): string => {
   const clean = filename.replace(/\s*\(Diff\)$/i, '')
@@ -80,19 +83,105 @@ const ensureTheme = () => {
       'editorLineNumber.foreground': '#4b5563',
       'editorLineNumber.activeForeground': '#a5b4fc',
       'editor.selectionBackground': '#2d3748',
-      'editor.inactiveSelectionBackground': '#1f2937',
-      // Git Diff Highlighting Colors (GitHub & VS Code style: Green + Red)
-      'diffEditor.insertedTextBackground': '#10b98135',
-      'diffEditor.insertedLineBackground': '#10b98118',
-      'diffEditor.removedTextBackground': '#ef444435',
-      'diffEditor.removedLineBackground': '#ef444418',
-      'diffEditorGutter.insertedLineBackground': '#10b98150',
-      'diffEditorGutter.removedLineBackground': '#ef444450',
-      'diffEditorOverview.insertedForeground': '#10b981',
-      'diffEditorOverview.removedForeground': '#ef4444',
-      'diffEditor.diagonalFill': '#181924'
+      'editor.inactiveSelectionBackground': '#1f2937'
     }
   })
+}
+
+const updateDiffDecorations = () => {
+  if (!diffEditor || !originalModel || !modifiedModel) return
+
+  const originalLines = originalModel.getLinesContent()
+  const modifiedLines = modifiedModel.getLinesContent()
+  const diffResult = computeLineDiff(originalLines, modifiedLines)
+
+  const originalDecorations: monaco.editor.IModelDeltaDecoration[] = []
+  const modifiedDecorations: monaco.editor.IModelDeltaDecoration[] = []
+
+  for (const change of diffResult.changes) {
+    // 1. Original / Left side (Deletions / Modified)
+    if (!change.original.isEmpty) {
+      const startLine = change.original.startLineNumber
+      const endLine = Math.max(startLine, change.original.endLineNumberExclusive - 1)
+      originalDecorations.push({
+        range: new monaco.Range(startLine, 1, endLine, 1),
+        options: {
+          isWholeLine: true,
+          className: 'git-diff-deleted-line',
+          marginClassName: 'git-diff-deleted-gutter',
+          linesDecorationsClassName: 'git-diff-deleted-gutter-sign',
+          overviewRuler: {
+            color: '#ef4444',
+            position: monaco.editor.OverviewRulerPosition.Left
+          }
+        }
+      })
+
+      if (change.innerChanges) {
+        for (const inner of change.innerChanges) {
+          if (!inner.originalRange.isEmpty()) {
+            originalDecorations.push({
+              range: inner.originalRange,
+              options: {
+                className: 'git-diff-deleted-char'
+              }
+            })
+          }
+        }
+      }
+    }
+
+    // 2. Modified / Right side (Additions / Modified)
+    if (!change.modified.isEmpty) {
+      const startLine = change.modified.startLineNumber
+      const endLine = Math.max(startLine, change.modified.endLineNumberExclusive - 1)
+      modifiedDecorations.push({
+        range: new monaco.Range(startLine, 1, endLine, 1),
+        options: {
+          isWholeLine: true,
+          className: 'git-diff-inserted-line',
+          marginClassName: 'git-diff-inserted-gutter',
+          linesDecorationsClassName: 'git-diff-inserted-gutter-sign',
+          overviewRuler: {
+            color: '#10b981',
+            position: monaco.editor.OverviewRulerPosition.Right
+          }
+        }
+      })
+
+      if (change.innerChanges) {
+        for (const inner of change.innerChanges) {
+          if (!inner.modifiedRange.isEmpty()) {
+            modifiedDecorations.push({
+              range: inner.modifiedRange,
+              options: {
+                className: 'git-diff-inserted-char'
+              }
+            })
+          }
+        }
+      }
+    }
+  }
+
+  const origEditor = diffEditor.getOriginalEditor()
+  const modEditor = diffEditor.getModifiedEditor()
+
+  if (origEditor) {
+    if (!originalDecorationsCollection) {
+      originalDecorationsCollection = origEditor.createDecorationsCollection(originalDecorations)
+    } else {
+      originalDecorationsCollection.set(originalDecorations)
+    }
+  }
+
+  if (modEditor) {
+    if (!modifiedDecorationsCollection) {
+      modifiedDecorationsCollection = modEditor.createDecorationsCollection(modifiedDecorations)
+    } else {
+      modifiedDecorationsCollection.set(modifiedDecorations)
+    }
+  }
 }
 
 onMounted(() => {
@@ -122,19 +211,7 @@ onMounted(() => {
     renderMarginRevertIcon: true,
     enableSplitViewResizing: true,
     ignoreTrimWhitespace: false,
-    useInlineViewWhenSpaceIsLimited: false,
-    diffAlgorithm: {
-      computeDiff: (original: any, modified: any) => {
-        try {
-          const originalLines = original?.getLinesContent ? original.getLinesContent() : String(original || '').split(/\r\n|\r|\n/)
-          const modifiedLines = modified?.getLinesContent ? modified.getLinesContent() : String(modified || '').split(/\r\n|\r|\n/)
-          return computeLineDiff(originalLines, modifiedLines)
-        } catch (e) {
-          console.error('Diff computation error:', e)
-          return { changes: [], moves: [], identical: false, quitEarly: false }
-        }
-      }
-    } as any
+    useInlineViewWhenSpaceIsLimited: false
   })
 
   diffEditor.setModel({
@@ -144,12 +221,17 @@ onMounted(() => {
 
   diffEditor.getModifiedEditor().focus()
 
+  nextTick(() => {
+    updateDiffDecorations()
+  })
+
   modifiedModel.onDidChangeContent(() => {
     if (modifiedModel) {
       const val = modifiedModel.getValue()
       if (val !== props.modifiedValue) {
         emit('update:modifiedValue', val)
       }
+      updateDiffDecorations()
     }
   })
 
@@ -169,6 +251,7 @@ watch(
   (newVal) => {
     if (modifiedModel && modifiedModel.getValue() !== newVal) {
       modifiedModel.setValue(newVal)
+      nextTick(() => updateDiffDecorations())
     }
   }
 )
@@ -178,6 +261,7 @@ watch(
   (newVal) => {
     if (originalModel && originalModel.getValue() !== newVal) {
       originalModel.setValue(newVal)
+      nextTick(() => updateDiffDecorations())
     }
   }
 )
@@ -189,11 +273,23 @@ watch(
   }
 )
 
+watch(
+  () => props.filename,
+  (newFilename) => {
+    const lang = getLanguageFromFilename(newFilename)
+    if (originalModel) monaco.editor.setModelLanguage(originalModel, lang)
+    if (modifiedModel) monaco.editor.setModelLanguage(modifiedModel, lang)
+    nextTick(() => updateDiffDecorations())
+  }
+)
+
 onBeforeUnmount(() => {
   if (resizeObserver) {
     resizeObserver.disconnect()
     resizeObserver = null
   }
+  originalDecorationsCollection?.clear()
+  modifiedDecorationsCollection?.clear()
   originalModel?.dispose()
   modifiedModel?.dispose()
   diffEditor?.dispose()

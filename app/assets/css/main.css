@@ -65,16 +65,59 @@
 }
 
 /* Monaco Diff Editor GitHub-Style Highlighting (Green Additions / Red Deletions) */
+.monaco-diff-editor,
+.monaco-editor {
+  --vscode-diffEditor-insertedTextBackground: rgba(16, 185, 129, 0.45) !important;
+  --vscode-diffEditor-insertedLineBackground: rgba(16, 185, 129, 0.22) !important;
+  --vscode-diffEditor-removedTextBackground: rgba(239, 68, 68, 0.45) !important;
+  --vscode-diffEditor-removedLineBackground: rgba(239, 68, 68, 0.22) !important;
+  --vscode-diffEditorGutter-insertedLineBackground: rgba(16, 185, 129, 0.55) !important;
+  --vscode-diffEditorGutter-removedLineBackground: rgba(239, 68, 68, 0.55) !important;
+  --vscode-diffEditor-insertedTextBorder: rgba(16, 185, 129, 0.6) !important;
+  --vscode-diffEditor-removedTextBorder: rgba(239, 68, 68, 0.6) !important;
+}
+
+/* Custom Direct Line Decorations (Guaranteed Visible in Monaco) */
+.git-diff-inserted-line {
+  background-color: rgba(16, 185, 129, 0.22) !important;
+}
+.git-diff-inserted-char {
+  background-color: rgba(16, 185, 129, 0.5) !important;
+  border-radius: 2px;
+}
+.git-diff-inserted-gutter {
+  border-left: 3px solid #10b981 !important;
+}
+.git-diff-inserted-gutter-sign {
+  background: rgba(16, 185, 129, 0.6) !important;
+}
+
+.git-diff-deleted-line {
+  background-color: rgba(239, 68, 68, 0.22) !important;
+}
+.git-diff-deleted-char {
+  background-color: rgba(239, 68, 68, 0.5) !important;
+  border-radius: 2px;
+}
+.git-diff-deleted-gutter {
+  border-left: 3px solid #ef4444 !important;
+}
+.git-diff-deleted-gutter-sign {
+  background: rgba(239, 68, 68, 0.6) !important;
+}
+
 .monaco-diff-editor .line-insert,
 .monaco-diff-editor .ced-diff-inserted,
 .monaco-diff-editor .inserted-line,
-.monaco-editor .cdr.line-insert {
+.monaco-editor .cdr.line-insert,
+.monaco-editor .view-overlays .line-insert {
   background-color: rgba(16, 185, 129, 0.22) !important;
 }
 
 .monaco-diff-editor .char-insert,
 .monaco-diff-editor .insert-sign,
-.monaco-editor .cdr.char-insert {
+.monaco-editor .cdr.char-insert,
+.monaco-editor .view-lines .char-insert {
   background-color: rgba(16, 185, 129, 0.45) !important;
   border-radius: 2px;
 }
@@ -82,13 +125,15 @@
 .monaco-diff-editor .line-delete,
 .monaco-diff-editor .ced-diff-deleted,
 .monaco-diff-editor .deleted-line,
-.monaco-editor .cdr.line-delete {
+.monaco-editor .cdr.line-delete,
+.monaco-editor .view-overlays .line-delete {
   background-color: rgba(239, 68, 68, 0.22) !important;
 }
 
 .monaco-diff-editor .char-delete,
 .monaco-diff-editor .delete-sign,
-.monaco-editor .cdr.char-delete {
+.monaco-editor .cdr.char-delete,
+.monaco-editor .view-lines .char-delete {
   background-color: rgba(239, 68, 68, 0.45) !important;
   border-radius: 2px;
 }
