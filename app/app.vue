@@ -442,9 +442,6 @@ onMounted(() => {
   window.addEventListener('contextmenu', handleGlobalContextMenu)
   requestDesktopNotification()
   setupWindowStatePersistence()
-  window.addEventListener('mytermin-open-palette', () => {
-    isCommandPaletteOpen.value = true
-  })
   window.addEventListener('beforeunload', () => {
     saveSession(false)
     saveEditorSession()
@@ -460,7 +457,6 @@ onBeforeUnmount(() => {
   unlistenMove?.()
   window.removeEventListener('keydown', handleKeydown, true)
   window.removeEventListener('contextmenu', handleGlobalContextMenu)
-  window.removeEventListener('mytermin-open-palette', () => {})
 })
 </script>
 

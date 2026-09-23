@@ -428,6 +428,11 @@ const initTerminal = async () => {
 
   try {
     await createPty(props.paneId, props.shell || settings.value.defaultShell, props.cwd, cols, rows)
+    // Guard: bila pane sudah unmount selama await (tab ditutup cepat), matikan PTY yatim
+    if (!terminalContainer.value || !term) {
+      await killPty(props.paneId)
+      return
+    }
     isPtyReady.value = true
 
     unlistenData = await onPtyData(props.paneId, (data) => {

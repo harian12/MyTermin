@@ -36,6 +36,9 @@ pub struct PtySession {
 pub struct PtyManager {
     sessions: Arc<Mutex<HashMap<String, PtySession>>>,
     sys: Arc<Mutex<System>>,
+    // Cache statistik global: semua caller get_all_stats berbagi snapshot yang sama.
+    // Mencegah N× full-process refresh tiap 2 detik ketika banyak terminal aktif.
+    stats_cache: Arc<Mutex<Option<(std::time::Instant, HashMap<String, PtyStats>)>>>,
 }
 
 impl PtyManager {
@@ -45,6 +48,7 @@ impl PtyManager {
         Self {
             sessions: Arc::new(Mutex::new(HashMap::new())),
             sys: Arc::new(Mutex::new(sys)),
+            stats_cache: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -226,6 +230,12 @@ impl PtyManager {
     pub fn kill_pty(&self, id: &str) -> Result<(), String> {
         let mut sessions = self.sessions.lock().map_err(|e| e.to_string())?;
         if let Some(mut session) = sessions.remove(id) {
+            // Hapus dari cache stats agar tidak balik sebagai entry yatim
+            if let Ok(mut cache) = self.stats_cache.lock() {
+                if let Some((_, map)) = cache.as_mut() {
+                    map.remove(id);
+                }
+            }
             // Hentikan seluruh child process tree di Windows agar port (seperti bun dev, node, vite) langsung lepas
             if let Some(pid) = session.pid {
                 #[cfg(target_os = "windows")]
@@ -246,6 +256,10 @@ impl PtyManager {
     pub fn kill_all(&self) {
         if let Ok(mut sessions) = self.sessions.lock() {
             for (_id, mut session) in sessions.drain() {
+                // Bersihkan cache stats
+                if let Ok(mut cache) = self.stats_cache.lock() {
+                    *cache = None;
+                }
                 if let Some(pid) = session.pid {
                     #[cfg(target_os = "windows")]
                     {
@@ -321,6 +335,16 @@ impl PtyManager {
     }
 
     pub fn get_all_stats(&self) -> HashMap<String, PtyStats> {
+        // Sajikan cache bila masih segar (<2 detik). Cukup 1× sysinfo refresh per tick
+        // meskipun dipanggil dari banyak terminal sekaligus.
+        if let Ok(cache) = self.stats_cache.lock() {
+            if let Some((at, map)) = cache.as_ref() {
+                if at.elapsed().as_millis() < 2000 {
+                    return map.clone();
+                }
+            }
+        }
+
         let mut sessions = match self.sessions.lock() {
             Ok(s) => s,
             Err(_) => return HashMap::new(),
@@ -433,6 +457,10 @@ impl PtyManager {
                     },
                 );
             }
+        }
+
+        if let Ok(mut cache) = self.stats_cache.lock() {
+            *cache = Some((std::time::Instant::now(), stats_map.clone()));
         }
 
         stats_map
