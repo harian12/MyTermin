@@ -436,10 +436,8 @@ const initTerminal = async () => {
     })
 
     unlistenExit = await onPtyExit(props.paneId, () => {
-      // Auto-restart shell seketika agar terminal selalu siap dipakai
-      setTimeout(() => {
-        restartTerminalSession(false)
-      }, 100)
+      isPtyExited.value = true
+      // Tidak auto-restart secara agresif untuk mencegah memory exhaustion / infinite process spawn loop
     })
 
     // Listen to terminal title changes (Windows PowerShell often emits directory in title)
@@ -532,9 +530,7 @@ const restartTerminalSession = async (silent = false) => {
     })
 
     unlistenExit = await onPtyExit(props.paneId, () => {
-      setTimeout(() => {
-        restartTerminalSession(false)
-      }, 100)
+      isPtyExited.value = true
     })
 
     term?.focus()

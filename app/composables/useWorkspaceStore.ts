@@ -173,6 +173,12 @@ export const useWorkspaceStore = () => {
       if (!ok) return
     }
 
+    // Matikan seluruh proses PTY di workstation ini agar port (bun/node/vite) langsung lepas
+    const { killPty } = useTauriPty()
+    for (const t of wsTerminals) {
+      killPty(t.id).catch(() => {})
+    }
+
     workstations.value.splice(idx, 1)
     if (workstations.value.length === 0) {
       const fresh = createDefaultWorkstation()
@@ -506,6 +512,8 @@ export const useWorkspaceStore = () => {
     if (!ws) return
     const idx = ws.terminals.findIndex(t => t.id === termId)
     if (idx !== -1) {
+      const { killPty } = useTauriPty()
+      killPty(termId).catch(() => {})
       ws.terminals.splice(idx, 1)
       if (ws.terminals.length === 0) {
         ws.activeTerminalId = ''

@@ -6,7 +6,7 @@ mod pty;
 use pty::{PtyManager, PtyStats, ShellInfo};
 use std::collections::HashMap;
 use std::path::Path;
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Manager, State};
 
 #[tauri::command]
 fn create_pty(
@@ -34,6 +34,12 @@ fn resize_pty(state: State<'_, PtyManager>, id: String, cols: u16, rows: u16) ->
 #[tauri::command]
 fn kill_pty(state: State<'_, PtyManager>, id: String) -> Result<(), String> {
     state.kill_pty(&id)
+}
+
+#[tauri::command]
+fn kill_all_ptys(state: State<'_, PtyManager>) -> Result<(), String> {
+    state.kill_all();
+    Ok(())
 }
 
 #[tauri::command]
@@ -1098,7 +1104,8 @@ fn window_toggle_maximize(window: tauri::Window) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn window_close(window: tauri::Window) -> Result<(), String> {
+fn window_close(state: State<'_, PtyManager>, window: tauri::Window) -> Result<(), String> {
+    state.kill_all();
     window.close().map_err(|e| e.to_string())
 }
 
@@ -1111,6 +1118,7 @@ fn main() {
             write_pty,
             resize_pty,
             kill_pty,
+            kill_all_ptys,
             get_all_pty_stats,
             get_pty_cwd,
             set_pty_cwd,
@@ -1152,6 +1160,13 @@ fn main() {
             window_toggle_maximize,
             window_close
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app_handle, event| {
+            if let tauri::RunEvent::Exit = event {
+                if let Some(pty) = app_handle.try_state::<PtyManager>() {
+                    pty.kill_all();
+                }
+            }
+        });
 }

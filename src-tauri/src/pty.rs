@@ -226,9 +226,40 @@ impl PtyManager {
     pub fn kill_pty(&self, id: &str) -> Result<(), String> {
         let mut sessions = self.sessions.lock().map_err(|e| e.to_string())?;
         if let Some(mut session) = sessions.remove(id) {
+            // Hentikan seluruh child process tree di Windows agar port (seperti bun dev, node, vite) langsung lepas
+            if let Some(pid) = session.pid {
+                #[cfg(target_os = "windows")]
+                {
+                    use std::os::windows::process::CommandExt;
+                    const CREATE_NO_WINDOW: u32 = 0x08000000;
+                    let _ = std::process::Command::new("taskkill")
+                        .args(["/F", "/T", "/PID", &pid.to_string()])
+                        .creation_flags(CREATE_NO_WINDOW)
+                        .output();
+                }
+            }
             let _ = session.child.kill();
         }
         Ok(())
+    }
+
+    pub fn kill_all(&self) {
+        if let Ok(mut sessions) = self.sessions.lock() {
+            for (_id, mut session) in sessions.drain() {
+                if let Some(pid) = session.pid {
+                    #[cfg(target_os = "windows")]
+                    {
+                        use std::os::windows::process::CommandExt;
+                        const CREATE_NO_WINDOW: u32 = 0x08000000;
+                        let _ = std::process::Command::new("taskkill")
+                            .args(["/F", "/T", "/PID", &pid.to_string()])
+                            .creation_flags(CREATE_NO_WINDOW)
+                            .output();
+                    }
+                }
+                let _ = session.child.kill();
+            }
+        }
     }
 
     pub fn update_session_cwd(&self, id: &str, cwd: &str) {
