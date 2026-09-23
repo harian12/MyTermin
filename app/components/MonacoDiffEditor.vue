@@ -28,8 +28,8 @@ let originalModel: monaco.editor.ITextModel | null = null
 let modifiedModel: monaco.editor.ITextModel | null = null
 let resizeObserver: ResizeObserver | null = null
 
-let originalDecorationsCollection: monaco.editor.IEditorDecorationsCollection | null = null
-let modifiedDecorationsCollection: monaco.editor.IEditorDecorationsCollection | null = null
+let oldOriginalDecorationIds: string[] = []
+let oldModifiedDecorationIds: string[] = []
 
 const getLanguageFromFilename = (filename: string): string => {
   const clean = filename.replace(/\s*\(Diff\)$/i, '')
@@ -89,7 +89,7 @@ const ensureTheme = () => {
 }
 
 const updateDiffDecorations = () => {
-  if (!diffEditor || !originalModel || !modifiedModel) return
+  if (!originalModel || !modifiedModel) return
 
   const originalLines = originalModel.getLinesContent()
   const modifiedLines = modifiedModel.getLinesContent()
@@ -103,8 +103,9 @@ const updateDiffDecorations = () => {
     if (!change.original.isEmpty) {
       const startLine = change.original.startLineNumber
       const endLine = Math.max(startLine, change.original.endLineNumberExclusive - 1)
+      const lineLen = originalModel.getLineLength(endLine) || 1
       originalDecorations.push({
-        range: new monaco.Range(startLine, 1, endLine, 1),
+        range: new monaco.Range(startLine, 1, endLine, lineLen + 1),
         options: {
           isWholeLine: true,
           className: 'git-diff-deleted-line',
@@ -123,7 +124,7 @@ const updateDiffDecorations = () => {
             originalDecorations.push({
               range: inner.originalRange,
               options: {
-                className: 'git-diff-deleted-char'
+                inlineClassName: 'git-diff-deleted-char'
               }
             })
           }
@@ -135,8 +136,9 @@ const updateDiffDecorations = () => {
     if (!change.modified.isEmpty) {
       const startLine = change.modified.startLineNumber
       const endLine = Math.max(startLine, change.modified.endLineNumberExclusive - 1)
+      const lineLen = modifiedModel.getLineLength(endLine) || 1
       modifiedDecorations.push({
-        range: new monaco.Range(startLine, 1, endLine, 1),
+        range: new monaco.Range(startLine, 1, endLine, lineLen + 1),
         options: {
           isWholeLine: true,
           className: 'git-diff-inserted-line',
@@ -155,7 +157,7 @@ const updateDiffDecorations = () => {
             modifiedDecorations.push({
               range: inner.modifiedRange,
               options: {
-                className: 'git-diff-inserted-char'
+                inlineClassName: 'git-diff-inserted-char'
               }
             })
           }
@@ -164,24 +166,9 @@ const updateDiffDecorations = () => {
     }
   }
 
-  const origEditor = diffEditor.getOriginalEditor()
-  const modEditor = diffEditor.getModifiedEditor()
-
-  if (origEditor) {
-    if (!originalDecorationsCollection) {
-      originalDecorationsCollection = origEditor.createDecorationsCollection(originalDecorations)
-    } else {
-      originalDecorationsCollection.set(originalDecorations)
-    }
-  }
-
-  if (modEditor) {
-    if (!modifiedDecorationsCollection) {
-      modifiedDecorationsCollection = modEditor.createDecorationsCollection(modifiedDecorations)
-    } else {
-      modifiedDecorationsCollection.set(modifiedDecorations)
-    }
-  }
+  // Gunakan model.deltaDecorations langsung pada ITextModel agar render pasti aktif
+  oldOriginalDecorationIds = originalModel.deltaDecorations(oldOriginalDecorationIds, originalDecorations)
+  oldModifiedDecorationIds = modifiedModel.deltaDecorations(oldModifiedDecorationIds, modifiedDecorations)
 }
 
 onMounted(() => {
@@ -288,8 +275,14 @@ onBeforeUnmount(() => {
     resizeObserver.disconnect()
     resizeObserver = null
   }
-  originalDecorationsCollection?.clear()
-  modifiedDecorationsCollection?.clear()
+  if (originalModel && oldOriginalDecorationIds.length > 0) {
+    originalModel.deltaDecorations(oldOriginalDecorationIds, [])
+  }
+  if (modifiedModel && oldModifiedDecorationIds.length > 0) {
+    modifiedModel.deltaDecorations(oldModifiedDecorationIds, [])
+  }
+  oldOriginalDecorationIds = []
+  oldModifiedDecorationIds = []
   originalModel?.dispose()
   modifiedModel?.dispose()
   diffEditor?.dispose()
