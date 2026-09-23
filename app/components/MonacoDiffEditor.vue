@@ -113,7 +113,7 @@ const updateDiffDecorations = () => {
           linesDecorationsClassName: 'git-diff-deleted-gutter-sign',
           overviewRuler: {
             color: '#ef4444',
-            position: monaco.editor.OverviewRulerPosition.Left
+            position: monaco.editor.OverviewRulerLane.Left
           }
         }
       })
@@ -146,7 +146,7 @@ const updateDiffDecorations = () => {
           linesDecorationsClassName: 'git-diff-inserted-gutter-sign',
           overviewRuler: {
             color: '#10b981',
-            position: monaco.editor.OverviewRulerPosition.Right
+            position: monaco.editor.OverviewRulerLane.Right
           }
         }
       })
