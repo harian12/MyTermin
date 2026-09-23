@@ -65,6 +65,9 @@ const persistWindowState = async () => {
   try {
     const { getCurrentWindow } = await import('@tauri-apps/api/window')
     const w = getCurrentWindow()
+    if (await w.isMinimized()) {
+      return // Jangan simpan koordinat saat minimized (Windows mengembalikan -32000, -32000)
+    }
     if (await w.isMaximized()) {
       const raw = localStorage.getItem(WINDOW_STATE_KEY)
       const prev = raw ? JSON.parse(raw) : {}
@@ -73,6 +76,9 @@ const persistWindowState = async () => {
     }
     const size = await w.outerSize()
     const pos = await w.outerPosition()
+    // Pastikan bukan koordinat minimized
+    if (pos.x < -10000 || pos.y < -10000) return
+
     localStorage.setItem(WINDOW_STATE_KEY, JSON.stringify({
       maximized: false,
       width: size.width,
@@ -88,23 +94,29 @@ const persistWindowState = async () => {
 const restoreWindowState = async () => {
   if (!isTauri.value) return
   try {
-    const raw = localStorage.getItem(WINDOW_STATE_KEY)
-    if (!raw) return
-    const state = JSON.parse(raw)
     const { getCurrentWindow } = await import('@tauri-apps/api/window')
     const { PhysicalSize, PhysicalPosition } = await import('@tauri-apps/api/dpi')
     const w = getCurrentWindow()
-    if (state.maximized) {
-      await w.maximize()
-      return
+
+    const raw = localStorage.getItem(WINDOW_STATE_KEY)
+    if (raw) {
+      const state = JSON.parse(raw)
+      if (state.maximized) {
+        await w.maximize()
+      } else {
+        if (state.width >= 800 && state.height >= 600) {
+          await w.setSize(new PhysicalSize(state.width, state.height))
+        }
+        // Validasi posisi: jangan restore jika posisi aneh atau di luar batas wajar
+        if (typeof state.x === 'number' && typeof state.y === 'number' && state.x > -5000 && state.y > -5000) {
+          await w.setPosition(new PhysicalPosition(state.x, state.y))
+        }
+      }
     }
-    if (state.width >= 800 && state.height >= 600) {
-      await w.setSize(new PhysicalSize(state.width, state.height))
-    }
-    // ponytail: restore posisi apa adanya; kalau monitor dicabut user bisa pakai Win+Arrow.
-    if (typeof state.x === 'number' && typeof state.y === 'number') {
-      await w.setPosition(new PhysicalPosition(state.x, state.y))
-    }
+
+    // Pastikan window selalu tampil dan fokus di layar
+    await w.show()
+    await w.setFocus()
   } catch {
     // Silent
   }
