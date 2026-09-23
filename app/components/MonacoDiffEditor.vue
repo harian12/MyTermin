@@ -120,7 +120,8 @@ onMounted(() => {
     renderIndicators: true,
     renderMarginRevertIcon: true,
     enableSplitViewResizing: true,
-    diffAlgorithm: 'advanced',
+    diffAlgorithm: 'legacy',
+    ignoreTrimWhitespace: false,
     useInlineViewWhenSpaceIsLimited: false
   })
 

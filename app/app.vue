@@ -517,9 +517,9 @@ onBeforeUnmount(() => {
           splitOrientation === 'horizontal' ? 'flex-row' : 'flex-col'
         ]"
       >
-        <!-- Code Editor Pane -->
+        <!-- Code Editor Pane (v-show preserves editor state & avoids remount) -->
         <div
-          v-if="isEditorVisible"
+          v-show="isEditorVisible"
           :style="{
             width: viewportMode === 'split' && splitOrientation === 'horizontal' ? `${editorSplitPercent}%` : '100%',
             height: viewportMode === 'split' && splitOrientation === 'vertical' ? `${editorSplitPercent}%` : '100%'
@@ -531,7 +531,7 @@ onBeforeUnmount(() => {
 
         <!-- Draggable Resizer Bar -->
         <div
-          v-if="isEditorVisible && isTerminalVisible"
+          v-show="isEditorVisible && isTerminalVisible"
           :class="[
             'bg-border hover:bg-primary flex-shrink-0 transition-colors z-20 select-none flex items-center justify-center group',
             splitOrientation === 'horizontal' ? 'w-1.5 h-full cursor-col-resize' : 'h-1.5 w-full cursor-row-resize'
@@ -546,9 +546,9 @@ onBeforeUnmount(() => {
           />
         </div>
 
-        <!-- Terminal Layout Grid -->
+        <!-- Terminal Layout Grid (v-show preserves PTY processes & avoids re-running) -->
         <div
-          v-if="isTerminalVisible"
+          v-show="isTerminalVisible"
           class="flex-1 h-full overflow-hidden relative min-w-0 min-h-0"
         >
           <LayoutGrid
