@@ -138,6 +138,7 @@ const getGitBadgeLabel = (status?: string) => {
 
 const handleContextMenu = (e: MouseEvent) => {
   e.preventDefault()
+  e.stopPropagation()
   emit('action-context', {
     action: 'context',
     entry: props.entry,

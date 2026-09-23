@@ -106,8 +106,31 @@ const tabContextMenu = ref<{
   file: null
 })
 
+const tabContextMenuStyle = computed(() => {
+  const menuWidth = 195
+  const menuHeight = 270
+  const winWidth = typeof window !== 'undefined' ? window.innerWidth : 1280
+  const winHeight = typeof window !== 'undefined' ? window.innerHeight : 800
+
+  let posX = tabContextMenu.value.x
+  let posY = tabContextMenu.value.y
+
+  if (posX + menuWidth > winWidth) {
+    posX = Math.max(8, winWidth - menuWidth - 8)
+  }
+  if (posY + menuHeight > winHeight) {
+    posY = Math.max(8, winHeight - menuHeight - 8)
+  }
+
+  return {
+    left: `${Math.max(8, posX)}px`,
+    top: `${Math.max(8, posY)}px`
+  }
+})
+
 const handleTabContextMenu = (e: MouseEvent, file: OpenFileItem) => {
   e.preventDefault()
+  e.stopPropagation()
   tabContextMenu.value = {
     visible: true,
     x: e.clientX,
@@ -473,8 +496,8 @@ const toggleFullscreenEditor = () => {
     <Teleport to="body">
       <div
         v-if="tabContextMenu.visible && tabContextMenu.file"
-        class="fixed z-[100] min-w-[190px] bg-[#14151f] border border-border/80 rounded-md shadow-2xl p-1 text-xs font-sans text-foreground animate-in fade-in"
-        :style="{ left: `${tabContextMenu.x}px`, top: `${tabContextMenu.y}px` }"
+        class="fixed z-[100] min-w-[190px] bg-[#14151f] border border-border/80 rounded-lg shadow-2xl p-1 text-xs font-sans text-foreground animate-in fade-in zoom-in-95 duration-100"
+        :style="tabContextMenuStyle"
         @click.stop
       >
         <button

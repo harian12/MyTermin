@@ -217,14 +217,6 @@ const contextMenuPos = ref({ x: 0, y: 0 })
 const contextMenuHasSelection = ref(false)
 const contextMenuPaneId = ref('')
 
-const handleGlobalContextMenu = (e: MouseEvent) => {
-  e.preventDefault()
-  contextMenuPos.value = { x: e.clientX, y: e.clientY }
-  contextMenuHasSelection.value = Boolean(window.getSelection()?.toString())
-  contextMenuPaneId.value = activeTerminalId.value
-  contextMenuVisible.value = true
-}
-
 const handlePaneContextMenu = (payload: { x: number; y: number; hasSelection: boolean; paneId: string }) => {
   contextMenuPos.value = { x: payload.x, y: payload.y }
   contextMenuHasSelection.value = payload.hasSelection
@@ -471,7 +463,6 @@ onMounted(() => {
     }
   }
   window.addEventListener('keydown', handleKeydown, true)
-  window.addEventListener('contextmenu', handleGlobalContextMenu)
   requestDesktopNotification()
   setupWindowStatePersistence()
   window.addEventListener('beforeunload', () => {
@@ -488,14 +479,13 @@ onBeforeUnmount(() => {
   unlistenResize?.()
   unlistenMove?.()
   window.removeEventListener('keydown', handleKeydown, true)
-  window.removeEventListener('contextmenu', handleGlobalContextMenu)
 })
 </script>
 
 <template>
   <div
     class="flex flex-col h-screen w-screen bg-background overflow-hidden font-sans select-none"
-    @contextmenu.prevent="handleGlobalContextMenu"
+    @contextmenu.prevent
   >
     <!-- Custom Draggable TitleBar with Workstation Tabs -->
     <TitleBar

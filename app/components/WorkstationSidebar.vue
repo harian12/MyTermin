@@ -131,6 +131,28 @@ const treeContextMenu = ref<{
   entry: null
 })
 
+const treeContextMenuStyle = computed(() => {
+  const menuWidth = 190
+  const menuHeight = 240
+  const winWidth = typeof window !== 'undefined' ? window.innerWidth : 1280
+  const winHeight = typeof window !== 'undefined' ? window.innerHeight : 800
+
+  let posX = treeContextMenu.value.x
+  let posY = treeContextMenu.value.y
+
+  if (posX + menuWidth > winWidth) {
+    posX = Math.max(8, winWidth - menuWidth - 8)
+  }
+  if (posY + menuHeight > winHeight) {
+    posY = Math.max(8, winHeight - menuHeight - 8)
+  }
+
+  return {
+    left: `${Math.max(8, posX)}px`,
+    top: `${Math.max(8, posY)}px`
+  }
+})
+
 const closeTreeContextMenu = () => {
   treeContextMenu.value.visible = false
 }
@@ -1122,8 +1144,8 @@ const finishRename = (termId: string) => {
     <Teleport to="body">
       <div
         v-if="treeContextMenu.visible && treeContextMenu.entry"
-        class="fixed z-[100] min-w-[170px] bg-[#14151f] border border-border/80 rounded-md shadow-2xl p-1 text-xs font-sans text-foreground animate-in fade-in"
-        :style="{ left: `${treeContextMenu.x}px`, top: `${treeContextMenu.y}px` }"
+        class="fixed z-[100] min-w-[175px] bg-[#14151f] border border-border/80 rounded-lg shadow-2xl p-1 text-xs font-sans text-foreground animate-in fade-in zoom-in-95 duration-100"
+        :style="treeContextMenuStyle"
         @click.stop
       >
         <template v-if="treeContextMenu.entry.is_dir">
