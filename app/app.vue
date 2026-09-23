@@ -142,27 +142,29 @@ const setupWindowStatePersistence = async () => {
     // Confirm before closing app while terminal processes are running
     await w.onCloseRequested(async (event) => {
       if (allowWindowClose) return
-      if (!hasRunningProcesses()) {
-        saveSession(false)
-        saveEditorSession()
-        return
-      }
-      event.preventDefault()
-      const ok = await showAppConfirm(
-        'Masih ada proses yang berjalan di terminal (server, build, atau CLI aktif). Yakin ingin keluar?',
-        'Konfirmasi Keluar',
-        'warning',
-        'Keluar'
-      )
-      if (ok) {
-        allowWindowClose = true
-        saveSession(false)
-        saveEditorSession()
-        try {
-          await w.close()
-        } catch {
-          // Silent
+
+      if (hasRunningProcesses()) {
+        const ok = await showAppConfirm(
+          'Masih ada proses yang berjalan di terminal (server, build, atau CLI aktif). Yakin ingin keluar?',
+          'Konfirmasi Keluar',
+          'warning',
+          'Keluar'
+        )
+        if (!ok) {
+          event.preventDefault()
+          return
         }
+      }
+
+      allowWindowClose = true
+      saveSession(false)
+      saveEditorSession()
+
+      try {
+        const { invoke } = await import('@tauri-apps/api/core')
+        await invoke('kill_all_ptys')
+      } catch {
+        // Silent
       }
     })
   } catch {

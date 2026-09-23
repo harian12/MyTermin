@@ -164,11 +164,14 @@ const toggleMaximizeWindow = async () => {
 const closeWindow = async () => {
   if (isTauri.value) {
     try {
-      const { invoke } = await import('@tauri-apps/api/core')
-      await invoke('window_close')
+      const { getCurrentWindow } = await import('@tauri-apps/api/window')
+      await getCurrentWindow().close()
     } catch (e) {
       console.warn('Fallback window close:', e)
-      await getCurrentWindow().close()
+      try {
+        const { invoke } = await import('@tauri-apps/api/core')
+        await invoke('window_destroy')
+      } catch {}
     }
   }
 }

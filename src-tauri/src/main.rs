@@ -1109,6 +1109,12 @@ fn window_close(state: State<'_, PtyManager>, window: tauri::Window) -> Result<(
     window.close().map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+fn window_destroy(state: State<'_, PtyManager>, window: tauri::Window) -> Result<(), String> {
+    state.kill_all();
+    window.destroy().map_err(|e| e.to_string())
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
@@ -1158,7 +1164,8 @@ fn main() {
             reveal_in_explorer,
             window_minimize,
             window_toggle_maximize,
-            window_close
+            window_close,
+            window_destroy
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
