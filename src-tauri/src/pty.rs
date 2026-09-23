@@ -317,7 +317,6 @@ impl PtyManager {
             if let Some(raw_pid) = session.pid {
                 let parent_sys_pid = Pid::from_u32(raw_pid);
                 let mut total_cpu = 0.0f32;
-                let mut total_mem_bytes = 0u64;
                 let mut is_running = false;
                 let mut main_proc_name = String::new();
                 let mut child_count = 0usize;

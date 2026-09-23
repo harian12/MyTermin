@@ -1,79 +1,72 @@
 # MyTermin 🚀
 
-Aplikasi desktop multi-terminal modern untuk Windows yang dibangun menggunakan **Tauri v2 (Rust `portable-pty`)**, **Nuxt 4**, **Shadcn UI**, dan **xterm.js**. Dirancang khusus untuk workflow developer cepat, AI-assisted CLI, dan multi-tasking tanpa lag.
+Aplikasi desktop developer workspace modern untuk Windows yang menggabungkan **Multi-Terminal Workspace** dan **Monaco Code Editor**, dibangun menggunakan **Tauri v2 (Rust `portable-pty`)**, **Nuxt 4**, **Monaco Editor**, dan **xterm.js**. Dirancang untuk workflow developer cepat, AI-assisted coding/CLI, dan multi-tasking tanpa lag.
 
 ---
 
-## ✨ Fitur Utama
+## ✨ Fitur Utama (v0.2.0)
 
-1. **Dynamic Grid Layout & Sliding Window Viewport**
-   - **Single View**: Tampilan 1 terminal fokus penuh.
-   - **2-Split Horizontal**: 2 terminal bersebelahan (*side-by-side*).
-   - **2-Split Vertical**: 2 terminal bertumpuk (*top-bottom*).
-   - **4-Grid (2x2 Quad)**: Menampilkan hingga 4 sesi terminal secara simultan dalam 1 layar.
-   - **Sliding Window Grid**: Jika jumlah tab melebihi kapasitas layout (misal 3 tab pada 2-split), viewport grid otomatis bergeser mengikuti tab aktif saat navigasi (`Ctrl+Tab` dari tab 2 ke 3 menampilkan tab 2 & 3, kembali ke tab 1 menampilkan tab 1 & 2). Seluruh sesi terminal tetap aktif di memori tanpa diputus.
+1. **Multi-Workstation Workspace**
+   - Bekerja pada beberapa proyek terisolasi secara bersamaan (*isolated folder context*).
+   - Tab workstation dinamis di TitleBar dengan dukungan *drag-and-drop reorder*, ganti nama, dan penutupan aman (dengan konfirmasi jika ada proses aktif).
+   - Setiap workstation mempertahankan sesi terminal, file editor terbuka, dan konfigurasi layout secara mandiri.
 
-2. **Cyclic Tab Switching & Tab Management**
-   - Navigasi tab memutar (*cyclic*) memakai `Ctrl+Tab` dan `Ctrl+Shift+Tab` tanpa tertelan oleh PTY.
-   - Reorder posisi tab dengan klik-tahan dan geser (*drag-and-drop*) langsung pada title bar.
-   - Buka tab baru (`Ctrl+T`) atau tombol `+` di title bar.
-   - Duplikasi tab aktif (`Ctrl+Shift+D` atau tombol *Copy* pada tab) dengan path & konfigurasi sama.
-   - Rename tab fleksibel dengan klik dua kali (*double-click*) atau tombol *Pencil*.
-   - Tutup tab terminal (`Ctrl+W` atau tombol `X`). Saat seluruh tab ditutup, aplikasi masuk ke mode *Empty State*.
+2. **Integrated Monaco Code Editor & Split View**
+   - Code editor bertenaga Monaco (seperti VS Code) dengan tema gelap terintegrasi (`mytermin-dark`), minimap, bracket matching, dan code folding.
+   - Layout split horizontal & vertikal interaktif antara Code Editor dan Terminal dengan resizer *drag-and-drop*.
+   - Auto-format kode otomatis menggunakan **Prettier** terintegrasi (`Shift + Alt + F` atau tombol format).
+   - Git Diff Viewer side-by-side untuk memeriksa perubahan kode sebelum commit.
+   - Context menu tab lengkap: Simpan, Tutup ke Kanan, Tutup Lainnya, Buka di Explorer, dan Salin Path Relatif.
 
-3. **Workspace Presets & Quick Actions**
-   - Template workspace sekali klik:
-     - **AI Developer Suite**: Membuka 4 terminal sekaligus (*OpenCode*, *Codex*, *Dev Server*, *Git Watcher*).
-     - **OpenCode + Terminal**: 2 terminal vertikal untuk coding & eksekusi cepat.
-     - **Full Stack Dev**: Web dev, backend, dan CLI console.
-   - Simpan konfigurasi workspace saat ini menjadi custom preset baru (bisa diedit dan dihapus kapan saja).
-   - Quick CLI runner per panel: Jalankan perintah instan seperti `opencode`, `codex`, `bun run dev`, `npm run dev`, atau `git status`.
-   - Drag & drop file dari File Explorer langsung ke panel terminal (path otomatis disisipkan).
-   - Context menu klik kanan lengkap: Copy, Paste, Clear, Duplicate, Ubah Layout.
+3. **Project File Explorer & Git Source Control**
+   - Sidebar navigasi berkas terintegrasi (`Ctrl + B`) dengan pohon folder, indikator status Git real-time (Modified, Untracked, Deleted), dan aksi cepat file (Buat File/Folder, Rename, Delete).
+   - Panel Git terintegrasi: Stage/Unstage berkas, Discard changes, Git commit dengan pesan, Push & Pull, riwayat log commit, dan modal pergantian Git branch.
 
-4. **Auto-Restore & Session Persistence**
-   - Menyimpan daftar tab, shell, dan layout terakhir secara otomatis di local storage.
-   - Dapat diaktifkan/dinonaktifkan melalui menu Settings.
-   - Tombol **Save** manual di title bar untuk menyimpan snapshot sesi kerja.
+4. **Pencarian Cepat & Global Search**
+   - **Quick File Picker (`Ctrl + P`)**: Cari dan buka berkas proyek secara instan dengan fuzzy search.
+   - **Global Search in Files (`Ctrl + Shift + F`)**: Cari teks di seluruh berkas proyek dengan filter regex, match case, dan fitur *Replace All* langsung dari dialog.
+   - **Terminal Buffer Search (`Ctrl + F`)**: Pencarian buffer teks di terminal aktif.
 
-5. **Pencarian Buffer (`Ctrl+F`) & Export Log**
-   - Search bar interaktif dalam terminal untuk mencari teks riwayat buffer secara real-time dengan dukungan *match case* dan navigasi sebelumnya/berikutnya (`Enter` / `Shift+Enter`).
-   - Export seluruh buffer log terminal aktif ke file teks `.txt` sekali klik langsung dari header tab atau context menu.
+5. **Dynamic Terminal Grid Layout & Sliding Viewport**
+   - Pilihan layout fleksibel: **Single View**, **2-Split Horizontal**, **2-Split Vertical**, dan **4-Grid (2x2 Quad)**.
+   - **Sliding Window Grid**: Tab berlebih tetap aktif di memori dan viewport bergeser otomatis saat navigasi `Ctrl + Tab`.
+   - Terminal Font Zoom instan menggunakan `Ctrl + Mouse Wheel` atau `Ctrl + Plus/Minus/0`.
 
-6. **Akselerasi GPU (WebGL) & Font Ligatures**
-   - Dukungan hardware-accelerated rendering menggunakan `@xterm/addon-webgl` untuk performa mulus 60 FPS.
-   - Dukungan font ligatures simbol pemrograman (`=>`, `!=`, `===`) via `@xterm/addon-ligatures`.
-   - Pilihan preset font populer (Cascadia Code, Fira Code, JetBrains Mono, MesloLGS NF, Consolas, Source Code Pro) atau font kustom.
-   - Konfigurasi ukuran scrollback buffer hingga 50.000 baris.
+6. **Keyboard Shortcuts Cheatsheet & Customization**
+   - Akses daftar seluruh tombol pintas via **Cheatsheet Modal (`F1` atau `Ctrl + /`)**.
+   - Kustomisasi keybinding langsung di menu Pengaturan.
 
-7. **Notifikasi Desktop OS & Indikator Status Background**
-   - Indikator visual aktivitas pada tab (titik hijau berkedip saat perintah berjalan di tab latar belakang, titik biru saat selesai).
-   - Notifikasi toast native OS saat proses jangka panjang di background atau jendela terminimalisir selesai dieksekusi.
-
-8. **Kustomisasi Shortcut & Presisi Navigasi**
-   - Pengaturan ulang tombol pintas (*Keybinding Editor*) langsung di modal Settings.
-   - Pelacakan CWD proses shell real-time: duplikasi tab (`Ctrl+Shift+D`) secara cerdas mewarisi direktori kerja aktif terakhir.
+7. **Window State & Session Persistence**
+   - Ukuran dan posisi jendela desktop otomatis disimpan dan dipulihkan saat aplikasi dibuka kembali.
+   - Auto-restore sesi terminal dan daftar berkas terbuka saat aplikasi restart.
 
 ---
 
-## ⌨️ Shortcut Keyboard
+## ⌨️ Shortcut Keyboard Utama
 
 | Shortcut | Aksi |
 |---|---|
-| `Ctrl + K` | Buka **Command Palette** (Pencarian cepat tab, preset, layout, command, theme) |
-| `Ctrl + F` | Buka **Pencarian Buffer** terminal |
+| `F1` / `Ctrl + /` | Buka **Keyboard Shortcuts Cheatsheet** |
+| `Ctrl + P` | Buka **Quick File Picker** (Cari berkas proyek) |
+| `Ctrl + Shift + F` | Buka **Global Search in Files** (Cari & Ganti di semua berkas) |
+| `Ctrl + K` | Buka **Command Palette** |
+| `Ctrl + B` | Toggle **Sidebar Workstation / File Explorer** |
+| `Ctrl + S` | Simpan berkas aktif di Code Editor |
+| `Ctrl + Shift + S` | Simpan semua berkas terbuka (*Save All*) |
+| `Shift + Alt + F` | Format kode aktif dengan Prettier |
+| `Alt + Z` | Toggle Word Wrap di Code Editor |
 | `Ctrl + T` | Buka tab terminal baru |
-| `Ctrl + W` | Tutup tab terminal aktif |
-| `Ctrl + Tab` | Pindah ke tab berikutnya (*Next Tab*) |
-| `Ctrl + Shift + Tab` | Pindah ke tab sebelumnya (*Previous Tab*) |
-| `Ctrl + Shift + Left / PageUp` | Geser posisi tab aktif ke kiri |
-| `Ctrl + Shift + Right / PageDown` | Geser posisi tab aktif ke kanan |
-| `Ctrl + Shift + D` | Duplikasi tab aktif (*Duplicate Tab* dengan CWD sama) |
-| `Ctrl + Shift + G` | Ubah layout ke **4-Grid (2x2)** |
+| `Ctrl + W` | Tutup tab aktif (Editor tab jika fokus di editor, Terminal jika di terminal) |
+| `Ctrl + Shift + T` | Buka kembali tab file yang baru ditutup (*Reopen Closed Tab*) |
+| `Ctrl + Shift + W` | Tutup workstation aktif |
+| `Ctrl + Tab` | Pindah ke tab terminal berikutnya |
+| `Ctrl + Shift + Tab` | Pindah ke workstation berikutnya |
+| `Ctrl + Shift + L` | Ubah layout ke **Single Terminal** |
 | `Ctrl + Shift + E` | Ubah layout ke **2-Split Horizontal** |
 | `Ctrl + Shift + O` | Ubah layout ke **2-Split Vertical** |
-| `Ctrl + Shift + S` | Ubah layout ke **Single Terminal** |
-| `Ctrl + Shift + P` | Buka dialog **Workspace Presets** |
+| `Ctrl + Shift + G` | Ubah layout ke **4-Grid (2x2)** |
+| `Ctrl + Shift + D` | Duplikasi tab terminal dengan direktori kerja yang sama |
+| `Ctrl + +` / `Ctrl + -` / `Ctrl + 0` | Zoom in / Zoom out / Reset ukuran font terminal |
 
 ---
 
@@ -84,20 +77,6 @@ Aplikasi desktop multi-terminal modern untuk Windows yang dibangun menggunakan *
 - **Node.js**: v18.0.0 atau lebih baru
 - **Rust & Cargo**: Versi stabil terbaru ([rustup.rs](https://rustup.rs/))
 - **Visual Studio C++ Build Tools**: Komponen desktop C++ untuk kompilasi Rust di Windows
-
-### Linux (Ubuntu / Debian / Arch / Fedora):
-- **OS**: Linux x86_64
-- **Node.js**: v18.0.0 atau lebih baru
-- **Rust & Cargo**: Versi stabil terbaru ([rustup.rs](https://rustup.rs/))
-- **System Packages** (Ubuntu / Debian):
-  ```bash
-  sudo apt update
-  sudo apt install -y libwebkit2gtk-4.1-dev build-essential curl wget file libssl-dev libayatana-appindicator3-dev librsvg2-dev
-  ```
-- **System Packages** (Arch Linux):
-  ```bash
-  sudo pacman -S --needed webkit2gtk-4.1 base-devel curl wget openssl libappindicator-gtk3 librsvg
-  ```
 
 ---
 
@@ -112,55 +91,22 @@ Aplikasi desktop multi-terminal modern untuk Windows yang dibangun menggunakan *
    ```bash
    npx @tauri-apps/cli dev
    ```
-   *Nuxt development server akan berjalan otomatis dan jendela desktop Tauri akan terbuka.*
 
 ---
 
-## 📦 Build Binary Executable
+## 📦 Build Binary Executable (Production Release)
 
 ### 🪟 Windows (.exe & Installer NSIS)
 
-#### 1. Build Debug (Cepat, untuk testing lokal)
-```powershell
-npm.cmd run generate
-npx.cmd @tauri-apps/cli build --debug --no-bundle
-```
-Hasil file: `src-tauri/target/debug/mytermin.exe`
-
-#### 2. Build Production Release (Installer NSIS + Portable .exe)
 ```powershell
 npm.cmd run generate
 npx.cmd @tauri-apps/cli build
 ```
+
 Hasil file release:
+- **Installer Windows (.exe Setup)**: `src-tauri/target/release/bundle/nsis/MyTermin_0.2.0_x64-setup.exe`
+- **Installer MSI**: `src-tauri/target/release/bundle/msi/MyTermin_0.2.0_x64_en-US.msi`
 - **Portable Executable**: `src-tauri/target/release/mytermin.exe`
-- **Installer Windows (.exe Setup)**: `src-tauri/target/release/bundle/nsis/MyTermin_0.1.1_x64-setup.exe`
-
----
-
-### 🐧 Linux (.AppImage & .deb)
-
-Di lingkungan Linux (atau via WSL2 / Docker / CI-CD):
-
-```bash
-# 1. Pastikan dependencies sistem terinstall
-sudo apt update
-sudo apt install -y libwebkit2gtk-4.1-dev build-essential curl wget file libssl-dev libayatana-appindicator3-dev librsvg2-dev
-
-# 2. Build frontend Nuxt
-npm run generate
-
-# 3. Compile binary & package Tauri
-npx @tauri-apps/cli build
-```
-
-Hasil file release di Linux:
-- **AppImage (Universal Standalone Linux)**:  
-  `src-tauri/target/release/bundle/appimage/mytermin_0.1.1_amd64.AppImage`
-- **Debian/Ubuntu Package (.deb)**:  
-  `src-tauri/target/release/bundle/deb/mytermin_0.1.1_amd64.deb`
-- **Binary Executable Mandiri**:  
-  `src-tauri/target/release/mytermin`
 
 ---
 
@@ -169,30 +115,46 @@ Hasil file release di Linux:
 ```
 MyTermin/
 ├── app/
-│   ├── app.vue                 # Root component, layout frame & shortcut listener
+│   ├── app.vue                     # Root component, layout frame & global shortcuts
 │   ├── components/
-│   │   ├── AppLogo.vue         # Logo SVG aplikasi & icon tab
-│   │   ├── LayoutGrid.vue      # Dynamic Grid renderer & Empty State
-│   │   ├── PresetModal.vue     # Dialog pemilihan template workspace
-│   │   ├── SettingsModal.vue   # Dialog pengaturan tema, shell, font & sesi
-│   │   ├── TerminalPane.vue    # Instance xterm.js & PTY bridge IPC
-│   │   ├── TitleBar.vue        # Header bar, tab bar & window controls
-│   │   └── ui/                 # Komponen UI (Button, Dialog, Input, Switch, dsb.)
+│   │   ├── AppGlobalDialog.vue     # Modal konfirmasi/alert pengganti dialog native
+│   │   ├── AppLogo.vue             # Komponen logo aplikasi
+│   │   ├── CodeEditorPane.vue      # Panel Monaco editor multi-tab & split view
+│   │   ├── FileTreeNode.vue        # Item navigasi pohon folder & git indicator
+│   │   ├── GlobalSearchModal.vue   # Pencarian & penggantian teks lintas file
+│   │   ├── LayoutGrid.vue          # Dynamic Grid terminal & viewport sliding window
+│   │   ├── MonacoDiffEditor.vue    # Side-by-side Git Diff viewer
+│   │   ├── MonacoEditor.vue        # Wrapper Monaco Code Editor
+│   │   ├── PresetModal.vue         # Modal template workspace multi-workstation
+│   │   ├── QuickFilePickerModal.vue# Dialog pencarian file cepat (Ctrl+P)
+│   │   ├── SettingsModal.vue       # Dialog konfigurasi tema, shell, font & keybindings
+│   │   ├── ShortcutsCheatsheetModal.vue # Dialog cheatsheet daftar shortcut (F1)
+│   │   ├── TerminalPane.vue        # Instance xterm.js dengan font zoom & PTY bridge
+│   │   ├── TitleBar.vue            # Workstation tabs bar, controls & window title
+│   │   ├── WorkstationSidebar.vue  # Sidebar Explorer, Git tools, dan daftar terminal
+│   │   └── ui/                     # UI Primitives
 │   ├── composables/
-│   │   ├── useSettingsStore.ts  # State pengaturan terminal & tema
-│   │   ├── useTauriPty.ts      # Bridge IPC Tauri ConPTY backend
-│   │   ├── useThemes.ts        # Definisi palet warna tema terminal
-│   │   └── useWorkspaceStore.ts# State management tab, layout & persistence
+│   │   ├── useAppDialog.ts         # Composable dialog global
+│   │   ├── useEditorStore.ts       # State management file & tabs code editor
+│   │   ├── useProjectExplorer.ts   # File operations & Git bridge backend
+│   │   ├── useSettingsStore.ts     # Pengaturan terminal, tema, & keybindings
+│   │   ├── useTauriPty.ts          # Bridge IPC Tauri ConPTY backend
+│   │   └── useWorkspaceStore.ts    # Multi-workstation state & terminal management
+│   ├── utils/
+│   │   └── formatter.ts            # Prettier code formatter standalone
 │   └── types/
-│       └── terminal.ts         # Deklarasi interface TypeScript
+│       └── terminal.ts             # TypeScript interfaces & types
+├── public/
+│   ├── favicon.ico                 # Icon browser / preview
+│   └── logo.svg                    # Vector brand logo MyTermin
 ├── src-tauri/
-│   ├── Cargo.toml              # Dependensi Rust (tauri, portable-pty)
-│   ├── icons/                  # Icon aplikasi multi-resolusi Windows
+│   ├── Cargo.toml                  # Dependensi Rust backend
+│   ├── icons/                      # Icon aplikasi multi-platform
 │   ├── src/
-│   │   ├── main.rs             # Entry point backend Tauri
-│   │   └── pty.rs              # ConPTY manager via portable-pty
-│   └── tauri.conf.json         # Konfigurasi window & bundle Tauri
-├── nuxt.config.ts              # Konfigurasi Nuxt 4 & Tailwind CSS
-├── package.json                # Skrip & package frontend
-└── README.md                   # Dokumentasi proyek
+│   │   ├── main.rs                 # Tauri commands (Git, File Ops, Search/Replace)
+│   │   └── pty.rs                  # PTY manager (portable-pty)
+│   └── tauri.conf.json             # Konfigurasi Tauri v2 & bundle targets
+├── nuxt.config.ts                  # Konfigurasi Nuxt 4 SPA
+├── package.json                    # Dependensi frontend & build scripts
+└── README.md                       # Dokumentasi proyek
 ```
