@@ -317,7 +317,7 @@ const handleKeydown = (e: KeyboardEvent) => {
   }
 
   // Cyclic navigation: Ctrl+Tab (Terminal Tabs) & Ctrl+Shift+Tab (Workstations)
-  if (e.ctrlKey && e.key === 'Tab') {
+  if (e.ctrlKey && (e.key === 'Tab' || e.code === 'Tab')) {
     e.preventDefault()
     if (e.shiftKey) {
       nextWorkstation()

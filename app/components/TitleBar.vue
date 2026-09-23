@@ -32,6 +32,20 @@ const {
 const { isTauri } = useTauriPty()
 const { gitBranch } = useProjectExplorer()
 
+const wsTabsRef = ref<HTMLElement | null>(null)
+const handleWsTabsWheel = (e: WheelEvent) => {
+  if (wsTabsRef.value && e.deltaY !== 0) {
+    wsTabsRef.value.scrollLeft += e.deltaY
+  }
+}
+
+watch(activeWorkstationId, () => {
+  nextTick(() => {
+    const activeEl = wsTabsRef.value?.querySelector(`[data-ws-tab-id="${activeWorkstationId.value}"]`) as HTMLElement
+    activeEl?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' })
+  })
+})
+
 const emit = defineEmits<{
   (e: 'open-presets'): void
   (e: 'open-settings'): void
@@ -166,7 +180,7 @@ const closeWindow = async () => {
     data-tauri-drag-region
   >
     <!-- Left: App Brand & Workstation Tabs -->
-    <div class="flex items-center gap-1.5 max-w-[65%] overflow-x-auto no-scrollbar">
+    <div class="flex items-center gap-1.5 flex-1 min-w-0 mr-2">
       <div
         class="flex items-center gap-2 px-2 text-white font-bold text-sm tracking-wide flex-shrink-0 cursor-default"
         data-tauri-drag-region
@@ -178,7 +192,7 @@ const closeWindow = async () => {
       <!-- Toggle Sidebar Button -->
       <button
         :class="[
-          'p-1.5 rounded transition-colors mr-1 cursor-pointer',
+          'p-1.5 rounded transition-colors mr-1 cursor-pointer flex-shrink-0',
           isSidebarOpen ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:bg-[#181924] hover:text-foreground'
         ]"
         title="Toggle Sidebar Workstation (Ctrl+B)"
@@ -187,14 +201,19 @@ const closeWindow = async () => {
         <PanelLeft class="w-3.5 h-3.5" />
       </button>
 
-      <!-- Workstation Tabs (Draggable & Reorderable) -->
-      <div class="flex items-center gap-1">
+      <!-- Workstation Tabs (Draggable & Reorderable & Scrollable) -->
+      <div
+        ref="wsTabsRef"
+        class="flex items-center gap-1 overflow-x-auto no-scrollbar scroll-smooth flex-1 min-w-0 py-0.5"
+        @wheel.passive="handleWsTabsWheel"
+      >
         <div
           v-for="(ws, index) in workstations"
           :key="ws.id"
           :data-ws-tab-index="index"
+          :data-ws-tab-id="ws.id"
           :class="[
-            'group flex items-center gap-1.5 px-3 py-1 text-xs rounded-t-md transition-all border-b-2 font-medium cursor-pointer relative select-none touch-none',
+            'group flex items-center gap-1.5 px-3 py-1 text-xs rounded-t-md transition-all border-b-2 font-medium cursor-pointer relative select-none touch-none flex-shrink-0',
             activeWorkstationId === ws.id
               ? 'bg-[#1e1f2b] text-foreground border-primary'
               : 'text-muted-foreground hover:bg-[#181924] hover:text-foreground border-transparent',

@@ -3,6 +3,8 @@ import type { TerminalTab, WorkspacePreset, LayoutType, TerminalSettings, Workst
 const STORAGE_KEY = 'mytermin_session_v5'
 const CUSTOM_PRESETS_KEY = 'mytermin_custom_presets_v1'
 
+const generateUid = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+
 const defaultBuiltInPresets: WorkspacePreset[] = []
 
 const createDefaultWorkstation = (id = 'ws-1', name = 'Workstation 1'): Workstation => ({
@@ -116,9 +118,12 @@ export const useWorkspaceStore = () => {
   // Workstation management
   const addWorkstation = (name?: string, layout: LayoutType = 'grid-2x2', initialTerminals?: TerminalTab[]) => {
     const num = workstations.value.length + 1
-    const newWsId = `ws-${Date.now()}`
+    const newWsId = generateUid('ws')
     const termList = initialTerminals && initialTerminals.length > 0
-      ? initialTerminals
+      ? initialTerminals.map((t, idx) => ({
+          ...t,
+          id: t.id ? t.id : generateUid(`term-${idx + 1}`)
+        }))
       : []
 
     const newWs: Workstation = {
@@ -356,11 +361,40 @@ export const useWorkspaceStore = () => {
       if (rawV5) {
         const parsed = JSON.parse(rawV5)
         if (Array.isArray(parsed.workstations) && parsed.workstations.length > 0) {
+          // Self-healing: Deduplicate workstation IDs if they were duplicated
+          const seenWsIds = new Set<string>()
+          parsed.workstations.forEach((ws: Workstation, i: number) => {
+            if (!ws.id || seenWsIds.has(ws.id)) {
+              ws.id = generateUid(`ws-${i + 1}`)
+            }
+            seenWsIds.add(ws.id)
+
+            // Deduplicate terminal IDs
+            const seenTermIds = new Set<string>()
+            if (Array.isArray(ws.terminals)) {
+              ws.terminals.forEach((t: TerminalTab, tIdx: number) => {
+                if (!t.id || seenTermIds.has(t.id)) {
+                  t.id = generateUid(`term-${tIdx + 1}`)
+                }
+                seenTermIds.add(t.id)
+              })
+            } else {
+              ws.terminals = []
+            }
+            if (!ws.terminals.some(t => t.id === ws.activeTerminalId)) {
+              ws.activeTerminalId = ws.terminals[0]?.id || ''
+            }
+          })
+
           workstations.value = parsed.workstations
-          activeWorkstationId.value = parsed.activeWorkstationId || parsed.workstations[0].id
+          activeWorkstationId.value = parsed.workstations.some((w: Workstation) => w.id === parsed.activeWorkstationId)
+            ? parsed.activeWorkstationId
+            : parsed.workstations[0].id
+
           if (typeof parsed.isSidebarOpen === 'boolean') {
             isSidebarOpen.value = parsed.isSidebarOpen
           }
+          saveSession(false)
           return
         }
       }
@@ -415,7 +449,7 @@ export const useWorkspaceStore = () => {
     const ws = workstations.value.find(w => w.id === activeWorkstationId.value)
     if (!ws) return
     const termNum = ws.terminals.length + 1
-    const newId = `term-${Date.now()}`
+    const newId = generateUid('term')
     const targetCwd = presetTerminal?.cwd || ws.folderPath
     ws.terminals.push({
       id: newId,
@@ -447,7 +481,7 @@ export const useWorkspaceStore = () => {
       // Fallback
     }
 
-    const newId = `term-${Date.now()}`
+    const newId = generateUid('term')
     const copyTitle = `${sourceTerm.title} (Copy)`
     const sourceIdx = ws.terminals.findIndex(t => t.id === sourceId)
     const newTerm: TerminalTab = {
@@ -549,7 +583,7 @@ export const useWorkspaceStore = () => {
         let firstCreatedId: string | null = null
         for (const wsConfig of preset.workstations) {
           const termList: TerminalTab[] = wsConfig.terminals.map((t, idx) => ({
-            id: `term-${Date.now()}-${Math.random().toString(36).substr(2, 5)}-${idx + 1}`,
+            id: generateUid(`term-${idx + 1}`),
             title: t.title,
             initialCommand: t.command,
             shell: t.shell,
@@ -575,7 +609,7 @@ export const useWorkspaceStore = () => {
           currentWs.name = first.name
           if (first.folderPath) currentWs.folderPath = first.folderPath
           currentWs.terminals = first.terminals.map((t, idx) => ({
-            id: `term-${Date.now()}-${idx + 1}`,
+            id: generateUid(`term-${idx + 1}`),
             title: t.title,
             initialCommand: t.command,
             shell: t.shell,
@@ -587,7 +621,7 @@ export const useWorkspaceStore = () => {
         for (let i = 1; i < preset.workstations.length; i++) {
           const wsConfig = preset.workstations[i]
           const termList: TerminalTab[] = wsConfig.terminals.map((t, idx) => ({
-            id: `term-${Date.now()}-${idx + 1}`,
+            id: generateUid(`term-${idx + 1}`),
             title: t.title,
             initialCommand: t.command,
             shell: t.shell,
@@ -603,7 +637,7 @@ export const useWorkspaceStore = () => {
 
     // Fallback for single preset
     const termList: TerminalTab[] = (preset.terminals || []).map((t, idx) => ({
-      id: `term-${Date.now()}-${idx + 1}`,
+      id: generateUid(`term-${idx + 1}`),
       title: t.title,
       initialCommand: t.command,
       shell: t.shell,
