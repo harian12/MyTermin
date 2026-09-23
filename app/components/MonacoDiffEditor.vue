@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import * as monaco from 'monaco-editor'
+import { computeLineDiff } from '~/utils/diffComputer'
 
 const props = withDefaults(
   defineProps<{
@@ -81,12 +82,12 @@ const ensureTheme = () => {
       'editor.selectionBackground': '#2d3748',
       'editor.inactiveSelectionBackground': '#1f2937',
       // Git Diff Highlighting Colors (GitHub & VS Code style: Green + Red)
-      'diffEditor.insertedTextBackground': '#10b98130',
-      'diffEditor.insertedLineBackground': '#10b98115',
-      'diffEditor.removedTextBackground': '#ef444430',
-      'diffEditor.removedLineBackground': '#ef444415',
-      'diffEditorGutter.insertedLineBackground': '#10b98140',
-      'diffEditorGutter.removedLineBackground': '#ef444440',
+      'diffEditor.insertedTextBackground': '#10b98135',
+      'diffEditor.insertedLineBackground': '#10b98118',
+      'diffEditor.removedTextBackground': '#ef444435',
+      'diffEditor.removedLineBackground': '#ef444418',
+      'diffEditorGutter.insertedLineBackground': '#10b98150',
+      'diffEditorGutter.removedLineBackground': '#ef444450',
       'diffEditorOverview.insertedForeground': '#10b981',
       'diffEditorOverview.removedForeground': '#ef4444',
       'diffEditor.diagonalFill': '#181924'
@@ -120,9 +121,20 @@ onMounted(() => {
     renderIndicators: true,
     renderMarginRevertIcon: true,
     enableSplitViewResizing: true,
-    diffAlgorithm: 'legacy',
     ignoreTrimWhitespace: false,
-    useInlineViewWhenSpaceIsLimited: false
+    useInlineViewWhenSpaceIsLimited: false,
+    diffAlgorithm: {
+      computeDiff: (original: any, modified: any) => {
+        try {
+          const originalLines = original?.getLinesContent ? original.getLinesContent() : String(original || '').split(/\r\n|\r|\n/)
+          const modifiedLines = modified?.getLinesContent ? modified.getLinesContent() : String(modified || '').split(/\r\n|\r|\n/)
+          return computeLineDiff(originalLines, modifiedLines)
+        } catch (e) {
+          console.error('Diff computation error:', e)
+          return { changes: [], moves: [], identical: false, quitEarly: false }
+        }
+      }
+    } as any
   })
 
   diffEditor.setModel({
