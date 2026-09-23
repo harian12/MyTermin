@@ -39,6 +39,7 @@ const {
   splitOrientation,
   isAutoSave,
   isWordWrap,
+  lastFocusedPane,
   isEditorVisible,
   editorNotification,
   unsavedConfirmFile,
@@ -194,7 +195,13 @@ const toggleFullscreenEditor = () => {
 </script>
 
 <template>
-  <div v-if="isEditorVisible" class="flex flex-col h-full w-full bg-[#12131a] border-r border-border/80 select-none overflow-hidden relative">
+  <div
+    v-if="isEditorVisible"
+    id="code-editor-pane"
+    class="flex flex-col h-full w-full bg-[#12131a] border-r border-border/80 select-none overflow-hidden relative"
+    @click="lastFocusedPane = 'editor'"
+    @focusin="lastFocusedPane = 'editor'"
+  >
     <!-- Top Tabs Bar for Open Files -->
     <div class="flex items-center justify-between h-9 bg-[#0d0e14] border-b border-border px-1 overflow-x-auto no-scrollbar">
       <div class="flex items-center gap-1 overflow-x-auto no-scrollbar flex-1 min-w-0">

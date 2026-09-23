@@ -98,6 +98,7 @@ onMounted(() => {
   if (!containerRef.value) return
 
   ensureTheme()
+  monaco.editor.setTheme('mytermin-dark')
 
   const language = getLanguageFromFilename(props.filename)
   originalModel = monaco.editor.createModel(props.originalValue, language)
@@ -119,13 +120,16 @@ onMounted(() => {
     renderIndicators: true,
     renderMarginRevertIcon: true,
     enableSplitViewResizing: true,
-    diffAlgorithm: 'advanced'
+    diffAlgorithm: 'advanced',
+    useInlineViewWhenSpaceIsLimited: false
   })
 
   diffEditor.setModel({
     original: originalModel,
     modified: modifiedModel
   })
+
+  diffEditor.getModifiedEditor().focus()
 
   modifiedModel.onDidChangeContent(() => {
     if (modifiedModel) {

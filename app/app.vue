@@ -33,6 +33,7 @@ const {
   viewportMode,
   splitOrientation,
   openFiles,
+  lastFocusedPane,
   activeFile,
   activeFileId,
   closeActiveFile,
@@ -335,13 +336,12 @@ const handleKeydown = (e: KeyboardEvent) => {
   if (e.ctrlKey && (e.key === 'Tab' || e.code === 'Tab')) {
     e.preventDefault()
     const activeEl = typeof document !== 'undefined' ? document.activeElement : null
-    const isInsideEditor = Boolean(
-      activeEl?.closest('.monaco-editor') ||
-      activeEl?.closest('#code-editor-pane') ||
-      activeEl?.closest('#editor-terminal-container > div:first-child')
-    )
+    const isDirectlyInTerminal = Boolean(activeEl?.closest('.xterm') || activeEl?.closest('#terminal-grid-container'))
+    const isDirectlyInEditor = Boolean(activeEl?.closest('.monaco-editor') || activeEl?.closest('#code-editor-pane') || activeEl?.closest('.monaco-diff-editor'))
 
-    if (isInsideEditor && isEditorVisible.value && openFiles.value.length > 0) {
+    const isEditorActive = isDirectlyInEditor || (!isDirectlyInTerminal && lastFocusedPane.value === 'editor')
+
+    if (isEditorActive && isEditorVisible.value && openFiles.value.length > 0) {
       if (e.shiftKey) {
         prevFileTab()
       } else {

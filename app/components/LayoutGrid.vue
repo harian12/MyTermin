@@ -32,7 +32,7 @@ const {
   setLayout
 } = useWorkspaceStore()
 
-const { viewportMode, openFiles } = useEditorStore()
+const { viewportMode, openFiles, lastFocusedPane } = useEditorStore()
 const { pickFolder, setWorkstationFolder, recentProjects } = useProjectExplorer()
 
 const editingTermId = ref<string | null>(null)
@@ -283,7 +283,11 @@ const gridClass = computed(() => {
 </script>
 
 <template>
-  <div class="w-full h-full bg-[#12131a] relative flex flex-col min-h-0 min-w-0 select-none overflow-hidden">
+  <div
+    class="w-full h-full bg-[#12131a] relative flex flex-col min-h-0 min-w-0 select-none overflow-hidden"
+    @click="lastFocusedPane = 'terminal'"
+    @focusin="lastFocusedPane = 'terminal'"
+  >
     <!-- Top Terminal Tabs & Grid Toolbar (Mirip Tabs Code Editor) -->
     <div class="flex items-center justify-between h-9 bg-[#0d0e14] border-b border-border px-1 overflow-x-auto no-scrollbar flex-shrink-0">
       <!-- Left: Terminal Tabs List -->

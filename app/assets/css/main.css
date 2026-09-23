@@ -64,3 +64,50 @@
   width: 100%;
 }
 
+/* Monaco Diff Editor GitHub-Style Highlighting (Green Additions / Red Deletions) */
+.monaco-diff-editor .line-insert,
+.monaco-diff-editor .ced-diff-inserted,
+.monaco-diff-editor .inserted-line,
+.monaco-editor .cdr.line-insert {
+  background-color: rgba(16, 185, 129, 0.22) !important;
+}
+
+.monaco-diff-editor .char-insert,
+.monaco-diff-editor .insert-sign,
+.monaco-editor .cdr.char-insert {
+  background-color: rgba(16, 185, 129, 0.45) !important;
+  border-radius: 2px;
+}
+
+.monaco-diff-editor .line-delete,
+.monaco-diff-editor .ced-diff-deleted,
+.monaco-diff-editor .deleted-line,
+.monaco-editor .cdr.line-delete {
+  background-color: rgba(239, 68, 68, 0.22) !important;
+}
+
+.monaco-diff-editor .char-delete,
+.monaco-diff-editor .delete-sign,
+.monaco-editor .cdr.char-delete {
+  background-color: rgba(239, 68, 68, 0.45) !important;
+  border-radius: 2px;
+}
+
+.monaco-diff-editor .diffOverview {
+  background: #12131a !important;
+}
+
+.monaco-diff-editor .diffRange {
+  background-color: rgba(99, 102, 241, 0.2) !important;
+}
+
+.monaco-diff-editor .diagonal-fill {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    rgba(255, 255, 255, 0.03),
+    rgba(255, 255, 255, 0.03) 6px,
+    transparent 6px,
+    transparent 12px
+  ) !important;
+}
+

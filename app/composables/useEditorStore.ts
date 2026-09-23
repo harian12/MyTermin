@@ -33,6 +33,7 @@ export const useEditorStore = () => {
   const splitOrientation = useState<'horizontal' | 'vertical'>('workspace-split-orientation', () => 'horizontal')
   const isAutoSave = useState<boolean>('editor-auto-save-mode', () => false)
   const isWordWrap = useState<boolean>('editor-word-wrap-mode', () => true)
+  const lastFocusedPane = useState<'editor' | 'terminal'>('app-last-focused-pane', () => 'editor')
   const editorNotification = useState<string | null>('editor-notification', () => null)
   const unsavedConfirmFile = useState<OpenFileItem | null>('editor-unsaved-confirm-file', () => null)
   const targetNavigatePosition = useState<{ line: number; col: number; timestamp: number } | null>(
@@ -520,6 +521,7 @@ export const useEditorStore = () => {
   }
 
   const nextFileTab = () => {
+    lastFocusedPane.value = 'editor'
     if (openFiles.value.length <= 1) return
     const curIdx = openFiles.value.findIndex(f => f.id === activeFileId.value)
     const nextIdx = (curIdx + 1) % openFiles.value.length
@@ -527,6 +529,7 @@ export const useEditorStore = () => {
   }
 
   const prevFileTab = () => {
+    lastFocusedPane.value = 'editor'
     if (openFiles.value.length <= 1) return
     const curIdx = openFiles.value.findIndex(f => f.id === activeFileId.value)
     const prevIdx = (curIdx - 1 + openFiles.value.length) % openFiles.value.length
@@ -554,6 +557,7 @@ export const useEditorStore = () => {
     splitOrientation,
     isAutoSave,
     isWordWrap,
+    lastFocusedPane,
     isEditorVisible,
     isTerminalVisible,
     editorNotification,
