@@ -457,18 +457,18 @@ const gridClass = computed(() => {
         <!-- Quick Recent Projects List in Empty State -->
         <div
           v-if="!activeWorkstation.folderPath && recentProjects.length > 0"
-          class="mt-6 pt-5 border-t border-border/40 w-full max-w-md"
+          class="mt-6 pt-5 border-t border-border/40 w-full max-w-lg"
         >
-          <div class="flex items-center justify-center gap-1.5 text-[11px] font-semibold text-muted-foreground mb-2">
-            <Clock class="w-3 h-3 text-primary" />
-            <span>Buka Project Terakhir</span>
+          <div class="flex items-center justify-center gap-1.5 text-[11px] font-semibold text-muted-foreground mb-2.5">
+            <Clock class="w-3.5 h-3.5 text-primary" />
+            <span>Project yang Pernah Dibuka</span>
           </div>
 
-          <div class="flex flex-wrap justify-center gap-1.5 max-h-28 overflow-y-auto">
+          <div class="flex flex-wrap justify-center gap-1.5 max-h-40 overflow-y-auto no-scrollbar p-1">
             <button
-              v-for="rec in recentProjects.slice(0, 5)"
+              v-for="rec in recentProjects"
               :key="rec.path"
-              class="px-2.5 py-1 rounded-md bg-[#161722] hover:bg-primary/20 text-foreground text-xs border border-border/50 hover:border-primary/50 transition-colors truncate max-w-[180px] font-mono"
+              class="px-2.5 py-1 rounded-md bg-[#161722] hover:bg-primary/20 text-foreground text-xs border border-border/50 hover:border-primary/50 transition-colors truncate max-w-[200px] font-mono shadow-sm"
               :title="rec.path"
               @click="handleOpenProjectFolder(rec.path)"
             >

@@ -617,13 +617,16 @@ const finishRename = (termId: string) => {
           </div>
 
           <!-- Recent Projects Section -->
-          <div v-if="recentProjects.length > 0" class="space-y-1.5 pt-2 border-t border-border/40">
-            <div class="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-              <Clock class="w-3 h-3 text-primary" />
-              <span>Project Terakhir</span>
+          <div v-if="recentProjects.length > 0" class="space-y-2 pt-2 border-t border-border/40">
+            <div class="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              <div class="flex items-center gap-1.5">
+                <Clock class="w-3.5 h-3.5 text-primary" />
+                <span>Project yang Pernah Dibuka</span>
+              </div>
+              <span class="px-1.5 py-0.2 rounded bg-muted/60 text-[9px] font-mono">{{ recentProjects.length }}</span>
             </div>
 
-            <div class="space-y-1 max-h-64 overflow-y-auto">
+            <div class="space-y-1 max-h-80 overflow-y-auto no-scrollbar">
               <div
                 v-for="rec in recentProjects"
                 :key="rec.path"

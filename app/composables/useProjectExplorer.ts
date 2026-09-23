@@ -82,7 +82,7 @@ export const useProjectExplorer = () => {
     const updated = [
       { name: folderName, path: folderPath, lastOpened: new Date().toISOString() },
       ...filtered
-    ].slice(0, 15)
+    ].slice(0, 50)
 
     recentProjects.value = updated
     if (typeof window !== 'undefined') {

@@ -109,12 +109,12 @@ onMounted(async () => {
       <div class="flex items-center justify-between gap-4">
         <div class="space-y-0.5">
           <UiLabel class="text-xs font-medium">Font Size (px)</UiLabel>
-          <p class="text-[11px] text-muted-foreground">Ukuran font teks terminal</p>
+          <p class="text-[11px] text-muted-foreground">Ukuran font teks terminal (bisa juga zoom via <kbd class="px-1 py-0.2 rounded bg-muted/60 text-[9px] font-mono">Ctrl+Scroll</kbd>)</p>
         </div>
         <div class="w-28">
           <UiInput
             type="number"
-            min="10"
+            min="8"
             max="32"
             :model-value="settings.fontSize"
             @update:model-value="updateSettings({ fontSize: Number($event) })"

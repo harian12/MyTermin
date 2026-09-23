@@ -584,66 +584,48 @@ export const useWorkspaceStore = () => {
     }
   }
 
-  const applyPreset = (preset: WorkspacePreset, asNewWorkstation = false) => {
-    // If preset contains multiple workstation cards
-    if (preset.workstations && preset.workstations.length > 0) {
-      if (asNewWorkstation) {
-        let firstCreatedId: string | null = null
-        for (const wsConfig of preset.workstations) {
-          const termList: TerminalTab[] = wsConfig.terminals.map((t, idx) => ({
-            id: generateUid(`term-${idx + 1}`),
-            title: t.title,
-            initialCommand: t.command,
-            shell: t.shell,
-            cwd: t.cwd || wsConfig.folderPath
-          }))
-          const newWs = addWorkstation(wsConfig.name, wsConfig.layout, termList)
-          if (wsConfig.folderPath) {
-            newWs.folderPath = wsConfig.folderPath
-          }
-          if (!firstCreatedId) firstCreatedId = newWs.id
+  const applyPreset = async (preset: WorkspacePreset, asNewWorkstation = false) => {
+    const { killPty } = useTauriPty()
+
+    // Jika 'Terapkan' (menggantikan seluruh workspace saat ini), matikan semua PTY lama terlebih dahulu
+    if (!asNewWorkstation) {
+      for (const ws of workstations.value) {
+        for (const t of ws.terminals) {
+          killPty(t.id).catch(() => {})
         }
-        if (firstCreatedId) {
-          activeWorkstationId.value = firstCreatedId
-        }
-        saveSession(false)
-        return
-      } else {
-        // Apply 1st workstation to active, and add the remaining as new
-        const first = preset.workstations[0]
-        const currentWs = workstations.value.find(w => w.id === activeWorkstationId.value)
-        if (currentWs && first) {
-          currentWs.layout = first.layout
-          currentWs.name = first.name
-          if (first.folderPath) currentWs.folderPath = first.folderPath
-          currentWs.terminals = first.terminals.map((t, idx) => ({
-            id: generateUid(`term-${idx + 1}`),
-            title: t.title,
-            initialCommand: t.command,
-            shell: t.shell,
-            cwd: t.cwd || first.folderPath
-          }))
-          currentWs.activeTerminalId = currentWs.terminals[0]?.id || ''
-        }
-        // If there are more workstations in the preset, add them as new tabs
-        for (let i = 1; i < preset.workstations.length; i++) {
-          const wsConfig = preset.workstations[i]
-          const termList: TerminalTab[] = wsConfig.terminals.map((t, idx) => ({
-            id: generateUid(`term-${idx + 1}`),
-            title: t.title,
-            initialCommand: t.command,
-            shell: t.shell,
-            cwd: t.cwd || wsConfig.folderPath
-          }))
-          const newWs = addWorkstation(wsConfig.name, wsConfig.layout, termList)
-          if (wsConfig.folderPath) newWs.folderPath = wsConfig.folderPath
-        }
-        saveSession(false)
-        return
       }
     }
 
-    // Fallback for single preset
+    if (preset.workstations && preset.workstations.length > 0) {
+      const createdWorkstations: Workstation[] = preset.workstations.map((wsConfig, wsIdx) => {
+        const termList: TerminalTab[] = wsConfig.terminals.map((t, idx) => ({
+          id: generateUid(`term-${idx + 1}`),
+          title: t.title,
+          initialCommand: t.command,
+          shell: t.shell,
+          cwd: t.cwd || wsConfig.folderPath
+        }))
+        return {
+          id: generateUid(`ws-${wsIdx + 1}`),
+          name: wsConfig.name || `Workstation ${wsIdx + 1}`,
+          layout: wsConfig.layout || 'grid-2x2',
+          folderPath: wsConfig.folderPath,
+          activeTerminalId: termList[0]?.id || '',
+          terminals: termList
+        }
+      })
+
+      if (asNewWorkstation) {
+        workstations.value.push(...createdWorkstations)
+      } else {
+        workstations.value = createdWorkstations
+      }
+      activeWorkstationId.value = createdWorkstations[0].id
+      saveSession(false)
+      return
+    }
+
+    // Fallback untuk single preset
     const termList: TerminalTab[] = (preset.terminals || []).map((t, idx) => ({
       id: generateUid(`term-${idx + 1}`),
       title: t.title,
@@ -652,26 +634,22 @@ export const useWorkspaceStore = () => {
       cwd: t.cwd || preset.folderPath
     }))
 
-    if (asNewWorkstation) {
-      const newWs = addWorkstation(preset.name, preset.layout, termList)
-      if (preset.folderPath) {
-        newWs.folderPath = preset.folderPath
-      }
-      activeWorkstationId.value = newWs.id
-      saveSession(false)
-    } else {
-      const ws = workstations.value.find(w => w.id === activeWorkstationId.value)
-      if (ws) {
-        ws.layout = preset.layout
-        ws.name = preset.name
-        if (preset.folderPath) {
-          ws.folderPath = preset.folderPath
-        }
-        ws.terminals = termList
-        ws.activeTerminalId = ws.terminals[0]?.id || ''
-        saveSession(false)
-      }
+    const singleWs: Workstation = {
+      id: generateUid('ws'),
+      name: preset.name,
+      layout: preset.layout,
+      folderPath: preset.folderPath,
+      activeTerminalId: termList[0]?.id || '',
+      terminals: termList
     }
+
+    if (asNewWorkstation) {
+      workstations.value.push(singleWs)
+    } else {
+      workstations.value = [singleWs]
+    }
+    activeWorkstationId.value = singleWs.id
+    saveSession(false)
   }
 
   const applyStartupPreset = (settings: TerminalSettings) => {

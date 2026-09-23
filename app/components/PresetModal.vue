@@ -162,6 +162,20 @@ const handlePickFolderForCard = async (card: WorkstationFormItem) => {
   }
 }
 
+const getTotalTerminals = (preset: WorkspacePreset): number => {
+  if (preset.workstations && preset.workstations.length > 0) {
+    return preset.workstations.reduce((sum, w) => sum + (w.terminals?.length || 0), 0)
+  }
+  return preset.terminals?.length || 0
+}
+
+const getWorkstationSummary = (preset: WorkspacePreset): string[] => {
+  if (preset.workstations && preset.workstations.length > 0) {
+    return preset.workstations.map(w => w.name || 'Workstation')
+  }
+  return [preset.name]
+}
+
 const handleSelectPreset = (preset: WorkspacePreset, asNewWorkstation = true) => {
   applyPreset(preset, asNewWorkstation)
   emit('update:open', false)
@@ -755,45 +769,55 @@ const handleDelete = async (e: MouseEvent, presetId: string) => {
                   </div>
                 </div>
 
-                <!-- Sub-Cards / Workstations Inside Preset -->
-                <div v-if="preset.workstations && preset.workstations.length > 0" class="space-y-1.5 pt-1">
-                  <div
-                    v-for="(wsConfig, wIdx) in preset.workstations"
-                    :key="wsConfig.id || wIdx"
-                    class="p-2 rounded-lg bg-[#0e0f17] border border-border/40 text-[11px] font-mono flex items-center justify-between"
+                <!-- Preset Info Badges (Compact) -->
+                <div class="flex flex-wrap items-center gap-1.5 pt-1 text-[10px] font-mono">
+                  <span
+                    v-if="preset.workstations && preset.workstations.length > 0"
+                    class="px-2 py-0.5 rounded-md bg-[#0d0e14] text-muted-foreground border border-border/40 flex items-center gap-1"
                   >
-                    <div class="flex items-center gap-2 min-w-0 flex-1 pr-2">
-                      <Monitor class="w-3.5 h-3.5 text-primary flex-shrink-0" />
-                      <span class="font-semibold text-foreground truncate">{{ wsConfig.name }}</span>
-                      <span v-if="wsConfig.folderPath" class="text-[10px] text-muted-foreground/60 truncate" :title="wsConfig.folderPath">
-                        ({{ wsConfig.folderPath.split(/[\\/]/).pop() }})
-                      </span>
-                    </div>
+                    <Monitor class="w-3 h-3 text-primary" />
+                    <span>{{ preset.workstations.length }} Workstation</span>
+                  </span>
 
-                    <div class="flex items-center gap-1.5 text-[10px] text-muted-foreground flex-shrink-0">
-                      <span>{{ wsConfig.terminals.length }} Term</span>
-                      <span class="opacity-40">•</span>
-                      <span class="uppercase">{{ wsConfig.layout }}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Fallback badges if single preset -->
-                <div v-else class="flex flex-wrap items-center gap-1.5 pt-1 text-[10px] font-mono">
                   <span class="px-2 py-0.5 rounded-md bg-[#0d0e14] text-muted-foreground border border-border/40 flex items-center gap-1">
                     <Terminal class="w-3 h-3 text-primary" />
-                    <span>{{ preset.terminals.length }} Terminal</span>
+                    <span>{{ getTotalTerminals(preset) }} Terminal</span>
                   </span>
-                  <span class="px-2 py-0.5 rounded-md bg-[#0d0e14] text-muted-foreground border border-border/40 uppercase">
+
+                  <span
+                    v-if="!preset.workstations || preset.workstations.length === 0"
+                    class="px-2 py-0.5 rounded-md bg-[#0d0e14] text-muted-foreground border border-border/40 uppercase"
+                  >
                     {{ preset.layout }}
                   </span>
+
                   <span
-                    v-if="preset.folderPath"
+                    v-if="preset.folderPath && (!preset.workstations || preset.workstations.length === 0)"
                     class="px-2 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/20 flex items-center gap-1 truncate max-w-[170px]"
                     :title="preset.folderPath"
                   >
                     <FolderOpen class="w-3 h-3 flex-shrink-0" />
                     <span class="truncate">{{ preset.folderPath.split(/[\\/]/).pop() }}</span>
+                  </span>
+                </div>
+
+                <!-- Workstation Chips Preview (Compact & Clean) -->
+                <div
+                  v-if="preset.workstations && preset.workstations.length > 0"
+                  class="flex flex-wrap items-center gap-1 pt-0.5"
+                >
+                  <span
+                    v-for="(wName, wIdx) in getWorkstationSummary(preset).slice(0, 3)"
+                    :key="wIdx"
+                    class="px-2 py-0.5 rounded bg-[#0e0f17] border border-border/40 text-[10px] text-muted-foreground font-mono truncate max-w-[130px]"
+                  >
+                    {{ wName }}
+                  </span>
+                  <span
+                    v-if="preset.workstations.length > 3"
+                    class="px-1.5 py-0.5 rounded bg-muted/40 text-muted-foreground text-[9px] font-mono"
+                  >
+                    +{{ preset.workstations.length - 3 }} lainnya
                   </span>
                 </div>
               </div>
