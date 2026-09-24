@@ -293,11 +293,15 @@ const handleKeydown = (e: KeyboardEvent) => {
     return
   }
 
-  // Quick Open File: Ctrl+P / Cmd+P
+  // Quick Open File: Ctrl+P / Cmd+P (Hanya di Editor, bukan saat terminal fokus)
   if ((e.ctrlKey || e.metaKey) && (e.key === 'p' || e.key === 'P')) {
-    e.preventDefault()
-    isQuickPickerOpen.value = !isQuickPickerOpen.value
-    return
+    const activeEl = typeof document !== 'undefined' ? document.activeElement : null
+    const isDirectlyInTerminal = Boolean(activeEl?.closest('.xterm') || activeEl?.closest('#terminal-grid-container'))
+    if (!isDirectlyInTerminal) {
+      e.preventDefault()
+      isQuickPickerOpen.value = !isQuickPickerOpen.value
+      return
+    }
   }
 
   // Global Search in Files: Ctrl+Shift+F / Cmd+Shift+F
