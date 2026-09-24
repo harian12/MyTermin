@@ -38,9 +38,12 @@ import {
   Image,
   Layers,
   History,
-  Minus
+  Minus,
+  List,
+  Network
 } from 'lucide-vue-next'
 import type { FileEntry } from '~/types/terminal'
+import type { GitTreeNode } from '~/components/GitFileTreeItem.vue'
 
 const {
   activeWorkstation,
@@ -117,6 +120,71 @@ const showBranchPicker = ref(false)
 const newBranchName = ref('')
 const isCreatingBranch = ref(false)
 const showCommitHistory = ref(false)
+const gitViewMode = ref<'tree' | 'list'>('tree')
+
+// Helper untuk membangun struktur folder tree dari daftar Git File Entry
+const buildGitTree = (files: { path: string; name: string; status: string; is_staged?: boolean; is_untracked?: boolean }[]): GitTreeNode[] => {
+  const rootNodes: GitTreeNode[] = []
+
+  for (const file of files) {
+    const normPath = file.path.replace(/\\/g, '/')
+    const parts = normPath.split('/')
+    let currentChildren = rootNodes
+    let accumulatedPath = ''
+
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i]
+      accumulatedPath = accumulatedPath ? `${accumulatedPath}/${part}` : part
+      const isFile = i === parts.length - 1
+
+      if (isFile) {
+        currentChildren.push({
+          name: part,
+          path: normPath,
+          isDir: false,
+          status: file.status,
+          isStaged: file.is_staged,
+          isUntracked: file.is_untracked
+        })
+      } else {
+        let folderNode = currentChildren.find(n => n.isDir && n.name === part)
+        if (!folderNode) {
+          folderNode = {
+            name: part,
+            path: accumulatedPath,
+            isDir: true,
+            children: []
+          }
+          currentChildren.push(folderNode)
+        }
+        currentChildren = folderNode.children!
+      }
+    }
+  }
+
+  // Sort folders first then files
+  const sortNodes = (nodes: GitTreeNode[]) => {
+    nodes.sort((a, b) => {
+      if (a.isDir && !b.isDir) return -1
+      if (!a.isDir && b.isDir) return 1
+      return a.name.localeCompare(b.name)
+    })
+    for (const node of nodes) {
+      if (node.children) {
+        sortNodes(node.children)
+      }
+    }
+  }
+
+  sortNodes(rootNodes)
+  return rootNodes
+}
+
+const stagedTree = computed(() => buildGitTree(gitOverview.value.staged || []))
+const unstagedTree = computed(() => buildGitTree([
+  ...(gitOverview.value.unstaged || []).map(u => ({ ...u, is_untracked: false })),
+  ...(gitOverview.value.untracked || []).map(u => ({ ...u, is_untracked: true }))
+]))
 
 // Tree Item Context Menu
 const treeContextMenu = ref<{
@@ -732,6 +800,15 @@ const finishRename = (termId: string) => {
 
           <!-- Push, Pull, Refresh Actions -->
           <div class="flex items-center gap-1 flex-shrink-0">
+            <!-- Toggle Tree vs List View -->
+            <button
+              class="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+              :title="gitViewMode === 'tree' ? 'Ganti ke Tampilan Daftar (List View)' : 'Ganti ke Tampilan Pohon Folder (Tree View)'"
+              @click="gitViewMode = gitViewMode === 'tree' ? 'list' : 'tree'"
+            >
+              <Network v-if="gitViewMode === 'tree'" class="w-3.5 h-3.5 text-primary" />
+              <List v-else class="w-3.5 h-3.5" />
+            </button>
             <button
               class="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
               :disabled="isPulling"
@@ -796,7 +873,20 @@ const finishRename = (termId: string) => {
             </button>
           </div>
 
-          <div class="space-y-0.5 font-mono">
+          <!-- Tree View -->
+          <div v-if="gitViewMode === 'tree'" class="space-y-0.5">
+            <GitFileTreeItem
+              v-for="node in stagedTree"
+              :key="`staged-tree-${node.path}`"
+              :node="node"
+              mode="staged"
+              @open-diff="handleOpenDiff"
+              @unstage="unstageFile"
+            />
+          </div>
+
+          <!-- List View -->
+          <div v-else class="space-y-0.5 font-mono">
             <div
               v-for="item in gitOverview.staged"
               :key="`staged-${item.path}`"
@@ -807,6 +897,7 @@ const finishRename = (termId: string) => {
               <div class="flex items-center gap-1.5 min-w-0 flex-1">
                 <component :is="getFileIcon(item.name).icon" :class="['w-3.5 h-3.5 flex-shrink-0', getFileIcon(item.name).color]" />
                 <span class="truncate text-foreground text-[11px]">{{ item.name }}</span>
+                <span class="truncate text-muted-foreground/60 text-[9px] font-mono">{{ item.path.includes('/') ? item.path.substring(0, item.path.lastIndexOf('/')) : '' }}</span>
               </div>
 
               <div class="flex items-center gap-1 flex-shrink-0">
@@ -845,73 +936,91 @@ const finishRename = (termId: string) => {
           </div>
 
           <div v-else class="space-y-0.5 overflow-y-auto max-h-60 font-mono">
-            <!-- Unstaged Tracked Changes -->
-            <div
-              v-for="item in gitOverview.unstaged"
-              :key="`unstaged-${item.path}`"
-              class="group flex items-center justify-between p-1 rounded hover:bg-[#181924] cursor-pointer text-xs transition-colors"
-              :title="`Klik untuk melihat Diff: ${item.path}`"
-              @click="handleOpenDiff(item.path)"
-            >
-              <div class="flex items-center gap-1.5 min-w-0 flex-1">
-                <component :is="getFileIcon(item.name).icon" :class="['w-3.5 h-3.5 flex-shrink-0', getFileIcon(item.name).color]" />
-                <span class="truncate text-foreground text-[11px]">{{ item.name }}</span>
-              </div>
-
-              <div class="flex items-center gap-1 flex-shrink-0">
-                <span class="text-[9px] font-bold px-1 rounded bg-amber-400/20 text-amber-400">
-                  {{ item.status }}
-                </span>
-                <button
-                  class="p-0.5 hover:bg-accent rounded text-muted-foreground hover:text-primary opacity-0 group-hover:opacity-100"
-                  title="Stage File (+)"
-                  @click.stop="stageFile(item.path)"
-                >
-                  <Plus class="w-3 h-3" />
-                </button>
-                <button
-                  class="p-0.5 hover:bg-destructive/20 rounded text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100"
-                  title="Discard Perubahan"
-                  @click.stop="discardFile(item.path, false)"
-                >
-                  <RotateCcw class="w-3 h-3" />
-                </button>
-              </div>
+            <!-- Tree View for Unstaged & Untracked -->
+            <div v-if="gitViewMode === 'tree'" class="space-y-0.5">
+              <GitFileTreeItem
+                v-for="node in unstagedTree"
+                :key="`unstaged-tree-${node.path}`"
+                :node="node"
+                mode="unstaged"
+                @open-diff="handleOpenDiff"
+                @stage="stageFile"
+                @discard="discardFile($event.path, $event.isUntracked)"
+              />
             </div>
 
-            <!-- Untracked Files -->
-            <div
-              v-for="item in gitOverview.untracked"
-              :key="`untracked-${item.path}`"
-              class="group flex items-center justify-between p-1 rounded hover:bg-[#181924] cursor-pointer text-xs transition-colors"
-              :title="`Untracked: ${item.path}`"
-              @click="handleOpenDiff(item.path)"
-            >
-              <div class="flex items-center gap-1.5 min-w-0 flex-1">
-                <component :is="getFileIcon(item.name).icon" :class="['w-3.5 h-3.5 flex-shrink-0', getFileIcon(item.name).color]" />
-                <span class="truncate text-emerald-400 text-[11px]">{{ item.name }}</span>
+            <!-- List View -->
+            <template v-else>
+              <!-- Unstaged Tracked Changes -->
+              <div
+                v-for="item in gitOverview.unstaged"
+                :key="`unstaged-${item.path}`"
+                class="group flex items-center justify-between p-1 rounded hover:bg-[#181924] cursor-pointer text-xs transition-colors"
+                :title="`Klik untuk melihat Diff: ${item.path}`"
+                @click="handleOpenDiff(item.path)"
+              >
+                <div class="flex items-center gap-1.5 min-w-0 flex-1">
+                  <component :is="getFileIcon(item.name).icon" :class="['w-3.5 h-3.5 flex-shrink-0', getFileIcon(item.name).color]" />
+                  <span class="truncate text-foreground text-[11px]">{{ item.name }}</span>
+                  <span class="truncate text-muted-foreground/60 text-[9px] font-mono">{{ item.path.includes('/') ? item.path.substring(0, item.path.lastIndexOf('/')) : '' }}</span>
+                </div>
+
+                <div class="flex items-center gap-1 flex-shrink-0">
+                  <span class="text-[9px] font-bold px-1 rounded bg-amber-400/20 text-amber-400">
+                    {{ item.status }}
+                  </span>
+                  <button
+                    class="p-0.5 hover:bg-accent rounded text-muted-foreground hover:text-primary opacity-0 group-hover:opacity-100"
+                    title="Stage File (+)"
+                    @click.stop="stageFile(item.path)"
+                  >
+                    <Plus class="w-3 h-3" />
+                  </button>
+                  <button
+                    class="p-0.5 hover:bg-destructive/20 rounded text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100"
+                    title="Discard Perubahan"
+                    @click.stop="discardFile(item.path, false)"
+                  >
+                    <RotateCcw class="w-3 h-3" />
+                  </button>
+                </div>
               </div>
 
-              <div class="flex items-center gap-1 flex-shrink-0">
-                <span class="text-[9px] font-bold px-1 rounded bg-emerald-400/20 text-emerald-400">
-                  U
-                </span>
-                <button
-                  class="p-0.5 hover:bg-accent rounded text-muted-foreground hover:text-primary opacity-0 group-hover:opacity-100"
-                  title="Stage File (+)"
-                  @click.stop="stageFile(item.path)"
-                >
-                  <Plus class="w-3 h-3" />
-                </button>
-                <button
-                  class="p-0.5 hover:bg-destructive/20 rounded text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100"
-                  title="Hapus File Untracked"
-                  @click.stop="discardFile(item.path, true)"
-                >
-                  <Trash2 class="w-3 h-3" />
-                </button>
+              <!-- Untracked Files -->
+              <div
+                v-for="item in gitOverview.untracked"
+                :key="`untracked-${item.path}`"
+                class="group flex items-center justify-between p-1 rounded hover:bg-[#181924] cursor-pointer text-xs transition-colors"
+                :title="`Untracked: ${item.path}`"
+                @click="handleOpenDiff(item.path)"
+              >
+                <div class="flex items-center gap-1.5 min-w-0 flex-1">
+                  <component :is="getFileIcon(item.name).icon" :class="['w-3.5 h-3.5 flex-shrink-0', getFileIcon(item.name).color]" />
+                  <span class="truncate text-emerald-400 text-[11px]">{{ item.name }}</span>
+                  <span class="truncate text-muted-foreground/60 text-[9px] font-mono">{{ item.path.includes('/') ? item.path.substring(0, item.path.lastIndexOf('/')) : '' }}</span>
+                </div>
+
+                <div class="flex items-center gap-1 flex-shrink-0">
+                  <span class="text-[9px] font-bold px-1 rounded bg-emerald-400/20 text-emerald-400">
+                    U
+                  </span>
+                  <button
+                    class="p-0.5 hover:bg-accent rounded text-muted-foreground hover:text-primary opacity-0 group-hover:opacity-100"
+                    title="Stage File (+)"
+                    @click.stop="stageFile(item.path)"
+                  >
+                    <Plus class="w-3 h-3" />
+                  </button>
+                  <button
+                    class="p-0.5 hover:bg-destructive/20 rounded text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100"
+                    title="Hapus File Untracked"
+                    @click.stop="discardFile(item.path, true)"
+                  >
+                    <Trash2 class="w-3 h-3" />
+                  </button>
+                </div>
               </div>
-            </div>
+            </template>
           </div>
         </div>
 

@@ -1,14 +1,14 @@
 {
   "version": "0.2.2",
   "notes": "Release v0.2.2 - Multi-Terminal & Code Editor Workspace with Auto Update Support.",
-  "pub_date": "2026-09-24T05:37:01.582Z",
+  "pub_date": "2026-09-24T05:43:16.588Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcjU5M1ZFMWtCZVZrdm9idjBJdHZIcUoxUittT0RIakcrb0E4UENjTjY5NjBMNTNqNEwycDhtRXBHWDJMdXdFNENnUmUrcHBhYmp2dXgzQlVIc0ZJRmlUZXk2WVFUa0FzPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkwMjI4MjIxCWZpbGU6TXlUZXJtaW5fMC4yLjJfeDY0LXNldHVwLmV4ZQp5eVRISFlPR3l2THhKQUREeEhyUE1CeldtclVMU041bE9tTFEyQ055YTRJNVNKMkw0S29TTXU2WnE1eTY0aHVFaTgzcTkwVks3WXc2U1F1aStYcmhCQT09Cg==",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcjU5M1ZFMWtCZVVMUDhlSElXRnQ0R2REQXNEdlZFSG5ma2tOanpkbXpRVmJ0RThlblR5VGJFYkRRTzJLc3JmZS9MWkZteHptMEl1akJnSXA5MFhTMDcrd2svQWQ2QVEwPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkwMjI4NTk2CWZpbGU6TXlUZXJtaW5fMC4yLjJfeDY0LXNldHVwLmV4ZQpKcXRzZnQvMVhlMU5JeU92MkxkQW54cjZ4TVVaQjFBejBIV295SHhkNTE0WGpnM1pCbW42NzNRa2lsSysxdmdmU0ZRYmNSN3Bpdi9EZFAwT3lvcVlCUT09Cg==",
       "url": "https://github.com/harian12/MyTermin/releases/download/v0.2.2/MyTermin_0.2.2_x64-setup.exe"
     },
     "windows-x86_64-nsis": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcjU5M1ZFMWtCZVZrdm9idjBJdHZIcUoxUittT0RIakcrb0E4UENjTjY5NjBMNTNqNEwycDhtRXBHWDJMdXdFNENnUmUrcHBhYmp2dXgzQlVIc0ZJRmlUZXk2WVFUa0FzPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkwMjI4MjIxCWZpbGU6TXlUZXJtaW5fMC4yLjJfeDY0LXNldHVwLmV4ZQp5eVRISFlPR3l2THhKQUREeEhyUE1CeldtclVMU041bE9tTFEyQ055YTRJNVNKMkw0S29TTXU2WnE1eTY0aHVFaTgzcTkwVks3WXc2U1F1aStYcmhCQT09Cg==",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcjU5M1ZFMWtCZVVMUDhlSElXRnQ0R2REQXNEdlZFSG5ma2tOanpkbXpRVmJ0RThlblR5VGJFYkRRTzJLc3JmZS9MWkZteHptMEl1akJnSXA5MFhTMDcrd2svQWQ2QVEwPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkwMjI4NTk2CWZpbGU6TXlUZXJtaW5fMC4yLjJfeDY0LXNldHVwLmV4ZQpKcXRzZnQvMVhlMU5JeU92MkxkQW54cjZ4TVVaQjFBejBIV295SHhkNTE0WGpnM1pCbW42NzNRa2lsSysxdmdmU0ZRYmNSN3Bpdi9EZFAwT3lvcVlCUT09Cg==",
       "url": "https://github.com/harian12/MyTermin/releases/download/v0.2.2/MyTermin_0.2.2_x64-setup.exe"
     }
   }
