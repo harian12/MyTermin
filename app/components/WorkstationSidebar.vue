@@ -27,6 +27,7 @@ import {
   X,
   GitBranch,
   GitCommit,
+  GitCompare,
   RotateCcw,
   UploadCloud,
   DownloadCloud,
@@ -117,8 +118,8 @@ const isPushing = ref(false)
 const isPulling = ref(false)
 const commitResultMsg = ref<string | null>(null)
 const showBranchPicker = ref(false)
-const newBranchName = ref('')
-const isCreatingBranch = ref(false)
+const showGitGraphModal = ref(false)
+const showBranchCompareModal = ref(false)
 const showCommitHistory = ref(false)
 const gitViewMode = ref<'tree' | 'list'>('tree')
 
@@ -356,22 +357,29 @@ const openBranchModal = async () => {
   showBranchPicker.value = true
 }
 
-const handleSwitchBranch = async (branchName: string) => {
-  showBranchPicker.value = false
-  await switchBranch(branchName)
+const handleStageFolder = async (files: string[]) => {
+  for (const filePath of files) {
+    await stageFile(filePath)
+  }
 }
 
-const handleCreateBranch = async () => {
-  if (!newBranchName.value.trim() || isCreatingBranch.value) return
-  isCreatingBranch.value = true
-  try {
-    const ok = await createBranch(newBranchName.value.trim())
-    if (ok) {
-      newBranchName.value = ''
-      showBranchPicker.value = false
-    }
-  } finally {
-    isCreatingBranch.value = false
+const handleUnstageFolder = async (files: string[]) => {
+  for (const filePath of files) {
+    await unstageFile(filePath)
+  }
+}
+
+const handleDiscardFolder = async (payload: { folderName: string; files: { path: string; isUntracked: boolean }[] }) => {
+  const confirmed = await showAppConfirm(
+    `Apakah Anda yakin ingin membuang semua perubahan (${payload.files.length} file) di folder "${payload.folderName}"? Tindakan ini tidak dapat dibatalkan.`,
+    'Discard Folder',
+    'destructive',
+    'Discard Semua'
+  )
+  if (!confirmed) return
+
+  for (const file of payload.files) {
+    await discardFile(file.path, file.isUntracked)
   }
 }
 
@@ -779,14 +787,14 @@ const finishRename = (termId: string) => {
     </div>
 
     <!-- Tab 2: Source Control (Git) View -->
-    <div v-if="isSidebarOpen && activeTab === 'git'" class="flex-1 overflow-y-auto flex flex-col p-2 space-y-3 font-sans">
+    <div v-if="isSidebarOpen && activeTab === 'git'" class="flex-1 overflow-hidden flex flex-col p-2 space-y-3 font-sans min-h-0">
       <div v-if="!activeWorkstation.folderPath" class="p-4 text-center text-xs text-muted-foreground">
         Buka folder project untuk menggunakan Git.
       </div>
 
       <template v-else>
         <!-- Branch & Sync Header Toolbar -->
-        <div class="flex items-center justify-between p-2 rounded bg-[#161722] border border-border/50 text-xs font-mono">
+        <div class="flex items-center justify-between p-2 rounded bg-[#161722] border border-border/50 text-xs font-mono flex-shrink-0">
           <!-- Branch Switcher Trigger -->
           <button
             class="flex items-center gap-1.5 text-primary hover:text-primary/80 transition-colors min-w-0 font-medium truncate"
@@ -800,6 +808,22 @@ const finishRename = (termId: string) => {
 
           <!-- Push, Pull, Refresh Actions -->
           <div class="flex items-center gap-1 flex-shrink-0">
+            <!-- Git Graph Button -->
+            <button
+              class="p-1 rounded hover:bg-accent text-muted-foreground hover:text-primary transition-colors cursor-pointer"
+              title="Buka Visual Git Commit Graph"
+              @click="showGitGraphModal = true"
+            >
+              <GitCommit class="w-3.5 h-3.5 text-primary" />
+            </button>
+            <!-- Branch Compare Button -->
+            <button
+              class="p-1 rounded hover:bg-accent text-muted-foreground hover:text-primary transition-colors cursor-pointer"
+              title="Buka Branch Compare & Diff"
+              @click="showBranchCompareModal = true"
+            >
+              <GitCompare class="w-3.5 h-3.5 text-indigo-400" />
+            </button>
             <!-- Toggle Tree vs List View -->
             <button
               class="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
@@ -836,7 +860,7 @@ const finishRename = (termId: string) => {
         </div>
 
         <!-- Quick Commit Box -->
-        <div class="space-y-1.5">
+        <div class="space-y-1.5 flex-shrink-0">
           <textarea
             v-model="commitMessage"
             rows="2"
@@ -882,6 +906,7 @@ const finishRename = (termId: string) => {
               mode="staged"
               @open-diff="handleOpenDiff"
               @unstage="unstageFile"
+              @unstage-folder="handleUnstageFolder"
             />
           </div>
 
@@ -900,25 +925,27 @@ const finishRename = (termId: string) => {
                 <span class="truncate text-muted-foreground/60 text-[9px] font-mono">{{ item.path.includes('/') ? item.path.substring(0, item.path.lastIndexOf('/')) : '' }}</span>
               </div>
 
-              <div class="flex items-center gap-1 flex-shrink-0">
-                <span class="text-[9px] font-bold px-1 rounded bg-green-500/20 text-green-400">
+              <div class="relative flex items-center justify-end min-w-[24px] flex-shrink-0">
+                <span class="text-[9px] font-bold px-1 rounded bg-green-500/20 text-green-400 group-hover:hidden">
                   {{ item.status }}
                 </span>
-                <button
-                  class="p-0.5 hover:bg-accent rounded text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100"
-                  title="Unstage File"
-                  @click.stop="unstageFile(item.path)"
-                >
-                  <Minus class="w-3 h-3" />
-                </button>
+                <div class="hidden group-hover:flex items-center gap-1">
+                  <button
+                    class="p-0.5 hover:bg-accent rounded text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                    title="Unstage File"
+                    @click.stop="unstageFile(item.path)"
+                  >
+                    <Minus class="w-3 h-3" />
+                  </button>
+                </div>
               </div>
             </div>
           </div>
         </div>
 
         <!-- Changes Section (Unstaged & Untracked) -->
-        <div class="flex-1 flex flex-col space-y-1 pt-1">
-          <div class="flex items-center justify-between text-[10px] font-bold uppercase text-muted-foreground tracking-wider">
+        <div class="flex-1 flex flex-col space-y-1 pt-1 min-h-0">
+          <div class="flex items-center justify-between text-[10px] font-bold uppercase text-muted-foreground tracking-wider flex-shrink-0">
             <span>Changes ({{ gitOverview.unstaged.length + gitOverview.untracked.length }})</span>
             <button
               v-if="gitOverview.unstaged.length + gitOverview.untracked.length > 0"
@@ -935,7 +962,7 @@ const finishRename = (termId: string) => {
             Tidak ada perubahan (Clean Working Tree)
           </div>
 
-          <div v-else class="space-y-0.5 overflow-y-auto max-h-60 font-mono">
+          <div v-else class="space-y-0.5 overflow-y-auto flex-1 min-h-0 font-mono pr-0.5">
             <!-- Tree View for Unstaged & Untracked -->
             <div v-if="gitViewMode === 'tree'" class="space-y-0.5">
               <GitFileTreeItem
@@ -946,6 +973,8 @@ const finishRename = (termId: string) => {
                 @open-diff="handleOpenDiff"
                 @stage="stageFile"
                 @discard="discardFile($event.path, $event.isUntracked)"
+                @stage-folder="handleStageFolder"
+                @discard-folder="handleDiscardFolder"
               />
             </div>
 
@@ -965,24 +994,26 @@ const finishRename = (termId: string) => {
                   <span class="truncate text-muted-foreground/60 text-[9px] font-mono">{{ item.path.includes('/') ? item.path.substring(0, item.path.lastIndexOf('/')) : '' }}</span>
                 </div>
 
-                <div class="flex items-center gap-1 flex-shrink-0">
-                  <span class="text-[9px] font-bold px-1 rounded bg-amber-400/20 text-amber-400">
+                <div class="relative flex items-center justify-end min-w-[24px] flex-shrink-0">
+                  <span class="text-[9px] font-bold px-1 rounded bg-amber-400/20 text-amber-400 group-hover:hidden">
                     {{ item.status }}
                   </span>
-                  <button
-                    class="p-0.5 hover:bg-accent rounded text-muted-foreground hover:text-primary opacity-0 group-hover:opacity-100"
-                    title="Stage File (+)"
-                    @click.stop="stageFile(item.path)"
-                  >
-                    <Plus class="w-3 h-3" />
-                  </button>
-                  <button
-                    class="p-0.5 hover:bg-destructive/20 rounded text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100"
-                    title="Discard Perubahan"
-                    @click.stop="discardFile(item.path, false)"
-                  >
-                    <RotateCcw class="w-3 h-3" />
-                  </button>
+                  <div class="hidden group-hover:flex items-center gap-1">
+                    <button
+                      class="p-0.5 hover:bg-accent rounded text-muted-foreground hover:text-primary transition-colors cursor-pointer"
+                      title="Stage File (+)"
+                      @click.stop="stageFile(item.path)"
+                    >
+                      <Plus class="w-3 h-3" />
+                    </button>
+                    <button
+                      class="p-0.5 hover:bg-destructive/20 rounded text-muted-foreground hover:text-destructive transition-colors cursor-pointer"
+                      title="Discard Perubahan"
+                      @click.stop="discardFile(item.path, false)"
+                    >
+                      <RotateCcw class="w-3 h-3" />
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -1000,24 +1031,26 @@ const finishRename = (termId: string) => {
                   <span class="truncate text-muted-foreground/60 text-[9px] font-mono">{{ item.path.includes('/') ? item.path.substring(0, item.path.lastIndexOf('/')) : '' }}</span>
                 </div>
 
-                <div class="flex items-center gap-1 flex-shrink-0">
-                  <span class="text-[9px] font-bold px-1 rounded bg-emerald-400/20 text-emerald-400">
+                <div class="relative flex items-center justify-end min-w-[24px] flex-shrink-0">
+                  <span class="text-[9px] font-bold px-1 rounded bg-emerald-400/20 text-emerald-400 group-hover:hidden">
                     U
                   </span>
-                  <button
-                    class="p-0.5 hover:bg-accent rounded text-muted-foreground hover:text-primary opacity-0 group-hover:opacity-100"
-                    title="Stage File (+)"
-                    @click.stop="stageFile(item.path)"
-                  >
-                    <Plus class="w-3 h-3" />
-                  </button>
-                  <button
-                    class="p-0.5 hover:bg-destructive/20 rounded text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100"
-                    title="Hapus File Untracked"
-                    @click.stop="discardFile(item.path, true)"
-                  >
-                    <Trash2 class="w-3 h-3" />
-                  </button>
+                  <div class="hidden group-hover:flex items-center gap-1">
+                    <button
+                      class="p-0.5 hover:bg-accent rounded text-muted-foreground hover:text-primary transition-colors cursor-pointer"
+                      title="Stage File (+)"
+                      @click.stop="stageFile(item.path)"
+                    >
+                      <Plus class="w-3 h-3" />
+                    </button>
+                    <button
+                      class="p-0.5 hover:bg-destructive/20 rounded text-muted-foreground hover:text-destructive transition-colors cursor-pointer"
+                      title="Hapus File Untracked"
+                      @click.stop="discardFile(item.path, true)"
+                    >
+                      <Trash2 class="w-3 h-3" />
+                    </button>
+                  </div>
                 </div>
               </div>
             </template>
@@ -1025,7 +1058,7 @@ const finishRename = (termId: string) => {
         </div>
 
         <!-- Commit History Toggle & Section -->
-        <div class="pt-2 border-t border-border/40">
+        <div class="pt-2 border-t border-border/40 flex-shrink-0">
           <button
             class="w-full flex items-center justify-between py-1 px-1.5 rounded hover:bg-[#181924] text-[10px] font-bold uppercase text-muted-foreground tracking-wider transition-colors"
             @click="toggleHistory"
@@ -1169,85 +1202,14 @@ const finishRename = (termId: string) => {
       </div>
     </div>
 
-    <!-- Branch Switcher / Creator Modal (Teleported to Body to prevent stacking context clipping) -->
-    <Teleport to="body">
-      <div
-        v-if="showBranchPicker"
-        class="fixed inset-0 z-[100] bg-black/75 backdrop-blur-xs flex items-center justify-center p-4"
-        @click="showBranchPicker = false"
-      >
-        <div
-          class="bg-[#181924] border border-border rounded-xl p-4 w-full max-w-md shadow-2xl space-y-3 animate-in zoom-in-95 duration-100"
-          @click.stop
-        >
-          <div class="flex items-center justify-between border-b border-border/50 pb-2.5">
-            <div class="flex items-center gap-2 text-xs font-semibold text-foreground">
-              <GitBranch class="w-4 h-4 text-primary" />
-              <span>Pilih atau Buat Branch</span>
-            </div>
-            <button
-              class="p-1 hover:bg-white/10 rounded-md text-muted-foreground hover:text-foreground transition-colors"
-              @click="showBranchPicker = false"
-            >
-              <X class="w-4 h-4" />
-            </button>
-          </div>
+    <!-- Git Branch Selection / Creation Modal -->
+    <GitBranchModal v-model:open="showBranchPicker" />
 
-          <!-- Create New Branch Form -->
-          <div class="flex items-center gap-2">
-            <input
-              v-model="newBranchName"
-              type="text"
-              placeholder="Nama branch baru..."
-              class="flex-1 min-w-0 bg-[#0d0e14] border border-border/80 focus:border-primary rounded-lg px-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground outline-none font-mono transition-colors"
-              @keydown.enter="handleCreateBranch"
-            />
-            <button
-              :disabled="!newBranchName.trim() || isCreatingBranch"
-              class="px-3.5 py-1.5 bg-primary hover:bg-primary/90 text-primary-foreground text-xs rounded-lg font-medium transition-colors disabled:opacity-40 flex-shrink-0 whitespace-nowrap shadow-sm"
-              @click="handleCreateBranch"
-            >
-              {{ isCreatingBranch ? 'Membuat...' : 'Buat' }}
-            </button>
-          </div>
+    <!-- Visual Git Commit Graph Modal -->
+    <GitGraphModal v-model:open="showGitGraphModal" />
 
-          <!-- Branch List Header -->
-          <div class="text-[10px] font-bold uppercase tracking-wider text-muted-foreground pt-1">
-            Daftar Branch ({{ gitBranchesList.length }})
-          </div>
-
-          <!-- Branch List -->
-          <div class="space-y-1 max-h-56 overflow-y-auto font-mono text-xs pr-0.5">
-            <div
-              v-for="b in gitBranchesList"
-              :key="b"
-              :class="[
-                'flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition-colors select-none',
-                b === gitBranch
-                  ? 'bg-primary/20 text-foreground border border-primary/40 font-medium'
-                  : 'hover:bg-[#14151f] text-muted-foreground hover:text-foreground border border-transparent'
-              ]"
-              @click="handleSwitchBranch(b)"
-            >
-              <div class="flex items-center gap-2 min-w-0 flex-1 pr-2">
-                <GitBranch :class="['w-3.5 h-3.5 flex-shrink-0', b === gitBranch ? 'text-primary' : 'text-muted-foreground']" />
-                <span class="truncate font-mono text-[11px]">{{ b }}</span>
-              </div>
-              <span
-                v-if="b === gitBranch"
-                class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-primary/20 text-primary flex-shrink-0 whitespace-nowrap font-mono"
-              >
-                Active
-              </span>
-            </div>
-
-            <div v-if="gitBranchesList.length === 0" class="p-4 text-center text-xs text-muted-foreground">
-              Tidak ada branch ditemukan
-            </div>
-          </div>
-        </div>
-      </div>
-    </Teleport>
+    <!-- Visual Branch Compare & Diff Modal -->
+    <BranchCompareModal v-model:open="showBranchCompareModal" />
 
     <!-- Tree Node Right-Click Context Menu -->
     <Teleport to="body">

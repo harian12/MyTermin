@@ -384,13 +384,71 @@ fn list_all_files(root_path: String, max_files: Option<usize>) -> Result<Vec<Str
     Ok(results)
 }
 
-#[derive(serde::Serialize)]
+#[derive(serde::Serialize, Clone, Debug)]
 struct GitCommitItem {
     hash: String,
     short_hash: String,
     message: String,
     author: String,
     relative_time: String,
+}
+
+#[derive(serde::Serialize, Clone, Debug)]
+struct GitGraphNode {
+    hash: String,
+    short_hash: String,
+    parents: Vec<String>,
+    author: String,
+    author_email: String,
+    date: String,
+    relative_time: String,
+    subject: String,
+    body: String,
+    refs: Vec<String>,
+}
+
+#[derive(serde::Serialize, Clone, Debug)]
+struct GitCommitDiffFile {
+    path: String,
+    status: String, // "added", "modified", "deleted", "renamed"
+    old_path: Option<String>,
+    insertions: usize,
+    deletions: usize,
+}
+
+#[derive(serde::Serialize, Clone, Debug)]
+struct GitCommitDetail {
+    hash: String,
+    short_hash: String,
+    parents: Vec<String>,
+    author: String,
+    author_email: String,
+    date: String,
+    relative_time: String,
+    subject: String,
+    body: String,
+    refs: Vec<String>,
+    files: Vec<GitCommitDiffFile>,
+}
+
+#[derive(serde::Serialize, Clone, Debug)]
+struct GitBranchCompareResult {
+    base_branch: String,
+    compare_branch: String,
+    ahead_count: usize,
+    behind_count: usize,
+    ahead_commits: Vec<GitCommitItem>,
+    behind_commits: Vec<GitCommitItem>,
+    changed_files: Vec<GitCommitDiffFile>,
+}
+
+#[derive(serde::Serialize, Clone, Debug)]
+struct ListeningPortInfo {
+    protocol: String,
+    local_address: String,
+    port: u16,
+    pid: u32,
+    process_name: String,
 }
 
 #[derive(serde::Serialize, Clone)]
@@ -753,6 +811,437 @@ fn git_get_log(repo_path: String, limit: Option<usize>) -> Result<Vec<GitCommitI
 }
 
 #[tauri::command]
+fn git_get_graph(repo_path: String, limit: Option<usize>) -> Result<Vec<GitGraphNode>, String> {
+    let root = Path::new(&repo_path);
+    if !root.exists() {
+        return Err("Path repo tidak ditemukan".into());
+    }
+    let max = limit.unwrap_or(100);
+    let mut cmd = std::process::Command::new("git");
+    // Format: %x1f separates fields, %x1e separates records
+    // Fields: Hash, Parents, AuthorName, AuthorEmail, CommitDate, RelativeTime, Subject, Body, RefNames
+    cmd.arg("log")
+        .arg("--all")
+        .arg("--topo-order")
+        .arg(format!("-n{}", max))
+        .arg("--pretty=format:%H%x1f%P%x1f%an%x1f%ae%x1f%ci%x1f%cr%x1f%s%x1f%b%x1f%D%x1e")
+        .current_dir(root);
+
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x08000000);
+    }
+
+    let output = cmd.output().map_err(|e| e.to_string())?;
+    if !output.status.success() {
+        return Ok(Vec::new());
+    }
+
+    let raw = String::from_utf8_lossy(&output.stdout);
+    let mut nodes = Vec::new();
+
+    for record in raw.split('\x1e') {
+        let trimmed = record.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        let fields: Vec<&str> = trimmed.split('\x1f').collect();
+        if fields.len() >= 9 {
+            let hash = fields[0].trim().to_string();
+            if hash.is_empty() {
+                continue;
+            }
+            let short_hash = if hash.len() >= 7 { hash[..7].to_string() } else { hash.clone() };
+            let parents: Vec<String> = fields[1]
+                .split_whitespace()
+                .filter(|s| !s.is_empty())
+                .map(|s| s.to_string())
+                .collect();
+            let author = fields[2].to_string();
+            let author_email = fields[3].to_string();
+            let date = fields[4].to_string();
+            let relative_time = fields[5].to_string();
+            let subject = fields[6].to_string();
+            let body = fields[7].trim().to_string();
+            
+            let refs: Vec<String> = if !fields[8].trim().is_empty() {
+                fields[8]
+                    .split(',')
+                    .map(|r| r.trim().to_string())
+                    .filter(|r| !r.is_empty())
+                    .collect()
+            } else {
+                Vec::new()
+            };
+
+            nodes.push(GitGraphNode {
+                hash,
+                short_hash,
+                parents,
+                author,
+                author_email,
+                date,
+                relative_time,
+                subject,
+                body,
+                refs,
+            });
+        }
+    }
+
+    Ok(nodes)
+}
+
+#[tauri::command]
+fn git_get_commit_detail(repo_path: String, commit_hash: String) -> Result<GitCommitDetail, String> {
+    let root = Path::new(&repo_path);
+    if !root.exists() {
+        return Err("Path repo tidak ditemukan".into());
+    }
+
+    // 1. Get commit info
+    let mut info_cmd = std::process::Command::new("git");
+    info_cmd.arg("show")
+        .arg("-s")
+        .arg("--pretty=format:%H%x1f%P%x1f%an%x1f%ae%x1f%ci%x1f%cr%x1f%s%x1f%b%x1f%D")
+        .arg(&commit_hash)
+        .current_dir(root);
+
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        info_cmd.creation_flags(0x08000000);
+    }
+
+    let info_output = info_cmd.output().map_err(|e| e.to_string())?;
+    if !info_output.status.success() {
+        return Err("Gagal membaca detail commit".into());
+    }
+
+    let raw_info = String::from_utf8_lossy(&info_output.stdout);
+    let fields: Vec<&str> = raw_info.split('\x1f').collect();
+    if fields.len() < 9 {
+        return Err("Format commit detail tidak sesuai".into());
+    }
+
+    let hash = fields[0].trim().to_string();
+    let short_hash = if hash.len() >= 7 { hash[..7].to_string() } else { hash.clone() };
+    let parents: Vec<String> = fields[1].split_whitespace().map(|s| s.to_string()).collect();
+    let author = fields[2].to_string();
+    let author_email = fields[3].to_string();
+    let date = fields[4].to_string();
+    let relative_time = fields[5].to_string();
+    let subject = fields[6].to_string();
+    let body = fields[7].trim().to_string();
+    let refs: Vec<String> = if !fields[8].trim().is_empty() {
+        fields[8].split(',').map(|r| r.trim().to_string()).collect()
+    } else {
+        Vec::new()
+    };
+
+    // 2. Get files diff with numstat
+    let mut stat_cmd = std::process::Command::new("git");
+    stat_cmd.arg("show")
+        .arg("--numstat")
+        .arg("--format=")
+        .arg(&commit_hash)
+        .current_dir(root);
+
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        stat_cmd.creation_flags(0x08000000);
+    }
+
+    let mut files = Vec::new();
+    if let Ok(stat_output) = stat_cmd.output() {
+        if stat_output.status.success() {
+            let stat_str = String::from_utf8_lossy(&stat_output.stdout);
+            for line in stat_str.lines() {
+                let parts: Vec<&str> = line.split('\t').collect();
+                if parts.len() >= 3 {
+                    let insertions = parts[0].parse::<usize>().unwrap_or(0);
+                    let deletions = parts[1].parse::<usize>().unwrap_or(0);
+                    let raw_path = parts[2].trim();
+                    let (status, path, old_path) = if raw_path.contains(" => ") {
+                        ("renamed".to_string(), raw_path.to_string(), None)
+                    } else if insertions > 0 && deletions == 0 {
+                        ("added".to_string(), raw_path.to_string(), None)
+                    } else if insertions == 0 && deletions > 0 {
+                        ("deleted".to_string(), raw_path.to_string(), None)
+                    } else {
+                        ("modified".to_string(), raw_path.to_string(), None)
+                    };
+
+                    files.push(GitCommitDiffFile {
+                        path,
+                        status,
+                        old_path,
+                        insertions,
+                        deletions,
+                    });
+                }
+            }
+        }
+    }
+
+    Ok(GitCommitDetail {
+        hash,
+        short_hash,
+        parents,
+        author,
+        author_email,
+        date,
+        relative_time,
+        subject,
+        body,
+        refs,
+        files,
+    })
+}
+
+#[tauri::command]
+fn git_checkout_commit(repo_path: String, target: String) -> Result<String, String> {
+    let root = Path::new(&repo_path);
+    let mut cmd = std::process::Command::new("git");
+    cmd.arg("checkout").arg(&target).current_dir(root);
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x08000000);
+    }
+    let output = cmd.output().map_err(|e| e.to_string())?;
+    if !output.status.success() {
+        let err = String::from_utf8_lossy(&output.stderr).to_string();
+        return Err(if err.is_empty() { String::from_utf8_lossy(&output.stdout).to_string() } else { err });
+    }
+    Ok(String::from_utf8_lossy(&output.stdout).to_string())
+}
+
+#[tauri::command]
+fn git_revert_commit(repo_path: String, commit_hash: String) -> Result<String, String> {
+    let root = Path::new(&repo_path);
+    let mut cmd = std::process::Command::new("git");
+    // Revert commit safely without opening editor
+    cmd.arg("revert").arg("--no-edit").arg(&commit_hash).current_dir(root);
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x08000000);
+    }
+    let output = cmd.output().map_err(|e| e.to_string())?;
+    if !output.status.success() {
+        let err = String::from_utf8_lossy(&output.stderr).to_string();
+        return Err(if err.is_empty() { String::from_utf8_lossy(&output.stdout).to_string() } else { err });
+    }
+    Ok(String::from_utf8_lossy(&output.stdout).to_string())
+}
+
+#[tauri::command]
+fn git_reset_to_commit(repo_path: String, commit_hash: String, mode: String) -> Result<String, String> {
+    let root = Path::new(&repo_path);
+    let mut cmd = std::process::Command::new("git");
+    let flag = match mode.as_str() {
+        "hard" => "--hard",
+        "soft" => "--soft",
+        _ => "--mixed",
+    };
+    cmd.arg("reset").arg(flag).arg(&commit_hash).current_dir(root);
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x08000000);
+    }
+    let output = cmd.output().map_err(|e| e.to_string())?;
+    if !output.status.success() {
+        let err = String::from_utf8_lossy(&output.stderr).to_string();
+        return Err(if err.is_empty() { String::from_utf8_lossy(&output.stdout).to_string() } else { err });
+    }
+    Ok(String::from_utf8_lossy(&output.stdout).to_string())
+}
+
+#[tauri::command]
+fn git_compare_branches(
+    repo_path: String,
+    base_branch: String,
+    compare_branch: String,
+) -> Result<GitBranchCompareResult, String> {
+    let root = Path::new(&repo_path);
+    if !root.exists() {
+        return Err("Path repo tidak ditemukan".into());
+    }
+
+    // 1. Commits Ahead (in compare_branch but not in base_branch: base..compare)
+    let mut ahead_cmd = std::process::Command::new("git");
+    ahead_cmd.arg("log")
+        .arg(format!("{}..{}", base_branch, compare_branch))
+        .arg("--pretty=format:%H|%s|%an|%cr")
+        .current_dir(root);
+
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        ahead_cmd.creation_flags(0x08000000);
+    }
+
+    let mut ahead_commits = Vec::new();
+    if let Ok(output) = ahead_cmd.output() {
+        if output.status.success() {
+            let text = String::from_utf8_lossy(&output.stdout);
+            for line in text.lines() {
+                let parts: Vec<&str> = line.splitn(4, '|').collect();
+                if parts.len() == 4 {
+                    let hash = parts[0].to_string();
+                    let short_hash = if hash.len() >= 7 { hash[..7].to_string() } else { hash.clone() };
+                    ahead_commits.push(GitCommitItem {
+                        hash,
+                        short_hash,
+                        message: parts[1].to_string(),
+                        author: parts[2].to_string(),
+                        relative_time: parts[3].to_string(),
+                    });
+                }
+            }
+        }
+    }
+
+    // 2. Commits Behind (in base_branch but not in compare_branch: compare..base)
+    let mut behind_cmd = std::process::Command::new("git");
+    behind_cmd.arg("log")
+        .arg(format!("{}..{}", compare_branch, base_branch))
+        .arg("--pretty=format:%H|%s|%an|%cr")
+        .current_dir(root);
+
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        behind_cmd.creation_flags(0x08000000);
+    }
+
+    let mut behind_commits = Vec::new();
+    if let Ok(output) = behind_cmd.output() {
+        if output.status.success() {
+            let text = String::from_utf8_lossy(&output.stdout);
+            for line in text.lines() {
+                let parts: Vec<&str> = line.splitn(4, '|').collect();
+                if parts.len() == 4 {
+                    let hash = parts[0].to_string();
+                    let short_hash = if hash.len() >= 7 { hash[..7].to_string() } else { hash.clone() };
+                    behind_commits.push(GitCommitItem {
+                        hash,
+                        short_hash,
+                        message: parts[1].to_string(),
+                        author: parts[2].to_string(),
+                        relative_time: parts[3].to_string(),
+                    });
+                }
+            }
+        }
+    }
+
+    // 3. Changed Files between base and compare
+    let mut diff_cmd = std::process::Command::new("git");
+    diff_cmd.arg("diff")
+        .arg("--numstat")
+        .arg(format!("{}...{}", base_branch, compare_branch))
+        .current_dir(root);
+
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        diff_cmd.creation_flags(0x08000000);
+    }
+
+    let mut changed_files = Vec::new();
+    if let Ok(output) = diff_cmd.output() {
+        if output.status.success() {
+            let text = String::from_utf8_lossy(&output.stdout);
+            for line in text.lines() {
+                let parts: Vec<&str> = line.split('\t').collect();
+                if parts.len() >= 3 {
+                    let insertions = parts[0].parse::<usize>().unwrap_or(0);
+                    let deletions = parts[1].parse::<usize>().unwrap_or(0);
+                    let raw_path = parts[2].trim();
+                    let (status, path, old_path) = if raw_path.contains(" => ") {
+                        ("renamed".to_string(), raw_path.to_string(), None)
+                    } else if insertions > 0 && deletions == 0 {
+                        ("added".to_string(), raw_path.to_string(), None)
+                    } else if insertions == 0 && deletions > 0 {
+                        ("deleted".to_string(), raw_path.to_string(), None)
+                    } else {
+                        ("modified".to_string(), raw_path.to_string(), None)
+                    };
+
+                    changed_files.push(GitCommitDiffFile {
+                        path,
+                        status,
+                        old_path,
+                        insertions,
+                        deletions,
+                    });
+                }
+            }
+        }
+    }
+
+    let ahead_count = ahead_commits.len();
+    let behind_count = behind_commits.len();
+
+    Ok(GitBranchCompareResult {
+        base_branch,
+        compare_branch,
+        ahead_count,
+        behind_count,
+        ahead_commits,
+        behind_commits,
+        changed_files,
+    })
+}
+
+#[tauri::command]
+fn git_get_file_at_ref(repo_path: String, git_ref: String, rel_path: String) -> Result<String, String> {
+    let root = Path::new(&repo_path);
+    let mut cmd = std::process::Command::new("git");
+    let target = format!("{}:{}", git_ref, rel_path.replace('\\', "/"));
+    cmd.arg("show").arg(&target).current_dir(root);
+
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x08000000);
+    }
+
+    let output = cmd.output().map_err(|e| e.to_string())?;
+    if !output.status.success() {
+        return Ok(String::new()); // Return empty string if file doesn't exist in that ref (new file)
+    }
+
+    Ok(String::from_utf8_lossy(&output.stdout).to_string())
+}
+
+#[tauri::command]
+fn git_merge_branch(repo_path: String, source_branch: String) -> Result<String, String> {
+    let root = Path::new(&repo_path);
+    let mut cmd = std::process::Command::new("git");
+    cmd.arg("merge").arg(&source_branch).current_dir(root);
+
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x08000000);
+    }
+
+    let output = cmd.output().map_err(|e| e.to_string())?;
+    if !output.status.success() {
+        let err = String::from_utf8_lossy(&output.stderr).to_string();
+        return Err(if err.is_empty() { String::from_utf8_lossy(&output.stdout).to_string() } else { err });
+    }
+
+    Ok(String::from_utf8_lossy(&output.stdout).to_string())
+}
+
+#[tauri::command]
 fn get_git_status(repo_path: String) -> Result<HashMap<String, String>, String> {
     let root = Path::new(&repo_path);
     if !root.exists() {
@@ -1084,6 +1573,121 @@ fn reveal_in_explorer(path: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn get_listening_ports() -> Result<Vec<ListeningPortInfo>, String> {
+    let mut ports = Vec::new();
+    let mut sys = sysinfo::System::new();
+    sys.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
+
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        let mut cmd = std::process::Command::new("netstat");
+        cmd.arg("-ano").arg("-p").arg("tcp");
+        cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+
+        if let Ok(output) = cmd.output() {
+            if output.status.success() {
+                let text = String::from_utf8_lossy(&output.stdout);
+                for line in text.lines() {
+                    let trimmed = line.trim();
+                    if !trimmed.starts_with("TCP") {
+                        continue;
+                    }
+                    let parts: Vec<&str> = trimmed.split_whitespace().collect();
+                    // TCP | Local Address | Foreign Address | State | PID
+                    if parts.len() >= 5 && parts[3].eq_ignore_ascii_case("LISTENING") {
+                        let local_addr = parts[1];
+                        if let Some(port_str) = local_addr.split(':').last() {
+                            if let Ok(port) = port_str.parse::<u16>() {
+                                if let Ok(pid) = parts[4].parse::<u32>() {
+                                    // Process name resolution from sysinfo
+                                    let proc_pid = sysinfo::Pid::from_u32(pid);
+                                    let process_name = sys.process(proc_pid)
+                                        .map(|p| p.name().to_string_lossy().to_string())
+                                        .unwrap_or_else(|| "Unknown".to_string());
+
+                                    // Deduplicate same port & PID
+                                    if !ports.iter().any(|p: &ListeningPortInfo| p.port == port && p.pid == pid) {
+                                        ports.push(ListeningPortInfo {
+                                            protocol: "TCP".to_string(),
+                                            local_address: local_addr.to_string(),
+                                            port,
+                                            pid,
+                                            process_name,
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[cfg(not(windows))]
+    {
+        let mut cmd = std::process::Command::new("lsof");
+        cmd.arg("-iTCP").arg("-sTCP:LISTEN").arg("-n").arg("-P");
+        if let Ok(output) = cmd.output() {
+            if output.status.success() {
+                let text = String::from_utf8_lossy(&output.stdout);
+                for line in text.lines().skip(1) {
+                    let parts: Vec<&str> = line.split_whitespace().collect();
+                    if parts.len() >= 9 {
+                        let proc_name = parts[0].to_string();
+                        let pid = parts[1].parse::<u32>().unwrap_or(0);
+                        let name_col = parts[8];
+                        if let Some(port_str) = name_col.split(':').last() {
+                            if let Ok(port) = port_str.parse::<u16>() {
+                                ports.push(ListeningPortInfo {
+                                    protocol: "TCP".to_string(),
+                                    local_address: name_col.to_string(),
+                                    port,
+                                    pid,
+                                    process_name: proc_name,
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    ports.sort_by_key(|p| p.port);
+    Ok(ports)
+}
+
+#[tauri::command]
+fn kill_process_by_pid(pid: u32) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        let mut cmd = std::process::Command::new("taskkill");
+        cmd.arg("/F").arg("/PID").arg(pid.to_string());
+        cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+        let output = cmd.output().map_err(|e| e.to_string())?;
+        if !output.status.success() {
+            let err = String::from_utf8_lossy(&output.stderr).to_string();
+            return Err(if err.is_empty() { "Gagal mematikan proses".to_string() } else { err });
+        }
+        Ok(())
+    }
+
+    #[cfg(not(windows))]
+    {
+        let mut cmd = std::process::Command::new("kill");
+        cmd.arg("-9").arg(pid.to_string());
+        let output = cmd.output().map_err(|e| e.to_string())?;
+        if !output.status.success() {
+            return Err("Gagal mematikan proses".to_string());
+        }
+        Ok(())
+    }
+}
+
+#[tauri::command]
 fn copy_to_clipboard(text: String) -> Result<(), String> {
     let mut clipboard = arboard::Clipboard::new().map_err(|e| e.to_string())?;
     clipboard.set_text(text).map_err(|e| e.to_string())
@@ -1160,6 +1764,16 @@ fn main() {
             git_switch_branch,
             git_create_branch,
             git_get_log,
+            git_get_graph,
+            git_get_commit_detail,
+            git_checkout_commit,
+            git_revert_commit,
+            git_reset_to_commit,
+            git_compare_branches,
+            git_get_file_at_ref,
+            git_merge_branch,
+            get_listening_ports,
+            kill_process_by_pid,
             git_commit,
             search_in_files,
             replace_in_files,

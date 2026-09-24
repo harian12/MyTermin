@@ -54,7 +54,7 @@ const handleKeydown = (e: KeyboardEvent) => {
   <Teleport to="body">
     <div
       v-if="dialog.isOpen"
-      class="fixed inset-0 z-[110] bg-black/75 backdrop-blur-xs flex items-center justify-center p-4 font-sans select-none"
+      class="fixed inset-0 z-[200] bg-black/75 backdrop-blur-xs flex items-center justify-center p-4 font-sans select-none"
       @click="handleCancel"
     >
       <div

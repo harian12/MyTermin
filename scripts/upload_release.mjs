@@ -22,7 +22,7 @@ async function run() {
 
   const owner = 'harian12'
   const repo = 'MyTermin'
-  const tag = 'v0.2.3'
+  const tag = 'v0.2.4'
 
   const headers = {
     'Authorization': `Bearer ${token}`,
@@ -42,25 +42,40 @@ async function run() {
     })
   }
 
-  const releaseBody = `## MyTermin v0.2.3 🚀
+  const releaseBody = `## MyTermin v0.2.4 🚀
 
-Pembaruan **MyTermin v0.2.3**: perbaikan shortcut OpenCode di terminal dan fix modal layout overflow.
+Pembaruan besar **MyTermin v0.2.4** dengan fitur **Git Commit Graph**, **Commit Rollback**, **Branch Compare & Diff**, **Folder Discarding**, dan **Port & Process Manager**.
 
 ---
 
-### ✨ Apa yang Baru di v0.2.3
-1. **Shortcut & Keybinding Enhancement**:
-   - Shortcut \`Ctrl+P\` disesuaikan agar hanya aktif membuka Quick File Picker saat editor aktif, dan diteruskan langsung ke CLI/OpenCode saat terminal fokus.
-2. **UI & Modal Fixes**:
-   - Memperbaiki overflow layout pada form modal agar konten panjang tetap berada di dalam card dengan scrolling yang rapi.
+### ✨ Apa yang Baru di v0.2.4
+1. **Interactive Git Commit Graph & Rollback**:
+   - Visualisasi commit graph SVG dengan pewarnaan branch & merge routes.
+   - Panel detail commit dengan statistik diff file (\`+ / -\`).
+   - Fitur Rollback dengan opsi **Safe Revert** (\`git revert\`) dan **Hard Reset** (\`git reset --hard\`).
+2. **Branch Compare & Side-by-Side Monaco Diff**:
+   - Membandingkan branch target vs compare branch.
+   - Status Ahead/Behind commits dan daftar file berubah.
+   - Integrasi langsung dengan Monaco Diff Editor (Side-by-side & Inline).
+   - 1-klik Branch Merge langsung ke base branch.
+3. **Folder Discard & Staging**:
+   - Hover aksi pada folder untuk stage/unstage seluruh file dalam folder.
+   - Discard seluruh perubahan file dalam satu folder dengan dialog konfirmasi aman.
+4. **Port & Process Manager**:
+   - Deteksi real-time TCP port \`LISTENING\`, PID, dan nama proses.
+   - 1-klik Kill Process jika terjadi port clash/EADDRINUSE.
+   - Badge jumlah port aktif di footer status bar.
+5. **UI & Navigasi**:
+   - Git Branch Picker terpadu di footer status bar.
+   - Perbaikan layout Changes sidebar yang mengisi penuh ruang vertikal.
 
 ---
 
 ### 📦 File Unduhan
-- **Windows Installer (.exe)**: \`MyTermin_0.2.3_x64-setup.exe\`
-- **Signature Installer**: \`MyTermin_0.2.3_x64-setup.exe.sig\`
+- **Windows Installer (.exe)**: \`MyTermin_0.2.4_x64-setup.exe\`
+- **Signature Installer**: \`MyTermin_0.2.4_x64-setup.exe.sig\`
 - **Updater Manifest**: \`latest.json\`
-- **Windows MSI**: \`MyTermin_0.2.3_x64_en-US.msi\`
+- **Windows MSI**: \`MyTermin_0.2.4_x64_en-US.msi\`
 `
 
   console.log(`Membuat Release ${tag} baru...`)
@@ -73,7 +88,7 @@ Pembaruan **MyTermin v0.2.3**: perbaikan shortcut OpenCode di terminal dan fix m
     body: JSON.stringify({
       tag_name: tag,
       target_commitish: 'main',
-      name: 'MyTermin v0.2.3',
+      name: 'MyTermin v0.2.4',
       body: releaseBody,
       draft: false,
       prerelease: false
@@ -93,13 +108,13 @@ Pembaruan **MyTermin v0.2.3**: perbaikan shortcut OpenCode di terminal dan fix m
 
   const assets = [
     {
-      path: 'D:\\MYP\\MyTermin\\src-tauri\\target\\release\\bundle\\nsis\\MyTermin_0.2.3_x64-setup.exe',
-      name: 'MyTermin_0.2.3_x64-setup.exe',
+      path: 'D:\\MYP\\MyTermin\\src-tauri\\target\\release\\bundle\\nsis\\MyTermin_0.2.4_x64-setup.exe',
+      name: 'MyTermin_0.2.4_x64-setup.exe',
       contentType: 'application/vnd.microsoft.portable-executable'
     },
     {
-      path: 'D:\\MYP\\MyTermin\\src-tauri\\target\\release\\bundle\\nsis\\MyTermin_0.2.3_x64-setup.exe.sig',
-      name: 'MyTermin_0.2.3_x64-setup.exe.sig',
+      path: 'D:\\MYP\\MyTermin\\src-tauri\\target\\release\\bundle\\nsis\\MyTermin_0.2.4_x64-setup.exe.sig',
+      name: 'MyTermin_0.2.4_x64-setup.exe.sig',
       contentType: 'text/plain'
     },
     {
@@ -108,8 +123,8 @@ Pembaruan **MyTermin v0.2.3**: perbaikan shortcut OpenCode di terminal dan fix m
       contentType: 'application/json'
     },
     {
-      path: 'D:\\MYP\\MyTermin\\src-tauri\\target\\release\\bundle\\msi\\MyTermin_0.2.3_x64_en-US.msi',
-      name: 'MyTermin_0.2.3_x64_en-US.msi',
+      path: 'D:\\MYP\\MyTermin\\src-tauri\\target\\release\\bundle\\msi\\MyTermin_0.2.4_x64_en-US.msi',
+      name: 'MyTermin_0.2.4_x64_en-US.msi',
       contentType: 'application/x-msi'
     },
     {

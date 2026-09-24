@@ -28,6 +28,8 @@ fn main() {
                         if dll_x64.exists() {
                             let _ = fs::copy(&dll_x64, bin_dir.join("WebView2Loader.dll"));
                             let _ = fs::copy(&dll_x64, out_dir.join("WebView2Loader.dll"));
+                            let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
+                            let _ = fs::copy(&dll_x64, manifest_dir.join("WebView2Loader.dll"));
                             break;
                         }
                     }

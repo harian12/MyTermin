@@ -128,3 +128,81 @@ export interface TerminalSettings {
   quickCommands?: QuickCommand[]
   startupPresetIds?: string[]
 }
+
+export interface GitGraphNode {
+  hash: string
+  short_hash: string
+  parents: string[]
+  author: string
+  author_email: string
+  date: string
+  relative_time: string
+  subject: string
+  body: string
+  refs: string[]
+}
+
+export interface GitCommitDiffFile {
+  path: string
+  status: string
+  old_path?: string
+  insertions: number
+  deletions: number
+}
+
+export interface GitCommitDetail {
+  hash: string
+  short_hash: string
+  parents: string[]
+  author: string
+  author_email: string
+  date: string
+  relative_time: string
+  subject: string
+  body: string
+  refs: string[]
+  files: GitCommitDiffFile[]
+}
+
+export interface GitGraphVisualNode extends GitGraphNode {
+  lane: number
+  color: string
+  x: number
+  y: number
+  routes: Array<{
+    fromLane: number
+    toLane: number
+    toY: number
+    color: string
+  }>
+}
+
+export interface GitBranchCompareData {
+  base_branch: string
+  compare_branch: string
+  ahead_count: number
+  behind_count: number
+  ahead_commits: Array<{
+    hash: string
+    short_hash: string
+    message: string
+    author: string
+    relative_time: string
+  }>
+  behind_commits: Array<{
+    hash: string
+    short_hash: string
+    message: string
+    author: string
+    relative_time: string
+  }>
+  changed_files: GitCommitDiffFile[]
+}
+
+export interface ListeningPortInfo {
+  protocol: string
+  local_address: string
+  port: number
+  pid: number
+  process_name: string
+}

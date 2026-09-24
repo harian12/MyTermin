@@ -12,6 +12,7 @@ import {
   FolderKanban,
   PanelLeft,
   GitBranch,
+  Radio,
   Keyboard
 } from 'lucide-vue-next'
 import { getCurrentWindow } from '@tauri-apps/api/window'
@@ -51,6 +52,7 @@ const emit = defineEmits<{
   (e: 'open-settings'): void
   (e: 'open-palette'): void
   (e: 'open-shortcuts'): void
+  (e: 'open-ports'): void
 }>()
 
 const editingWsId = ref<string | null>(null)
@@ -299,16 +301,6 @@ const closeWindow = async () => {
 
     <!-- Right Controls -->
     <div class="flex items-center gap-1.5" data-tauri-drag-region>
-      <!-- Git Branch Indicator -->
-      <div
-        v-if="gitBranch"
-        class="hidden md:flex items-center gap-1 px-2 py-1 rounded bg-[#181924] border border-border/50 text-[11px] text-primary font-mono select-none"
-        :title="`Git Branch Aktif: ${gitBranch}`"
-      >
-        <GitBranch class="w-3 h-3 text-primary flex-shrink-0" />
-        <span class="max-w-[120px] truncate font-semibold">{{ gitBranch }}</span>
-      </div>
-
       <!-- Command Palette Launcher -->
       <UiButton
         variant="ghost"
@@ -331,6 +323,17 @@ const closeWindow = async () => {
       >
         <Sparkles class="w-3.5 h-3.5 text-indigo-400" />
         <span class="text-[11px]">Presets</span>
+      </UiButton>
+
+      <!-- Port Manager Button -->
+      <UiButton
+        variant="ghost"
+        size="icon"
+        class="h-7 w-7 text-muted-foreground hover:text-emerald-400"
+        title="Port & Process Manager"
+        @click="emit('open-ports')"
+      >
+        <Radio class="w-3.5 h-3.5" />
       </UiButton>
 
       <!-- Keyboard Shortcuts Cheatsheet Button -->

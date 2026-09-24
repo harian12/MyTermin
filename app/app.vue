@@ -45,7 +45,7 @@ const {
   saveEditorSession,
   saveAll
 } = useEditorStore()
-const { gitBranch, refreshGitStatus } = useProjectExplorer()
+const { gitBranch, refreshGitStatus, fetchBranches } = useProjectExplorer()
 const { isTauri, writePty, pasteFromClipboard } = useTauriPty()
 const { isShortcut, requestDesktopNotification } = useSettingsStore()
 const { showAppConfirm } = useAppDialog()
@@ -66,6 +66,17 @@ const isQuickPickerOpen = ref(false)
 const isGlobalSearchOpen = ref(false)
 const isShortcutsOpen = ref(false)
 const isUpdateModalOpen = ref(false)
+const isBranchModalOpen = ref(false)
+const isGitGraphModalOpen = ref(false)
+const isBranchCompareModalOpen = ref(false)
+const isPortManagerModalOpen = ref(false)
+
+const { portsList: activePortsList, startPolling: startPortPolling, stopPolling: stopPortPolling } = usePortManager()
+
+const openFooterBranchPicker = async () => {
+  await fetchBranches()
+  isBranchModalOpen.value = true
+}
 const { isOpen: isCommandPaletteOpen, togglePalette, openPalette } = useCommandPalette()
 
 // Window State Persistence (size / position / maximized)
@@ -492,10 +503,14 @@ onMounted(() => {
     }, 2500)
   }
 
+  // Poll listening ports in background for footer status
+  startPortPolling(5000)
+
   window.addEventListener('beforeunload', () => {
     saveSession(false)
     saveEditorSession()
     persistWindowState()
+    stopPortPolling()
   })
 })
 
@@ -505,6 +520,7 @@ onBeforeUnmount(() => {
   if (windowStateTimer) clearTimeout(windowStateTimer)
   unlistenResize?.()
   unlistenMove?.()
+  stopPortPolling()
   window.removeEventListener('keydown', handleKeydown, true)
 })
 </script>
@@ -520,6 +536,7 @@ onBeforeUnmount(() => {
       @open-settings="isSettingsModalOpen = true"
       @open-palette="isCommandPaletteOpen = true"
       @open-shortcuts="isShortcutsOpen = true"
+      @open-ports="isPortManagerModalOpen = true"
     />
 
     <!-- Main Workspace Viewport: Sidebar Workstation Kiri + Editor / Terminal Viewport Kanan -->
@@ -582,16 +599,36 @@ onBeforeUnmount(() => {
     <footer class="h-6 w-full bg-[#0a0b0f] border-t border-border/60 px-3 flex items-center justify-between text-[11px] font-mono select-none z-30 flex-shrink-0 text-muted-foreground">
       <!-- Left: Git Branch, Folder Path, Workspace Name -->
       <div class="flex items-center gap-3 truncate max-w-[60%]">
-        <!-- Git Branch Badge -->
-        <div
+        <!-- Git Branch Badge / Selector -->
+        <button
           v-if="gitBranch"
-          class="flex items-center gap-1.5 text-primary hover:text-primary/80 transition-colors cursor-pointer font-medium flex-shrink-0"
-          :title="`Git Branch: ${gitBranch} (Klik untuk refresh)`"
-          @click="refreshGitStatus"
+          class="flex items-center gap-1.5 px-1.5 py-0.5 rounded hover:bg-[#1c1d2b] text-primary hover:text-primary/90 transition-colors cursor-pointer font-medium flex-shrink-0"
+          :title="`Git Branch: ${gitBranch} (Klik untuk beralih atau buat branch)`"
+          @click="openFooterBranchPicker"
         >
           <GitBranch class="w-3.5 h-3.5 text-primary flex-shrink-0" />
           <span>{{ gitBranch }}</span>
-        </div>
+        </button>
+
+        <!-- Git Graph Visual Button -->
+        <button
+          v-if="gitBranch"
+          class="flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-[#1c1d2b] text-muted-foreground hover:text-foreground transition-colors cursor-pointer flex-shrink-0"
+          title="Buka Visual Git Commit Graph"
+          @click="isGitGraphModalOpen = true"
+        >
+          <span class="text-[10px] bg-primary/10 text-primary border border-primary/20 px-1 py-0.2 rounded font-mono font-medium">Graph</span>
+        </button>
+
+        <!-- Branch Compare Button -->
+        <button
+          v-if="gitBranch"
+          class="flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-[#1c1d2b] text-muted-foreground hover:text-foreground transition-colors cursor-pointer flex-shrink-0"
+          title="Buka Branch Compare & Diff"
+          @click="isBranchCompareModalOpen = true"
+        >
+          <span class="text-[10px] bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 px-1 py-0.2 rounded font-mono font-medium">Compare</span>
+        </button>
 
         <div v-if="activeWorkstation.folderPath" class="flex items-center gap-1.5 text-muted-foreground truncate" :title="activeWorkstation.folderPath">
           <FolderOpen class="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
@@ -606,6 +643,17 @@ onBeforeUnmount(() => {
 
       <!-- Right: Sessions & Layout info -->
       <div class="flex items-center gap-3.5 flex-shrink-0">
+        <!-- Listening Ports Indicator -->
+        <button
+          v-if="activePortsList.length > 0"
+          class="flex items-center gap-1.5 px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/25 transition-colors cursor-pointer"
+          :title="`Ada ${activePortsList.length} port listening aktif (${activePortsList.slice(0, 3).map(p => p.port).join(', ')}...). Klik untuk kelola proses.`"
+          @click="isPortManagerModalOpen = true"
+        >
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+          <span class="text-[10px] font-mono font-semibold">{{ activePortsList.length }} Ports</span>
+        </button>
+
         <!-- Update Available Badge -->
         <button
           v-if="hasUpdate"
@@ -675,5 +723,9 @@ onBeforeUnmount(() => {
     <PresetModal v-model:open="isPresetModalOpen" />
     <SettingsModal v-model:open="isSettingsModalOpen" />
     <UpdateNotificationModal v-model:open="isUpdateModalOpen" />
+    <GitBranchModal v-model:open="isBranchModalOpen" />
+    <GitGraphModal v-model:open="isGitGraphModalOpen" />
+    <BranchCompareModal v-model:open="isBranchCompareModalOpen" />
+    <PortManagerModal v-model:open="isPortManagerModalOpen" />
   </div>
 </template>
