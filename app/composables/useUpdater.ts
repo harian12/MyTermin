@@ -1,4 +1,4 @@
-import { ref, computed } from 'vue';
+import { ref, computed, shallowRef } from 'vue';
 import { check, type Update } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
 import { getVersion } from '@tauri-apps/api/app';
@@ -7,7 +7,8 @@ export type UpdateStatus = 'idle' | 'checking' | 'available' | 'downloading' | '
 
 const status = ref<UpdateStatus>('idle');
 const statusMessage = ref('');
-const availableUpdate = ref<Update | null>(null);
+// Pakai shallowRef agar Vue reactivity proxy tidak merusak private fields (#rid / WeakMap) pada instance Update class
+const rawUpdate = shallowRef<Update | null>(null);
 const downloadProgress = ref(0);
 const downloadedBytes = ref(0);
 const totalBytes = ref(0);
@@ -27,7 +28,7 @@ export function useUpdater() {
         if (v) currentAppVersion.value = v;
       }
     } catch {
-      // Fallback tetap ke default value
+      // Fallback
     }
   };
 
@@ -40,14 +41,14 @@ export function useUpdater() {
       const update = await check();
       
       if (update?.available) {
-        availableUpdate.value = update;
+        rawUpdate.value = update;
         newVersion.value = update.version;
         releaseNotes.value = update.body || '';
         status.value = 'available';
         statusMessage.value = `Versi v${update.version} tersedia!`;
         return true;
       } else {
-        availableUpdate.value = null;
+        rawUpdate.value = null;
         status.value = 'up-to-date';
         statusMessage.value = `Aplikasi sudah versi terbaru (v${currentAppVersion.value}).`;
         return false;
@@ -64,7 +65,8 @@ export function useUpdater() {
   };
 
   const downloadAndInstall = async () => {
-    if (!availableUpdate.value) return;
+    const update = rawUpdate.value;
+    if (!update) return;
 
     try {
       status.value = 'downloading';
@@ -76,7 +78,7 @@ export function useUpdater() {
       let downloaded = 0;
       let total = 0;
 
-      await availableUpdate.value.downloadAndInstall((event) => {
+      await update.downloadAndInstall((event) => {
         switch (event.event) {
           case 'Started':
             total = event.data.contentLength || 0;
@@ -118,7 +120,6 @@ export function useUpdater() {
   return {
     status,
     statusMessage,
-    availableUpdate,
     downloadProgress,
     downloadedBytes,
     totalBytes,
