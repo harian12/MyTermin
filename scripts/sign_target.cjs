@@ -6,7 +6,8 @@ const path = require('path');
 const keyPath = path.join(os.homedir(), '.tauri', 'mytermin.key');
 const keyContent = fs.readFileSync(keyPath, 'utf8').trim();
 
-const targetFile = path.resolve('src-tauri/target/release/bundle/nsis/MyTermin_0.2.4_x64-setup.exe');
+const version = require('../package.json').version;
+const targetFile = path.resolve(`src-tauri/target/release/bundle/nsis/MyTermin_${version}_x64-setup.exe`);
 console.log('Signing:', targetFile);
 
 const env = {

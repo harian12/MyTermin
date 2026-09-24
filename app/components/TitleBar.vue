@@ -13,7 +13,8 @@ import {
   PanelLeft,
   GitBranch,
   Radio,
-  Keyboard
+  Keyboard,
+  AppWindow
 } from 'lucide-vue-next'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { useProjectExplorer } from '~/composables/useProjectExplorer'
@@ -137,6 +138,19 @@ const finishRename = (wsId: string) => {
     renameWorkstation(wsId, editingName.value.trim())
   }
   editingWsId.value = null
+}
+
+const openNewBlankWindow = async () => {
+  if (isTauri.value) {
+    try {
+      const { invoke } = await import('@tauri-apps/api/core')
+      await invoke('open_new_window', { blank: true })
+    } catch (e) {
+      console.error('Failed to open new blank window:', e)
+    }
+  } else {
+    window.open(window.location.origin, '_blank')
+  }
 }
 
 const minimizeWindow = async () => {
@@ -287,6 +301,15 @@ const closeWindow = async () => {
           @click="addWorkstation()"
         >
           <Plus class="w-3.5 h-3.5" />
+        </button>
+
+        <!-- Open New Blank Window Button -->
+        <button
+          class="p-1 rounded hover:bg-[#1e1f2b] text-muted-foreground hover:text-foreground transition-colors cursor-pointer flex-shrink-0 ml-0.5"
+          title="Buka Jendela Baru (Blank)"
+          @click="openNewBlankWindow"
+        >
+          <AppWindow class="w-3.5 h-3.5" />
         </button>
       </div>
     </div>

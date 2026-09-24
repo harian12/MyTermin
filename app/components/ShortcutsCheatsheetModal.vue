@@ -48,6 +48,7 @@ const groups = computed<ShortcutGroup[]>(() => [
       { keys: [kb('commandPalette', 'Ctrl+K')], label: 'Command Palette' },
       { keys: ['Ctrl+P'], label: 'Quick Open File' },
       { keys: ['Ctrl+Shift+F'], label: 'Cari & Ganti di Semua File' },
+      { keys: ['Ctrl+Shift+N'], label: 'Buka Jendela Baru (Blank Workspace)' },
       { keys: ['Ctrl+B'], label: 'Toggle Sidebar' },
       { keys: ['F1', 'Ctrl+/'], label: 'Buka Cheatsheet Shortcut Ini' },
       { keys: ['Ctrl+Shift+P'], label: 'Buka Presets Workspace' }

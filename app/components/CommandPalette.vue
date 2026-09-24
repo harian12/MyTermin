@@ -19,7 +19,8 @@ import {
   Save,
   Check,
   BookmarkPlus,
-  Download
+  Download,
+  AppWindow
 } from 'lucide-vue-next'
 import { TERMINAL_THEMES } from '~/composables/useThemes'
 
@@ -95,6 +96,26 @@ const allCommands = computed<CommandItem[]>(() => {
     icon: Plus,
     action: () => {
       addWorkstation()
+    }
+  })
+
+  list.push({
+    id: 'ws-open-blank-window',
+    title: 'Open New Blank Window',
+    subtitle: 'Buka instance aplikasi baru dengan workstation kosong',
+    category: 'Workstations',
+    icon: AppWindow,
+    action: async () => {
+      if (isTauri.value) {
+        try {
+          const { invoke } = await import('@tauri-apps/api/core')
+          await invoke('open_new_window', { blank: true })
+        } catch (e) {
+          console.error('Failed to open new blank window:', e)
+        }
+      } else {
+        window.open(window.location.origin, '_blank')
+      }
     }
   })
 

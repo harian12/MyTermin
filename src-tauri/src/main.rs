@@ -1582,7 +1582,7 @@ fn get_listening_ports() -> Result<Vec<ListeningPortInfo>, String> {
     {
         use std::os::windows::process::CommandExt;
         let mut cmd = std::process::Command::new("netstat");
-        cmd.arg("-ano").arg("-p").arg("tcp");
+        cmd.arg("-ano");
         cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
 
         if let Ok(output) = cmd.output() {
@@ -1694,6 +1694,27 @@ fn copy_to_clipboard(text: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn is_blank_startup() -> bool {
+    std::env::args().any(|arg| arg == "--blank")
+}
+
+#[tauri::command]
+fn open_new_window(blank: Option<bool>) -> Result<(), String> {
+    let current_exe = std::env::current_exe().map_err(|e| e.to_string())?;
+    let mut cmd = std::process::Command::new(current_exe);
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x08000000 | 0x00000200); // CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP
+    }
+    if blank.unwrap_or(false) {
+        cmd.arg("--blank");
+    }
+    cmd.spawn().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
 fn window_minimize(window: tauri::Window) -> Result<(), String> {
     window.minimize().map_err(|e| e.to_string())
 }
@@ -1719,7 +1740,86 @@ fn window_destroy(state: State<'_, PtyManager>, window: tauri::Window) -> Result
     window.destroy().map_err(|e| e.to_string())
 }
 
+#[cfg(windows)]
+fn setup_taskbar_jumplist() {
+    use std::ffi::OsStr;
+    use std::os::windows::ffi::OsStrExt;
+    use windows::core::{Interface, GUID, PCWSTR};
+    use windows::Win32::System::Com::{
+        CoCreateInstance, CoInitializeEx, CLSCTX_INPROC_SERVER, COINIT_APARTMENTTHREADED,
+    };
+    use windows::Win32::UI::Shell::Common::{IObjectArray, IObjectCollection};
+    use windows::Win32::UI::Shell::PropertiesSystem::IPropertyStore;
+    use windows::Win32::UI::Shell::{
+        DestinationList, EnumerableObjectCollection, ICustomDestinationList,
+        IShellLinkW, SetCurrentProcessExplicitAppUserModelID, ShellLink,
+    };
+
+    let _ = unsafe {
+        let app_id: Vec<u16> = OsStr::new("com.mytermin.workspace")
+            .encode_wide()
+            .chain(std::iter::once(0))
+            .collect();
+        let _ = SetCurrentProcessExplicitAppUserModelID(PCWSTR(app_id.as_ptr()));
+        let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
+
+        let custom_list: ICustomDestinationList = match CoCreateInstance(&DestinationList, None, CLSCTX_INPROC_SERVER) {
+            Ok(cl) => cl,
+            Err(_) => return,
+        };
+
+        let mut max_slots: u32 = 0;
+        let _removed: windows::core::Result<IObjectArray> = custom_list.BeginList(&mut max_slots);
+
+        let exe_path = match std::env::current_exe() {
+            Ok(p) => p,
+            Err(_) => return,
+        };
+        let exe_str: Vec<u16> = exe_path.as_os_str().encode_wide().chain(std::iter::once(0)).collect();
+
+        // Task 1: New Blank Window
+        let link_blank: IShellLinkW = match CoCreateInstance(&ShellLink, None, CLSCTX_INPROC_SERVER) {
+            Ok(l) => l,
+            Err(_) => return,
+        };
+        let _ = link_blank.SetPath(PCWSTR(exe_str.as_ptr()));
+        let args_blank: Vec<u16> = OsStr::new("--blank").encode_wide().chain(std::iter::once(0)).collect();
+        let _ = link_blank.SetArguments(PCWSTR(args_blank.as_ptr()));
+        let desc_blank: Vec<u16> = OsStr::new("Buka instance baru dengan workspace kosong").encode_wide().chain(std::iter::once(0)).collect();
+        let _ = link_blank.SetDescription(PCWSTR(desc_blank.as_ptr()));
+
+        // Set Title Property on IShellLink (PKEY_Title: {F29F85E0-4FF9-1068-AB91-08002B27B3D9}, 2)
+        if let Ok(prop_store) = link_blank.cast::<IPropertyStore>() {
+            use windows::Win32::UI::Shell::PropertiesSystem::PROPERTYKEY;
+            let key = PROPERTYKEY {
+                fmtid: GUID::from_u128(0xF29F85E0_4FF9_1068_AB91_08002B27B3D9),
+                pid: 2,
+            };
+            let title_wide: Vec<u16> = OsStr::new("New Blank Window").encode_wide().chain(std::iter::once(0)).collect();
+            if let Ok(pv) = windows::Win32::System::Com::StructuredStorage::InitPropVariantFromStringVector(
+                Some(&[PCWSTR(title_wide.as_ptr())]),
+            ) {
+                let _ = prop_store.SetValue(&key, &pv);
+                let _ = prop_store.Commit();
+            }
+        }
+
+        // Add to Tasks category via IObjectCollection
+        if let Ok(task_collection) = CoCreateInstance::<_, IObjectCollection>(&EnumerableObjectCollection, None, CLSCTX_INPROC_SERVER) {
+            let _ = task_collection.AddObject(&link_blank);
+            if let Ok(obj_array) = task_collection.cast::<IObjectArray>() {
+                let _ = custom_list.AddUserTasks(&obj_array);
+            }
+        }
+
+        let _ = custom_list.CommitList();
+    };
+}
+
 fn main() {
+    #[cfg(windows)]
+    setup_taskbar_jumplist();
+
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_process::init())
@@ -1778,6 +1878,8 @@ fn main() {
             search_in_files,
             replace_in_files,
             reveal_in_explorer,
+            is_blank_startup,
+            open_new_window,
             window_minimize,
             window_toggle_maximize,
             window_close,

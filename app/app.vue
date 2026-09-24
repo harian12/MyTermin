@@ -329,6 +329,19 @@ const handleKeydown = (e: KeyboardEvent) => {
     return
   }
 
+  // Open New Blank Window: Ctrl+Shift+N / Cmd+Shift+N
+  if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'n' || e.key === 'N')) {
+    e.preventDefault()
+    if (isTauri.value) {
+      import('@tauri-apps/api/core').then(({ invoke }) => {
+        invoke('open_new_window', { blank: true }).catch(console.error)
+      })
+    } else {
+      window.open(window.location.origin, '_blank')
+    }
+    return
+  }
+
   // Close Workstation: Ctrl+Shift+W / Cmd+Shift+W
   if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'w' || e.key === 'W')) {
     e.preventDefault()
@@ -467,13 +480,25 @@ const handleKeydown = (e: KeyboardEvent) => {
   }
 }
 
-onMounted(() => {
-  initFromStorage()
-  initEditorSession()
-  // Apply startup presets after session init (if configured in Settings)
+onMounted(async () => {
+  let isBlank = false
+  if (isTauri.value) {
+    try {
+      const { invoke } = await import('@tauri-apps/api/core')
+      isBlank = await invoke<boolean>('is_blank_startup')
+    } catch (e) {
+      console.warn('Check blank startup failed:', e)
+    }
+  }
+
+  if (!isBlank) {
+    initFromStorage()
+    initEditorSession()
+  }
+  // Apply startup presets after session init (if configured in Settings and not blank)
   const { settings } = useSettingsStore()
   const startupIds = settings.value.startupPresetIds || []
-  if (startupIds.length > 0) {
+  if (!isBlank && startupIds.length > 0) {
     const preset = presets.value.filter(p => startupIds.includes(p.id))
     if (preset.length > 0) {
       applyPreset({

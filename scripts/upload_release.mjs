@@ -22,7 +22,8 @@ async function run() {
 
   const owner = 'harian12'
   const repo = 'MyTermin'
-  const tag = 'v0.2.4'
+  const version = JSON.parse(fs.readFileSync('package.json', 'utf8')).version
+  const tag = `v${version}`
 
   const headers = {
     'Authorization': `Bearer ${token}`,
@@ -42,40 +43,29 @@ async function run() {
     })
   }
 
-  const releaseBody = `## MyTermin v0.2.4 🚀
+  const releaseBody = `## MyTermin ${tag} 🚀
 
-Pembaruan besar **MyTermin v0.2.4** dengan fitur **Git Commit Graph**, **Commit Rollback**, **Branch Compare & Diff**, **Folder Discarding**, dan **Port & Process Manager**.
+Pembaruan **MyTermin ${tag}** dengan fitur **Open New Blank Window**, **Taskbar JumpList Support**, dan perbaikan IPv6 listening port detection.
 
 ---
 
-### ✨ Apa yang Baru di v0.2.4
-1. **Interactive Git Commit Graph & Rollback**:
-   - Visualisasi commit graph SVG dengan pewarnaan branch & merge routes.
-   - Panel detail commit dengan statistik diff file (\`+ / -\`).
-   - Fitur Rollback dengan opsi **Safe Revert** (\`git revert\`) dan **Hard Reset** (\`git reset --hard\`).
-2. **Branch Compare & Side-by-Side Monaco Diff**:
-   - Membandingkan branch target vs compare branch.
-   - Status Ahead/Behind commits dan daftar file berubah.
-   - Integrasi langsung dengan Monaco Diff Editor (Side-by-side & Inline).
-   - 1-klik Branch Merge langsung ke base branch.
-3. **Folder Discard & Staging**:
-   - Hover aksi pada folder untuk stage/unstage seluruh file dalam folder.
-   - Discard seluruh perubahan file dalam satu folder dengan dialog konfirmasi aman.
-4. **Port & Process Manager**:
-   - Deteksi real-time TCP port \`LISTENING\`, PID, dan nama proses.
-   - 1-klik Kill Process jika terjadi port clash/EADDRINUSE.
-   - Badge jumlah port aktif di footer status bar.
-5. **UI & Navigasi**:
-   - Git Branch Picker terpadu di footer status bar.
-   - Perbaikan layout Changes sidebar yang mengisi penuh ruang vertikal.
+### ✨ Apa yang Baru di ${tag}
+1. **Open New Blank Window**:
+   - Shortcut \`Ctrl+Shift+N\` / \`Cmd+Shift+N\` untuk membuka instance baru aplikasi dengan workspace bersih.
+   - Tombol icon jendela baru di samping tab workstation TitleBar.
+   - Perintah "Open New Blank Window" di Command Palette (\`Ctrl+K\`).
+2. **Windows Taskbar JumpList Support**:
+   - Klik kanan icon MyTermin di Taskbar Windows untuk membuka **New Blank Window** langsung.
+3. **Deteksi Port IPv6 & IPv4**:
+   - Port Manager sekarang mendeteksi port IPv6 (misal \`[::1]:3050\` atau bun dev server).
 
 ---
 
 ### 📦 File Unduhan
-- **Windows Installer (.exe)**: \`MyTermin_0.2.4_x64-setup.exe\`
-- **Signature Installer**: \`MyTermin_0.2.4_x64-setup.exe.sig\`
+- **Windows Installer (.exe)**: \`MyTermin_${version}_x64-setup.exe\`
+- **Signature Installer**: \`MyTermin_${version}_x64-setup.exe.sig\`
 - **Updater Manifest**: \`latest.json\`
-- **Windows MSI**: \`MyTermin_0.2.4_x64_en-US.msi\`
+- **Windows MSI**: \`MyTermin_${version}_x64_en-US.msi\`
 `
 
   console.log(`Membuat Release ${tag} baru...`)
@@ -88,7 +78,7 @@ Pembaruan besar **MyTermin v0.2.4** dengan fitur **Git Commit Graph**, **Commit 
     body: JSON.stringify({
       tag_name: tag,
       target_commitish: 'main',
-      name: 'MyTermin v0.2.4',
+      name: `MyTermin ${tag}`,
       body: releaseBody,
       draft: false,
       prerelease: false
@@ -108,13 +98,13 @@ Pembaruan besar **MyTermin v0.2.4** dengan fitur **Git Commit Graph**, **Commit 
 
   const assets = [
     {
-      path: 'D:\\MYP\\MyTermin\\src-tauri\\target\\release\\bundle\\nsis\\MyTermin_0.2.4_x64-setup.exe',
-      name: 'MyTermin_0.2.4_x64-setup.exe',
+      path: `D:\\MYP\\MyTermin\\src-tauri\\target\\release\\bundle\\nsis\\MyTermin_${version}_x64-setup.exe`,
+      name: `MyTermin_${version}_x64-setup.exe`,
       contentType: 'application/vnd.microsoft.portable-executable'
     },
     {
-      path: 'D:\\MYP\\MyTermin\\src-tauri\\target\\release\\bundle\\nsis\\MyTermin_0.2.4_x64-setup.exe.sig',
-      name: 'MyTermin_0.2.4_x64-setup.exe.sig',
+      path: `D:\\MYP\\MyTermin\\src-tauri\\target\\release\\bundle\\nsis\\MyTermin_${version}_x64-setup.exe.sig`,
+      name: `MyTermin_${version}_x64-setup.exe.sig`,
       contentType: 'text/plain'
     },
     {
@@ -123,8 +113,8 @@ Pembaruan besar **MyTermin v0.2.4** dengan fitur **Git Commit Graph**, **Commit 
       contentType: 'application/json'
     },
     {
-      path: 'D:\\MYP\\MyTermin\\src-tauri\\target\\release\\bundle\\msi\\MyTermin_0.2.4_x64_en-US.msi',
-      name: 'MyTermin_0.2.4_x64_en-US.msi',
+      path: `D:\\MYP\\MyTermin\\src-tauri\\target\\release\\bundle\\msi\\MyTermin_${version}_x64_en-US.msi`,
+      name: `MyTermin_${version}_x64_en-US.msi`,
       contentType: 'application/x-msi'
     },
     {
