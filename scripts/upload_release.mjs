@@ -22,7 +22,7 @@ async function run() {
 
   const owner = 'harian12'
   const repo = 'MyTermin'
-  const tag = 'v0.2.1'
+  const tag = 'v0.2.2'
 
   const headers = {
     'Authorization': `Bearer ${token}`,
@@ -42,31 +42,28 @@ async function run() {
     })
   }
 
-  const releaseBody = `## MyTermin v0.2.1 🚀
+  const releaseBody = `## MyTermin v0.2.2 🚀
 
-Pembaruan **MyTermin v0.2.1** menghadirkan dukungan **In-App Auto Update** bawaan, perbaikan popup context menu viewport clamp, serta stabilitas sesi.
-
----
-
-### ✨ Apa yang Baru di v0.2.1
-1. **In-App Auto Update**:
-   - Pengecekan otomatis versi baru saat startup di background.
-   - Menu manual **Cek Update** di modal Pengaturan (\`SettingsModal\`).
-   - Progress bar download dan auto-relaunch setelah update terpasang.
-   - Keamanan dengan tanda tangan kriptografi (Minisign ed25519 signature & \`latest.json\`).
-
-2. **Perbaikan Viewport & Context Menu**:
-   - Perbaikan posisi popup context menu tree file & tab editor agar tidak pernah keluar dari batas layar (*viewport clamping*).
-   - Animasi transisi context menu \`zoom-in-95\` yang lebih mulus.
+Pembaruan **MyTermin v0.2.2** dengan pengujian penuh alur **In-App Auto Update**, verifikasi tanda tangan kriptografi, dan peningkatan performa terminal workspace.
 
 ---
 
-### 📦 File Installer & Manifest Unduhan
-- **Windows Installer Setup (.exe NSIS)**: \`MyTermin_0.2.1_x64-setup.exe\`
-- **Signature Installer**: \`MyTermin_0.2.1_x64-setup.exe.sig\`
+### ✨ Apa yang Baru di v0.2.2
+1. **Verifikasi Auto Update Live**:
+   - Pengecekan otomatis saat startup dengan dialog pop-up konfirmasi pembaruan.
+   - Indikator badge update di status bar.
+   - Pengunduhan paket instan dan restart aplikasi otomatis.
+
+2. **Perbaikan Pintasan Keyboard**:
+   - Optimalisasi shortcut \`Ctrl+P\` agar tidak memicu picker saat mengetik di terminal aktif.
+
+---
+
+### 📦 File Unduhan
+- **Windows Installer (.exe)**: \`MyTermin_0.2.2_x64-setup.exe\`
+- **Signature Installer**: \`MyTermin_0.2.2_x64-setup.exe.sig\`
 - **Updater Manifest**: \`latest.json\`
-- **Windows MSI Installer**: \`MyTermin_0.2.1_x64_en-US.msi\`
-- **Portable Binary (.exe)**: \`mytermin.exe\`
+- **Windows MSI**: \`MyTermin_0.2.2_x64_en-US.msi\`
 `
 
   console.log(`Membuat Release ${tag} baru...`)
@@ -79,7 +76,7 @@ Pembaruan **MyTermin v0.2.1** menghadirkan dukungan **In-App Auto Update** bawaa
     body: JSON.stringify({
       tag_name: tag,
       target_commitish: 'main',
-      name: 'MyTermin v0.2.1',
+      name: 'MyTermin v0.2.2',
       body: releaseBody,
       draft: false,
       prerelease: false
@@ -99,13 +96,13 @@ Pembaruan **MyTermin v0.2.1** menghadirkan dukungan **In-App Auto Update** bawaa
 
   const assets = [
     {
-      path: 'D:\\MYP\\MyTermin\\src-tauri\\target\\release\\bundle\\nsis\\MyTermin_0.2.1_x64-setup.exe',
-      name: 'MyTermin_0.2.1_x64-setup.exe',
+      path: 'D:\\MYP\\MyTermin\\src-tauri\\target\\release\\bundle\\nsis\\MyTermin_0.2.2_x64-setup.exe',
+      name: 'MyTermin_0.2.2_x64-setup.exe',
       contentType: 'application/vnd.microsoft.portable-executable'
     },
     {
-      path: 'D:\\MYP\\MyTermin\\src-tauri\\target\\release\\bundle\\nsis\\MyTermin_0.2.1_x64-setup.exe.sig',
-      name: 'MyTermin_0.2.1_x64-setup.exe.sig',
+      path: 'D:\\MYP\\MyTermin\\src-tauri\\target\\release\\bundle\\nsis\\MyTermin_0.2.2_x64-setup.exe.sig',
+      name: 'MyTermin_0.2.2_x64-setup.exe.sig',
       contentType: 'text/plain'
     },
     {
@@ -114,8 +111,8 @@ Pembaruan **MyTermin v0.2.1** menghadirkan dukungan **In-App Auto Update** bawaa
       contentType: 'application/json'
     },
     {
-      path: 'D:\\MYP\\MyTermin\\src-tauri\\target\\release\\bundle\\msi\\MyTermin_0.2.1_x64_en-US.msi',
-      name: 'MyTermin_0.2.1_x64_en-US.msi',
+      path: 'D:\\MYP\\MyTermin\\src-tauri\\target\\release\\bundle\\msi\\MyTermin_0.2.2_x64_en-US.msi',
+      name: 'MyTermin_0.2.2_x64_en-US.msi',
       contentType: 'application/x-msi'
     },
     {
