@@ -22,7 +22,7 @@ async function run() {
 
   const owner = 'harian12'
   const repo = 'MyTermin'
-  const tag = 'v0.2.2'
+  const tag = 'v0.2.3'
 
   const headers = {
     'Authorization': `Bearer ${token}`,
@@ -42,28 +42,25 @@ async function run() {
     })
   }
 
-  const releaseBody = `## MyTermin v0.2.2 🚀
+  const releaseBody = `## MyTermin v0.2.3 🚀
 
-Pembaruan **MyTermin v0.2.2** dengan pengujian penuh alur **In-App Auto Update**, verifikasi tanda tangan kriptografi, dan peningkatan performa terminal workspace.
+Pembaruan **MyTermin v0.2.3**: perbaikan shortcut OpenCode di terminal dan fix modal layout overflow.
 
 ---
 
-### ✨ Apa yang Baru di v0.2.2
-1. **Verifikasi Auto Update Live**:
-   - Pengecekan otomatis saat startup dengan dialog pop-up konfirmasi pembaruan.
-   - Indikator badge update di status bar.
-   - Pengunduhan paket instan dan restart aplikasi otomatis.
-
-2. **Perbaikan Pintasan Keyboard**:
-   - Optimalisasi shortcut \`Ctrl+P\` agar tidak memicu picker saat mengetik di terminal aktif.
+### ✨ Apa yang Baru di v0.2.3
+1. **Shortcut & Keybinding Enhancement**:
+   - Shortcut \`Ctrl+P\` disesuaikan agar hanya aktif membuka Quick File Picker saat editor aktif, dan diteruskan langsung ke CLI/OpenCode saat terminal fokus.
+2. **UI & Modal Fixes**:
+   - Memperbaiki overflow layout pada form modal agar konten panjang tetap berada di dalam card dengan scrolling yang rapi.
 
 ---
 
 ### 📦 File Unduhan
-- **Windows Installer (.exe)**: \`MyTermin_0.2.2_x64-setup.exe\`
-- **Signature Installer**: \`MyTermin_0.2.2_x64-setup.exe.sig\`
+- **Windows Installer (.exe)**: \`MyTermin_0.2.3_x64-setup.exe\`
+- **Signature Installer**: \`MyTermin_0.2.3_x64-setup.exe.sig\`
 - **Updater Manifest**: \`latest.json\`
-- **Windows MSI**: \`MyTermin_0.2.2_x64_en-US.msi\`
+- **Windows MSI**: \`MyTermin_0.2.3_x64_en-US.msi\`
 `
 
   console.log(`Membuat Release ${tag} baru...`)
@@ -76,7 +73,7 @@ Pembaruan **MyTermin v0.2.2** dengan pengujian penuh alur **In-App Auto Update**
     body: JSON.stringify({
       tag_name: tag,
       target_commitish: 'main',
-      name: 'MyTermin v0.2.2',
+      name: 'MyTermin v0.2.3',
       body: releaseBody,
       draft: false,
       prerelease: false
@@ -96,13 +93,13 @@ Pembaruan **MyTermin v0.2.2** dengan pengujian penuh alur **In-App Auto Update**
 
   const assets = [
     {
-      path: 'D:\\MYP\\MyTermin\\src-tauri\\target\\release\\bundle\\nsis\\MyTermin_0.2.2_x64-setup.exe',
-      name: 'MyTermin_0.2.2_x64-setup.exe',
+      path: 'D:\\MYP\\MyTermin\\src-tauri\\target\\release\\bundle\\nsis\\MyTermin_0.2.3_x64-setup.exe',
+      name: 'MyTermin_0.2.3_x64-setup.exe',
       contentType: 'application/vnd.microsoft.portable-executable'
     },
     {
-      path: 'D:\\MYP\\MyTermin\\src-tauri\\target\\release\\bundle\\nsis\\MyTermin_0.2.2_x64-setup.exe.sig',
-      name: 'MyTermin_0.2.2_x64-setup.exe.sig',
+      path: 'D:\\MYP\\MyTermin\\src-tauri\\target\\release\\bundle\\nsis\\MyTermin_0.2.3_x64-setup.exe.sig',
+      name: 'MyTermin_0.2.3_x64-setup.exe.sig',
       contentType: 'text/plain'
     },
     {
@@ -111,8 +108,8 @@ Pembaruan **MyTermin v0.2.2** dengan pengujian penuh alur **In-App Auto Update**
       contentType: 'application/json'
     },
     {
-      path: 'D:\\MYP\\MyTermin\\src-tauri\\target\\release\\bundle\\msi\\MyTermin_0.2.2_x64_en-US.msi',
-      name: 'MyTermin_0.2.2_x64_en-US.msi',
+      path: 'D:\\MYP\\MyTermin\\src-tauri\\target\\release\\bundle\\msi\\MyTermin_0.2.3_x64_en-US.msi',
+      name: 'MyTermin_0.2.3_x64_en-US.msi',
       contentType: 'application/x-msi'
     },
     {
