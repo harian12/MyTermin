@@ -215,7 +215,7 @@ const executeResetHard = async () => {
             <button
               class="p-1.5 rounded-lg border border-border/80 hover:bg-[#1f202e] text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
               title="Refresh Graph"
-              @click="fetchGraph"
+              @click="fetchGraph()"
             >
               <RotateCcw :class="['w-4 h-4', isLoading ? 'animate-spin text-primary' : '']" />
             </button>

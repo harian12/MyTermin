@@ -188,7 +188,7 @@ onMounted(async () => {
             @update:model-value="updateSettings({ theme: $event as string })"
           >
             <option v-for="key in themeKeys" :key="key" :value="key">
-              {{ TERMINAL_THEMES[key].name }}
+              {{ TERMINAL_THEMES[key]?.name ?? key }}
             </option>
           </UiSelect>
         </div>

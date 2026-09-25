@@ -55,7 +55,7 @@ export const useGitGraph = () => {
       }
 
       highestLane = Math.max(highestLane, lane)
-      const color = BRANCH_COLORS[lane % BRANCH_COLORS.length]
+      const color = BRANCH_COLORS[lane % BRANCH_COLORS.length] ?? '#38bdf8'
       const routes: GitGraphVisualNode['routes'] = []
 
       // 2. Map parent connections
@@ -65,11 +65,12 @@ export const useGitGraph = () => {
       } else {
         // First parent inherits current lane
         const firstParent = node.parents[0]
-        lanes[lane] = firstParent
+        lanes[lane] = firstParent ?? null
 
         // Additional parents (merge)
         for (let pIdx = 1; pIdx < node.parents.length; pIdx++) {
           const pHash = node.parents[pIdx]
+          if (!pHash) continue
           let pLane = lanes.indexOf(pHash)
           if (pLane === -1) {
             pLane = lanes.indexOf(null)
@@ -144,7 +145,8 @@ export const useGitGraph = () => {
 
       // Auto select first commit if none selected
       if (rawNodes.value.length > 0 && !selectedCommit.value) {
-        selectCommit(rawNodes.value[0].hash)
+        const firstNode = rawNodes.value[0]
+        if (firstNode) selectCommit(firstNode.hash)
       }
     } catch (e: any) {
       errorMsg.value = e?.message || String(e)

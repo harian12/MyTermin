@@ -80,13 +80,17 @@ export function computeLineDiff(
 
   // LCS Matrix table
   const dp: number[][] = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0))
+  const cell = (i: number, j: number): number => dp[i]?.[j] ?? 0
 
   for (let i = 1; i <= n; i++) {
+    const row = dp[i]
+    const prevRow = dp[i - 1]
+    if (!row || !prevRow) continue
     for (let j = 1; j <= m; j++) {
       if (originalLines[i - 1] === modifiedLines[j - 1]) {
-        dp[i][j] = dp[i - 1][j - 1] + 1
+        row[j] = cell(i - 1, j - 1) + 1
       } else {
-        dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1])
+        row[j] = Math.max(cell(i - 1, j), cell(i, j - 1))
       }
     }
   }
@@ -102,10 +106,10 @@ export function computeLineDiff(
       ops.push({ type: 'equal', oIdx: i - 1, mIdx: j - 1 })
       i--
       j--
-    } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
+    } else if (j > 0 && (i === 0 || cell(i, j - 1) >= cell(i - 1, j))) {
       ops.push({ type: 'insert', oIdx: i, mIdx: j - 1 })
       j--
-    } else if (i > 0 && (j === 0 || dp[i][j - 1] < dp[i - 1][j])) {
+    } else if (i > 0 && (j === 0 || cell(i, j - 1) < cell(i - 1, j))) {
       ops.push({ type: 'delete', oIdx: i - 1, mIdx: j })
       i--
     }
@@ -117,22 +121,25 @@ export function computeLineDiff(
   let k = 0
 
   while (k < ops.length) {
-    if (ops[k].type === 'equal') {
+    const currentOp = ops[k]
+    if (!currentOp || currentOp.type === 'equal') {
       k++
       continue
     }
 
-    const startOp = ops[k]
+    const startOp = currentOp
     let oStart = startOp.oIdx
     let mStart = startOp.mIdx
     let oEnd = oStart
     let mEnd = mStart
 
-    while (k < ops.length && ops[k].type !== 'equal') {
-      if (ops[k].type === 'delete') {
-        oEnd = ops[k].oIdx + 1
-      } else if (ops[k].type === 'insert') {
-        mEnd = ops[k].mIdx + 1
+    while (k < ops.length) {
+      const loopOp = ops[k]
+      if (!loopOp || loopOp.type === 'equal') break
+      if (loopOp.type === 'delete') {
+        oEnd = loopOp.oIdx + 1
+      } else {
+        mEnd = loopOp.mIdx + 1
       }
       k++
     }

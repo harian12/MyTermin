@@ -254,6 +254,7 @@ const handleSaveEdit = () => {
   if (!editForm.value || !editForm.value.name.trim() || editForm.value.workstations.length === 0) return
 
   const firstWs = editForm.value.workstations[0]
+  if (!firstWs) return
   updatePreset({
     id: editForm.value.id,
     name: editForm.value.name.trim(),

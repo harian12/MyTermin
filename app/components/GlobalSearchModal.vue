@@ -172,8 +172,9 @@ const handleKeyDown = (e: KeyboardEvent) => {
     scrollToSelected()
   } else if (e.key === 'Enter') {
     e.preventDefault()
-    if (results.value[selectedIndex.value]) {
-      handleSelect(results.value[selectedIndex.value])
+    const selectedResult = results.value[selectedIndex.value]
+    if (selectedResult) {
+      handleSelect(selectedResult)
     }
   }
 }

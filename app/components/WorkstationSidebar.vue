@@ -93,7 +93,8 @@ const {
   renamePath,
   deletePath,
   gitCommit,
-  setWorkstationFolder
+  setWorkstationFolder,
+  revealInExplorer
 } = useProjectExplorer()
 
 const { openFile, openGitDiffTab } = useEditorStore()
@@ -135,6 +136,7 @@ const buildGitTree = (files: { path: string; name: string; status: string; is_st
 
     for (let i = 0; i < parts.length; i++) {
       const part = parts[i]
+      if (part === undefined) continue
       accumulatedPath = accumulatedPath ? `${accumulatedPath}/${part}` : part
       const isFile = i === parts.length - 1
 
@@ -150,13 +152,14 @@ const buildGitTree = (files: { path: string; name: string; status: string; is_st
       } else {
         let folderNode = currentChildren.find(n => n.isDir && n.name === part)
         if (!folderNode) {
-          folderNode = {
+          const newFolderNode: GitTreeNode = {
             name: part,
             path: accumulatedPath,
             isDir: true,
             children: []
           }
-          currentChildren.push(folderNode)
+          currentChildren.push(newFolderNode)
+          folderNode = newFolderNode
         }
         currentChildren = folderNode.children!
       }
@@ -631,7 +634,7 @@ const finishRename = (termId: string) => {
       >
         Term ({{ terminals.length }})
         <span
-          v-if="backgroundAlerts.length > 0"
+          v-if="Object.keys(backgroundAlerts).length > 0"
           class="absolute right-1 top-1.5 w-1.5 h-1.5 rounded-full bg-amber-400"
         />
       </button>
@@ -675,7 +678,7 @@ const finishRename = (termId: string) => {
       >
         <Terminal class="w-4 h-4" />
         <span
-          v-if="backgroundAlerts.length > 0"
+          v-if="Object.keys(backgroundAlerts).length > 0"
           class="absolute top-1 right-1 w-2 h-2 rounded-full bg-amber-400"
         />
       </button>

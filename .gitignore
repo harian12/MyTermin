@@ -20,3 +20,6 @@ target/
 Thumbs.db
 .vscode/
 .idea/
+
+# graphify knowledge graph artifacts
+graphify-out/

@@ -500,9 +500,10 @@ onMounted(async () => {
   const startupIds = settings.value.startupPresetIds || []
   if (!isBlank && startupIds.length > 0) {
     const preset = presets.value.filter(p => startupIds.includes(p.id))
-    if (preset.length > 0) {
+    const firstPreset = preset[0]
+    if (firstPreset) {
       applyPreset({
-        ...preset[0],
+        ...firstPreset,
         id: `startup-${Date.now()}`,
         terminals: preset.flatMap(p => p.terminals.map(t => ({
           title: t.title,

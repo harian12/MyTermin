@@ -24,13 +24,7 @@ import {
 } from 'lucide-vue-next'
 import { TERMINAL_THEMES } from '~/composables/useThemes'
 
-interface Props {
-  open: boolean
-}
-
-const props = defineProps<Props>()
 const emit = defineEmits<{
-  (e: 'update:open', val: boolean): void
   (e: 'open-settings'): void
   (e: 'open-presets'): void
 }>()
@@ -55,7 +49,7 @@ const {
 
 const { isOpen, closePalette } = useCommandPalette()
 const { settings, updateSettings } = useSettingsStore()
-const { writePty } = useTauriPty()
+const { writePty, isTauri } = useTauriPty()
 
 const searchQuery = ref('')
 const selectedIndex = ref(0)
@@ -286,6 +280,7 @@ const allCommands = computed<CommandItem[]>(() => {
   // 5. Themes Quick Switch
   Object.keys(TERMINAL_THEMES).forEach((tKey) => {
     const t = TERMINAL_THEMES[tKey]
+    if (!t) return
     list.push({
       id: `theme-${tKey}`,
       title: `Theme: ${t.name}`,

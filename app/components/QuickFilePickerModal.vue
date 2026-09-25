@@ -103,8 +103,9 @@ const handleKeyDown = (e: KeyboardEvent) => {
     scrollToSelected()
   } else if (e.key === 'Enter') {
     e.preventDefault()
-    if (filteredFiles.value[selectedIndex.value]) {
-      handleSelect(filteredFiles.value[selectedIndex.value])
+    const selectedFile = filteredFiles.value[selectedIndex.value]
+    if (selectedFile) {
+      handleSelect(selectedFile)
     }
   }
 }

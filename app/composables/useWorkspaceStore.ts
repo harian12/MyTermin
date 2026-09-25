@@ -1,4 +1,4 @@
-import type { TerminalTab, WorkspacePreset, LayoutType, TerminalSettings, Workstation } from '~/types/terminal'
+import type { TerminalTab, WorkspacePreset, LayoutType, TerminalSettings, Workstation, PresetWorkstationConfig } from '~/types/terminal'
 
 const STORAGE_KEY = 'mytermin_session_v5'
 const CUSTOM_PRESETS_KEY = 'mytermin_custom_presets_v1'
@@ -160,12 +160,14 @@ export const useWorkspaceStore = () => {
     if (idx === -1) return
 
     // Konfirmasi bila ada proses terminal yang masih berjalan di workstation ini
-    const wsTerminals = workstations.value[idx].terminals
+    const targetWs = workstations.value[idx]
+    if (!targetWs) return
+    const wsTerminals = targetWs.terminals
     const hasRunning = wsTerminals.some(t => backgroundAlerts.value[t.id] === 'running')
     if (hasRunning) {
       const { showAppConfirm } = useAppDialog()
       const ok = await showAppConfirm(
-        `Workstation "${workstations.value[idx].name}" masih memiliki proses terminal yang berjalan. Tutup tetap?`,
+        `Workstation "${targetWs.name}" masih memiliki proses terminal yang berjalan. Tutup tetap?`,
         'Konfirmasi Tutup Workstation',
         'warning',
         'Tutup'
@@ -185,7 +187,7 @@ export const useWorkspaceStore = () => {
       workstations.value = [fresh]
       activeWorkstationId.value = fresh.id
     } else if (activeWorkstationId.value === wsId) {
-      activeWorkstationId.value = workstations.value[Math.max(0, idx - 1)].id
+      activeWorkstationId.value = workstations.value[Math.max(0, idx - 1)]?.id ?? activeWorkstationId.value
     }
     saveSession(false)
   }
@@ -201,6 +203,7 @@ export const useWorkspaceStore = () => {
       return
     }
     const [moved] = workstations.value.splice(fromIndex, 1)
+    if (!moved) return
     workstations.value.splice(toIndex, 0, moved)
     saveSession(false)
   }
@@ -209,7 +212,9 @@ export const useWorkspaceStore = () => {
     if (workstations.value.length <= 1) return
     const curIdx = workstations.value.findIndex((w) => w.id === activeWorkstationId.value)
     const nextIdx = (curIdx + 1) % workstations.value.length
-    activeWorkstationId.value = workstations.value[nextIdx].id
+    const nextWs = workstations.value[nextIdx]
+    if (!nextWs) return
+    activeWorkstationId.value = nextWs.id
     saveSession(false)
   }
 
@@ -217,7 +222,9 @@ export const useWorkspaceStore = () => {
     if (workstations.value.length <= 1) return
     const curIdx = workstations.value.findIndex((w) => w.id === activeWorkstationId.value)
     const prevIdx = (curIdx - 1 + workstations.value.length) % workstations.value.length
-    activeWorkstationId.value = workstations.value[prevIdx].id
+    const prevWs = workstations.value[prevIdx]
+    if (!prevWs) return
+    activeWorkstationId.value = prevWs.id
     saveSession(false)
   }
 
@@ -441,17 +448,19 @@ export const useWorkspaceStore = () => {
     if (terminals.value.length === 0) return
     const idx = terminals.value.findIndex(t => t.id === activeTerminalId.value)
     const nextIdx = (idx + 1) % terminals.value.length
-    activeTerminalId.value = terminals.value[nextIdx].id
+    const nextTerm = terminals.value[nextIdx]
+    if (nextTerm) activeTerminalId.value = nextTerm.id
   }
 
   const prevTab = () => {
     if (terminals.value.length === 0) return
     const idx = terminals.value.findIndex(t => t.id === activeTerminalId.value)
     const prevIdx = (idx - 1 + terminals.value.length) % terminals.value.length
-    activeTerminalId.value = terminals.value[prevIdx].id
+    const prevTerm = terminals.value[prevIdx]
+    if (prevTerm) activeTerminalId.value = prevTerm.id
   }
 
-  const addTerminal = (presetTerminal?: { title: string; command?: string; shell?: string; cwd?: string }) => {
+  const addTerminal = (presetTerminal?: { title?: string; command?: string; shell?: string; cwd?: string }) => {
     const ws = workstations.value.find(w => w.id === activeWorkstationId.value)
     if (!ws) return
     const termNum = ws.terminals.length + 1
@@ -518,7 +527,8 @@ export const useWorkspaceStore = () => {
       if (ws.terminals.length === 0) {
         ws.activeTerminalId = ''
       } else if (ws.activeTerminalId === termId) {
-        ws.activeTerminalId = ws.terminals[Math.max(0, idx - 1)].id
+        const fallbackTerm = ws.terminals[Math.max(0, idx - 1)]
+        if (fallbackTerm) ws.activeTerminalId = fallbackTerm.id
       }
       saveSession(false)
     }
@@ -537,6 +547,7 @@ export const useWorkspaceStore = () => {
       return
     }
     const [movedTab] = ws.terminals.splice(fromIndex, 1)
+    if (!movedTab) return
     ws.terminals.splice(toIndex, 0, movedTab)
     saveSession(false)
   }
@@ -620,7 +631,8 @@ export const useWorkspaceStore = () => {
       } else {
         workstations.value = createdWorkstations
       }
-      activeWorkstationId.value = createdWorkstations[0].id
+      const firstWsCreated = createdWorkstations[0]
+      if (firstWsCreated) activeWorkstationId.value = firstWsCreated.id
       saveSession(false)
       return
     }
@@ -659,6 +671,7 @@ export const useWorkspaceStore = () => {
     const selected = all.filter(p => ids.includes(p.id))
     if (selected.length === 0) return
     const first = selected[0]
+    if (!first) return
     const merged: WorkspacePreset = {
       ...first,
       id: `startup-${Date.now()}`,

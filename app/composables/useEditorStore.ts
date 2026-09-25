@@ -432,7 +432,8 @@ export const useEditorStore = () => {
         isEditorPaneSplit.value = false
       } else if (activeFileId.value === fileId) {
         const nextIdx = Math.min(idx, openFiles.value.length - 1)
-        activeFileId.value = openFiles.value[nextIdx].id
+        const nextFile = openFiles.value[nextIdx]
+        if (nextFile) activeFileId.value = nextFile.id
       }
       if (secondaryFileId.value === fileId) {
         secondaryFileId.value = activeFileId.value
@@ -525,7 +526,8 @@ export const useEditorStore = () => {
     if (openFiles.value.length <= 1) return
     const curIdx = openFiles.value.findIndex(f => f.id === activeFileId.value)
     const nextIdx = (curIdx + 1) % openFiles.value.length
-    activeFileId.value = openFiles.value[nextIdx].id
+    const nextFile = openFiles.value[nextIdx]
+    if (nextFile) activeFileId.value = nextFile.id
   }
 
   const prevFileTab = () => {
@@ -533,7 +535,8 @@ export const useEditorStore = () => {
     if (openFiles.value.length <= 1) return
     const curIdx = openFiles.value.findIndex(f => f.id === activeFileId.value)
     const prevIdx = (curIdx - 1 + openFiles.value.length) % openFiles.value.length
-    activeFileId.value = openFiles.value[prevIdx].id
+    const prevFile = openFiles.value[prevIdx]
+    if (prevFile) activeFileId.value = prevFile.id
   }
 
   const copyRelativePath = async (filePath: string) => {

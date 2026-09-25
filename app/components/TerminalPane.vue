@@ -92,7 +92,7 @@ const searchMatchCase = ref(false)
 const searchFound = ref<boolean | null>(null)
 
 const currentTheme = computed(() => {
-  return TERMINAL_THEMES[settings.value.theme]?.theme || TERMINAL_THEMES.tokyoNight.theme
+  return TERMINAL_THEMES[settings.value.theme]?.theme || TERMINAL_THEMES['tokyoNight']?.theme || {}
 })
 
 const safeFit = () => {
@@ -199,7 +199,7 @@ const exportBufferToFile = () => {
       lines.push(line.translateToString(true))
     }
   }
-  while (lines.length > 0 && lines[lines.length - 1].trim() === '') {
+  while (lines.length > 0 && lines[lines.length - 1]?.trim() === '') {
     lines.pop()
   }
   const content = lines.join('\r\n')
@@ -242,8 +242,9 @@ const parseStreamForCwd = (rawChunk: string) => {
   ptyStreamBuffer = (ptyStreamBuffer + clean).slice(-1024)
 
   const psMatches = [...ptyStreamBuffer.matchAll(/PS\s+([A-Za-z]:[\\/][^>\r\n]+)>/g)]
-  if (psMatches.length > 0) {
-    const matched = psMatches[psMatches.length - 1][1].trim()
+  const lastPsMatch = psMatches[psMatches.length - 1]?.[1]
+  if (lastPsMatch) {
+    const matched = lastPsMatch.trim()
     if (matched.length >= 2) {
       updateTerminalCwd(props.paneId, matched)
       return
@@ -251,8 +252,9 @@ const parseStreamForCwd = (rawChunk: string) => {
   }
 
   const cmdMatches = [...ptyStreamBuffer.matchAll(/(?:^|[\r\n])\s*([A-Za-z]:[\\/][^>\r\n]+)>/g)]
-  if (cmdMatches.length > 0) {
-    const matched = cmdMatches[cmdMatches.length - 1][1].trim()
+  const lastCmdMatch = cmdMatches[cmdMatches.length - 1]?.[1]
+  if (lastCmdMatch) {
+    const matched = lastCmdMatch.trim()
     if (matched.length >= 2) {
       updateTerminalCwd(props.paneId, matched)
     }
@@ -474,8 +476,9 @@ const initTerminal = async () => {
     // Auto-run hanya initialCommand (preset). Perintah terakhir tidak dijalankan ulang;
     // hanya direktori terakhir yang dipulihkan via props.cwd.
     if (props.initialCommand) {
+      const initialCommand = props.initialCommand
       setTimeout(() => {
-        const formattedCmd = props.initialCommand.endsWith('\r') || props.initialCommand.endsWith('\n') ? props.initialCommand : `${props.initialCommand}\r`
+        const formattedCmd = initialCommand.endsWith('\r') || initialCommand.endsWith('\n') ? initialCommand : `${initialCommand}\r`
         writePty(props.paneId, formattedCmd)
       }, 700)
     }
@@ -761,9 +764,10 @@ const fetchStats = async () => {
   if (!isTauri.value || !isPtyReady.value || isPtyExited.value) return
   try {
     const all = await getAllPtyStats()
-    if (all && all[props.paneId]) {
-      paneStats.value = all[props.paneId]
-      const isBusy = paneStats.value.child_count > 0 || paneStats.value.cpu_usage > 5.0
+    const stats = all?.[props.paneId]
+    if (stats) {
+      paneStats.value = stats
+      const isBusy = stats.child_count > 0 || stats.cpu_usage > 5.0
 
       if (isBusy) {
         wasProcessBusy = true
@@ -788,16 +792,16 @@ const fetchStats = async () => {
       }
 
       // Jika Rust sysinfo mendeteksi CWD proses aktif (misal opencode, node, dsb), update direktori tab
-      if (paneStats.value.cwd) {
-        updateTerminalCwd(props.paneId, paneStats.value.cwd)
+      if (stats.cwd) {
+        updateTerminalCwd(props.paneId, stats.cwd)
       }
       // Jika mendeteksi subproses aktif (misal opencode, codex, vite, cargo), simpan ke lastCommand
       if (
-        paneStats.value.child_count > 0 &&
-        paneStats.value.process_name &&
-        !['powershell.exe', 'cmd.exe', 'bash.exe', 'zsh', 'conhost.exe'].includes(paneStats.value.process_name.toLowerCase()) && ['bun', 'node', 'deno', 'python', 'python3', 'go', 'cargo', 'npm', 'pnpm', 'yarn', 'bunx', 'npx', 'pip', 'pip3', 'uv', 'java', 'dotnet', 'rustc'].indexOf(paneStats.value.process_name.toLowerCase().replace(/\.exe$/i, '')) === -1
+        stats.child_count > 0 &&
+        stats.process_name &&
+        !['powershell.exe', 'cmd.exe', 'bash.exe', 'zsh', 'conhost.exe'].includes(stats.process_name.toLowerCase()) && ['bun', 'node', 'deno', 'python', 'python3', 'go', 'cargo', 'npm', 'pnpm', 'yarn', 'bunx', 'npx', 'pip', 'pip3', 'uv', 'java', 'dotnet', 'rustc'].indexOf(stats.process_name.toLowerCase().replace(/\.exe$/i, '')) === -1
       ) {
-        const procClean = paneStats.value.process_name.replace(/\.exe$/i, '')
+        const procClean = stats.process_name.replace(/\.exe$/i, '')
         updateTerminalLastCommand(props.paneId, procClean)
       }
     }
@@ -943,7 +947,7 @@ onBeforeUnmount(async () => {
             v-else
             class="flex items-center gap-1 text-[10px] text-rose-300 font-mono bg-rose-950/60 hover:bg-rose-900/80 px-2 py-0.5 rounded border border-rose-800/60 transition-colors cursor-pointer"
             title="Klik untuk memulai ulang sesi terminal"
-            @click.stop="restartTerminalSession"
+            @click.stop="restartTerminalSession()"
           >
             <RotateCcw class="w-2.5 h-2.5" />
             <span>Restart</span>
