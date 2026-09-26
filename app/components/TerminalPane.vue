@@ -24,7 +24,6 @@ import {
 import { TERMINAL_THEMES } from '~/composables/useThemes'
 import type { PtyStats } from '~/types/terminal'
 import { sendDesktopNotification } from '~/composables/useSettingsStore'
-import { msysToWinPath, parseMsysTitle, matchMsysPrompt } from '~/utils/msysPath'
 
 interface Props {
   paneId: string
@@ -268,6 +267,13 @@ const exportBufferToFile = () => {
   URL.revokeObjectURL(url)
 }
 
+const applyMsysCwd = (msysPath: string | null) => {
+  const winPath = msysToWinPath(msysPath)
+  if (!winPath) return
+  updateTerminalCwd(props.paneId, winPath)
+  if (paneStats.value) paneStats.value.cwd = ''
+}
+
 const parseStreamForCwd = (rawChunk: string) => {
   // OSC 9;9 (Windows Terminal / ConEmu)
   const osc9Match = rawChunk.match(/\x1B\]9;9;"?([^"\x07\x1B]+)"?(?:\x07|\x1B\\)/)
@@ -315,14 +321,7 @@ const parseStreamForCwd = (rawChunk: string) => {
     return
   }
 
-  const msysPromptPath = matchMsysPrompt(ptyStreamBuffer)
-  if (msysPromptPath) {
-    const winPath = msysToWinPath(msysPromptPath)
-    if (winPath) {
-      updateTerminalCwd(props.paneId, winPath)
-      if (paneStats.value) paneStats.value.cwd = ''
-    }
-  }
+  applyMsysCwd(matchMsysPrompt(ptyStreamBuffer))
 }
 
 // Tunggu sesi dipulihkan dari storage agar cwd spawn tidak kosong (state default
@@ -537,14 +536,7 @@ const initTerminal = async () => {
         return
       }
 
-      const msysTitlePath = parseMsysTitle(newTitle)
-      if (msysTitlePath) {
-        const winPath = msysToWinPath(msysTitlePath)
-        if (winPath) {
-          updateTerminalCwd(props.paneId, winPath)
-          if (paneStats.value) paneStats.value.cwd = ''
-        }
-      }
+      applyMsysCwd(parseMsysTitle(newTitle))
     })
 
     let inputLineBuffer = ''

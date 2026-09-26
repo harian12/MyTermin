@@ -6,7 +6,7 @@ export function msysToWinPath(path?: string | null): string | null {
 }
 
 export function parseMsysTitle(title?: string | null): string | null {
-  if (!title) return null
+  if (!title || !title.includes('/')) return null
   const tokens = title.trim().split(/\s+/)
   for (let i = tokens.length - 1; i >= 0; i--) {
     const token = tokens[i]
@@ -19,11 +19,12 @@ export function parseMsysTitle(title?: string | null): string | null {
 
 export function matchMsysPrompt(buffer?: string | null): string | null {
   if (!buffer) return null
-  const matches = [
-    ...buffer.matchAll(
-      /(\/[a-zA-Z]\/[^\r\n]*?)(?:[ \t]+\([^)\r\n]*\))?[ \t]*\r?\n[$#]/g
-    )
-  ]
-  const last = matches[matches.length - 1]
-  return last?.[1] ?? null
+  if (!/\n[$#]/.test(buffer)) return null
+  let last: string | null = null
+  for (const m of buffer.matchAll(
+    /(\/[a-zA-Z]\/[^\r\n]*?)(?:[ \t]+\([^)\r\n]*\))?[ \t]*\r?\n[$#]/g
+  )) {
+    last = m[1] ?? null
+  }
+  return last
 }
