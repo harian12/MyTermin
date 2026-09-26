@@ -1,15 +1,15 @@
 {
-  "version": "0.2.8",
-  "notes": "Release v0.2.8 - Deteksi cwd Git Bash: prompt MSYS dan judul jendela jadi jalur deteksi baru, sehingga badge \"cd project\" langsung mengikuti dalam satu siklus prompt (termasuk saat program berjalan). Perbaikan: drive root (/d) kini terdeteksi, output program tidak lagi salah dibaca sebagai prompt, dan polling sysinfo tidak menimpa cwd dari prompt.",
-  "pub_date": "2026-09-26T15:19:02.609Z",
+  "version": "0.2.9",
+  "notes": "Release v0.2.9 - Task Runner otomatis (deteksi package.json/Makefile/justfile, panel Ctrl+Shift+M, jalankan task utama Ctrl+Shift+B), shell integration (badge exit code, durasi, dan git branch per terminal via OSC 1337 di PowerShell & Git Bash), notification rules (keyword/regex/exit code/nama terminal/durasi dengan cooldown), project config .mytermin/project.json dengan env per project, Unified Search (Ctrl+Shift+U) di scrollback terminal + file project, AI CLI Runner (Ctrl+Shift+I), Git stash manager + tag dengan fetch dan indikator ahead/behind serta amend, keybinding recorder dengan deteksi konflik, theme editor palet ANSI, diagnostics dengan copy debug info dan backup settings, onboarding sekali jalan, dukungan distro WSL dengan konversi path /mnt, serta kill process tree di Port Manager.",
+  "pub_date": "2026-09-26T18:00:39.077Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcjU5M1ZFMWtCZVNFcThXam95dkw2Ui9WVTRLOTlnSXI5N2tQckJNSjFnNm8zanlWSm1rRFB4c1NqN1hJYWwxZ1JnaEhHNm1hUEJwbEI5THNxRndNZTIrQ25YbWdqaHdnPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkwNDM5MTIxCWZpbGU6TXlUZXJtaW5fMC4yLjhfeDY0LXNldHVwLmV4ZQptZU40YkxQUGtFVUZhcHRTL1c0S05TMjcxR3B3WlBMYlJ3eEU4cldmYU9IbVh1Y3lkbEZaTllFUkhReTlyUEZud3YwUTVIOWs4RXhGckh1T3VBd0VCUT09Cg==",
-      "url": "https://github.com/harian12/MyTermin/releases/download/v0.2.8/MyTermin_0.2.8_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcjU5M1ZFMWtCZVlGdnZSdXdLRnZPaVIySmJxM1dsTHlRbk9NdzJqR0Z6OVkzY3dXMzhqOUFXN0pWZFJUUW9wVytZaFcwS3R4KzU2aktRdnNMN3JBOTBodFJwVWQ2b2dNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkwNDQ1NjMwCWZpbGU6TXlUZXJtaW5fMC4yLjlfeDY0LXNldHVwLmV4ZQpoVEZmakk2WkJjblUrUjY3aDJXc3VDanE5NEtGRmVGZm5PYWV0bzJCb1pDcE9PbTNoT09VNlpxdW5XdTZVVGgzN3UvVmdlRW9YWGJheGRXazNWUUpEQT09Cg==",
+      "url": "https://github.com/harian12/MyTermin/releases/download/v0.2.9/MyTermin_0.2.9_x64-setup.exe"
     },
     "windows-x86_64-nsis": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcjU5M1ZFMWtCZVNFcThXam95dkw2Ui9WVTRLOTlnSXI5N2tQckJNSjFnNm8zanlWSm1rRFB4c1NqN1hJYWwxZ1JnaEhHNm1hUEJwbEI5THNxRndNZTIrQ25YbWdqaHdnPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkwNDM5MTIxCWZpbGU6TXlUZXJtaW5fMC4yLjhfeDY0LXNldHVwLmV4ZQptZU40YkxQUGtFVUZhcHRTL1c0S05TMjcxR3B3WlBMYlJ3eEU4cldmYU9IbVh1Y3lkbEZaTllFUkhReTlyUEZud3YwUTVIOWs4RXhGckh1T3VBd0VCUT09Cg==",
-      "url": "https://github.com/harian12/MyTermin/releases/download/v0.2.8/MyTermin_0.2.8_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcjU5M1ZFMWtCZVlGdnZSdXdLRnZPaVIySmJxM1dsTHlRbk9NdzJqR0Z6OVkzY3dXMzhqOUFXN0pWZFJUUW9wVytZaFcwS3R4KzU2aktRdnNMN3JBOTBodFJwVWQ2b2dNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkwNDQ1NjMwCWZpbGU6TXlUZXJtaW5fMC4yLjlfeDY0LXNldHVwLmV4ZQpoVEZmakk2WkJjblUrUjY3aDJXc3VDanE5NEtGRmVGZm5PYWV0bzJCb1pDcE9PbTNoT09VNlpxdW5XdTZVVGgzN3UvVmdlRW9YWGJheGRXazNWUUpEQT09Cg==",
+      "url": "https://github.com/harian12/MyTermin/releases/download/v0.2.9/MyTermin_0.2.9_x64-setup.exe"
     }
   }
 }
