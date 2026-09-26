@@ -16,6 +16,7 @@ export interface Workstation {
   icon?: string
   layout: LayoutType
   activeTerminalId: string
+  terminalSplitPercent?: number
   terminals: TerminalTab[]
 }
 

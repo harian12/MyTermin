@@ -25,11 +25,13 @@ const {
   activeTerminalId,
   activeWorkstation,
   currentLayout,
+  terminalSplitPercent,
   addTerminal,
   removeTerminal,
   renameTerminal,
   moveTerminalTab,
-  setLayout
+  setLayout,
+  saveSession
 } = useWorkspaceStore()
 
 const { viewportMode, openFiles, lastFocusedPane } = useEditorStore()
@@ -135,7 +137,7 @@ const isTerminalVisibleInGrid = (wsId: string, termId: string): boolean => {
 }
 
 // Resizable Split for 2-Terminal View (split-h & split-v)
-const terminalSplitPercent = ref(50)
+// terminalSplitPercent berasal dari store (per-workstation), bukan ref lokal
 const isDraggingTerminalSplit = ref(false)
 
 const startTerminalSplitDrag = (e: MouseEvent) => {
@@ -162,6 +164,7 @@ const startTerminalSplitDrag = (e: MouseEvent) => {
     isDraggingTerminalSplit.value = false
     window.removeEventListener('mousemove', onMouseMove)
     window.removeEventListener('mouseup', onMouseUp)
+    saveSession(false)
   }
 
   window.addEventListener('mousemove', onMouseMove)
@@ -414,77 +417,9 @@ const gridClass = computed(() => {
 
     <!-- Terminal Content Area -->
     <div class="flex-1 w-full h-full p-1.5 relative overflow-hidden min-h-0 min-w-0">
-      <!-- Empty State saat tidak ada terminal yang terbuka -->
-      <div
-        v-if="terminals.length === 0"
-        class="w-full h-full flex flex-col items-center justify-center border border-dashed border-border/60 rounded-xl bg-[#12131a]/60 p-6 text-center animate-in fade-in zoom-in-95"
-      >
-        <div class="p-3.5 rounded-2xl bg-[#181924] border border-border/80 shadow-xl mb-4 text-primary">
-          <FolderOpen class="w-8 h-8" />
-        </div>
-
-        <h2 class="text-base font-bold text-foreground tracking-tight">
-          {{ activeWorkstation.folderPath ? `Project: ${activeWorkstation.name}` : 'Pilih File Project / Mulai Terminal' }}
-        </h2>
-        <p class="text-xs text-muted-foreground max-w-sm mt-1 mb-5">
-          {{
-            activeWorkstation.folderPath
-              ? `Direktori kerja aktif: ${activeWorkstation.folderPath}`
-              : 'Buka folder project agar terminal dan editor otomatis terhubung dengan direktori kerja Anda.'
-          }}
-        </p>
-
-        <div class="flex flex-wrap items-center justify-center gap-2">
-          <!-- Buka Folder Project Button -->
-          <UiButton
-            variant="default"
-            size="sm"
-            class="gap-1.5 font-medium shadow-md bg-primary hover:bg-primary/90 text-primary-foreground"
-            @click="handleOpenProjectFolder()"
-          >
-            <FolderOpen class="w-3.5 h-3.5" />
-            <span>{{ activeWorkstation.folderPath ? 'Ganti Folder Project' : 'Pilih Folder Project' }}</span>
-          </UiButton>
-
-          <!-- Buka Terminal Baru Button -->
-          <UiButton
-            variant="secondary"
-            size="sm"
-            class="gap-1.5 font-medium border border-border/60"
-            @click="addTerminal()"
-          >
-            <Plus class="w-3.5 h-3.5" />
-            <span>Terminal Baru</span>
-          </UiButton>
-        </div>
-
-        <!-- Quick Recent Projects List in Empty State -->
-        <div
-          v-if="!activeWorkstation.folderPath && recentProjects.length > 0"
-          class="mt-6 pt-5 border-t border-border/40 w-full max-w-lg"
-        >
-          <div class="flex items-center justify-center gap-1.5 text-[11px] font-semibold text-muted-foreground mb-2.5">
-            <Clock class="w-3.5 h-3.5 text-primary" />
-            <span>Project yang Pernah Dibuka</span>
-          </div>
-
-          <div class="flex flex-wrap justify-center gap-1.5 max-h-40 overflow-y-auto no-scrollbar p-1">
-            <button
-              v-for="rec in recentProjects"
-              :key="rec.path"
-              class="px-2.5 py-1 rounded-md bg-[#161722] hover:bg-primary/20 text-foreground text-xs border border-border/50 hover:border-primary/50 transition-colors truncate max-w-[200px] font-mono shadow-sm"
-              :title="rec.path"
-              @click="handleOpenProjectFolder(rec.path)"
-            >
-              {{ rec.name }}
-            </button>
-          </div>
-        </div>
-      </div>
-
       <!-- Persistent Dynamic Grid Container for All Workstations (PTY stays alive in background) -->
+      <!-- Jangan dibungkus v-if/v-else: unmount akan mematikan seluruh PTY termasuk milik workstation lain -->
       <div
-        v-else
         id="terminal-grid-container"
         :class="[
           'w-full h-full min-h-0 min-w-0 transition-none',
@@ -551,6 +486,75 @@ const gridClass = computed(() => {
             />
           </div>
         </template>
+      </div>
+
+      <!-- Empty State sebagai overlay, BUKAN pengganti grid:
+           grid harus tetap mounted agar PTY semua workstation tidak di-unmount & restart -->
+      <div
+        v-if="terminals.length === 0"
+        class="absolute inset-1.5 z-10 flex flex-col items-center justify-center border border-dashed border-border/60 rounded-xl bg-[#12131a]/60 p-6 text-center animate-in fade-in zoom-in-95"
+      >
+        <div class="p-3.5 rounded-2xl bg-[#181924] border border-border/60 shadow-xl mb-4 text-primary">
+          <FolderOpen class="w-8 h-8" />
+        </div>
+
+        <h2 class="text-base font-bold text-foreground tracking-tight">
+          {{ activeWorkstation.folderPath ? `Project: ${activeWorkstation.name}` : 'Pilih File Project / Mulai Terminal' }}
+        </h2>
+        <p class="text-xs text-muted-foreground max-w-sm mt-1 mb-5">
+          {{
+            activeWorkstation.folderPath
+              ? `Direktori kerja aktif: ${activeWorkstation.folderPath}`
+              : 'Buka folder project agar terminal dan editor otomatis terhubung dengan direktori kerja Anda.'
+          }}
+        </p>
+
+        <div class="flex flex-wrap items-center justify-center gap-2">
+          <!-- Buka Folder Project Button -->
+          <UiButton
+            variant="default"
+            size="sm"
+            class="gap-1.5 font-medium shadow-md bg-primary hover:bg-primary/80 text-primary-foreground"
+            @click="handleOpenProjectFolder()"
+          >
+            <FolderOpen class="w-3.5 h-3.5" />
+            <span>{{ activeWorkstation.folderPath ? 'Ganti Folder Project' : 'Pilih Folder Project' }}</span>
+          </UiButton>
+
+          <!-- Buka Terminal Baru Button -->
+          <UiButton
+            variant="secondary"
+            size="sm"
+            class="gap-1.5 font-medium border border-border/60"
+            @click="addTerminal()"
+          >
+            <Plus class="w-3.5 h-3.5" />
+            <span>Terminal Baru</span>
+          </UiButton>
+        </div>
+
+        <!-- Quick Recent Projects List in Empty State -->
+        <div
+          v-if="!activeWorkstation.folderPath && recentProjects.length > 0"
+          class="mt-6 pt-5 border-t border-border/50 w-full max-w-lg"
+        >
+          <div class="flex items-center justify-center gap-1.5 text-[11px] font-semibold text-muted-foreground mb-2.5">
+            <Clock class="w-3.5 h-3.5" />
+            <span>Project yang Pernah Dibuka</span>
+          </div>
+
+          <div class="flex flex-wrap items-center justify-center gap-1.5 max-h-40 overflow-y-auto no-scrollbar p-1">
+            <button
+              v-for="rec in recentProjects"
+              :key="rec.path"
+              class="px-2.5 py-1.5 rounded-md bg-[#161722] hover:bg-primary/80 text-foreground text-xs border border-border/60 hover:border-primary transition-colors truncate max-w-[200px] font-mono shadow-sm"
+              :title="rec.path"
+              @click="handleOpenProjectFolder(rec.path)"
+            >
+              {{ rec.name }}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   </div>

@@ -61,6 +61,10 @@ impl PtyManager {
         cols: u16,
         rows: u16,
     ) -> Result<(), String> {
+        // Bila id sudah dipakai sesi lama, matikan dulu agar tidak ada proses yatim
+        // yang menumpuk (insert di bawah akan menimpa sesi lama tanpa kill).
+        self.kill_pty(&id)?;
+
         let pty_system = native_pty_system();
         let pair = pty_system
             .openpty(PtySize {

@@ -64,6 +64,17 @@ export const useWorkspaceStore = () => {
     }
   })
 
+  // Posisi garis split (split-h/split-v) per-workstation; session lama tanpa field ini tetap default 50
+  const terminalSplitPercent = computed<number>({
+    get: () => activeWorkstation.value.terminalSplitPercent ?? 50,
+    set: (val) => {
+      const ws = workstations.value.find(w => w.id === activeWorkstationId.value)
+      if (ws) {
+        ws.terminalSplitPercent = val
+      }
+    }
+  })
+
   const allPresets = computed<WorkspacePreset[]>(() => {
     const builtins = defaultBuiltInPresets.filter(p => !hiddenBuiltinPresets.value.includes(p.id))
     return [...customPresets.value, ...builtins]
@@ -719,6 +730,7 @@ export const useWorkspaceStore = () => {
     activeTerminalId,
     activeTerminal,
     currentLayout,
+    terminalSplitPercent,
     presets: allPresets,
     customPresets,
     saveNotification,
