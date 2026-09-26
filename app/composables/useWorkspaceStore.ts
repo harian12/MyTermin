@@ -406,7 +406,7 @@ export const useWorkspaceStore = () => {
                 seenTermIds.add(t.id)
                 // Self-healing: terminal tanpa cwd dipulihkan ke folder project
                 // agar spawn PTY tidak jatuh ke cwd proses aplikasi (home user).
-                if ((!t.cwd || !isPathInsideProject(t.cwd, ws.folderPath)) && ws.folderPath) {
+                if (ws.folderPath && (!t.cwd || !isPathInsideProject(t.cwd, ws.folderPath))) {
                   t.cwd = ws.folderPath
                 }
               })
@@ -585,7 +585,11 @@ export const useWorkspaceStore = () => {
     if (!cwd) return
     // Semua terminal semua workstation ikut dirender (dan di-poll), jadi cari lintas
     // workstation — bukan hanya yang aktif, agar cwd terminal background tetap tersimpan.
-    const term = workstations.value.flatMap(w => w.terminals).find(t => t.id === termId)
+    let term: TerminalTab | undefined
+    for (const ws of workstations.value) {
+      term = ws.terminals.find(t => t.id === termId)
+      if (term) break
+    }
     if (term && cwd !== term.cwd) {
       term.cwd = cwd
       saveSession(false)

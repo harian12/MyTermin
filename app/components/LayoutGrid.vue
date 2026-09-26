@@ -122,17 +122,14 @@ const finishRenameTab = (termId: string) => {
 }
 
 const allWorkstationTerminals = computed(() => {
-  const list: { wsId: string; term: TerminalTab }[] = []
+  const list: { wsId: string; folderPath: string; term: TerminalTab }[] = []
   for (const ws of workstations.value) {
     for (const term of ws.terminals) {
-      list.push({ wsId: ws.id, term })
+      list.push({ wsId: ws.id, folderPath: ws.folderPath || '', term })
     }
   }
   return list
 })
-
-const wsFolder = (wsId: string): string =>
-  workstations.value.find(w => w.id === wsId)?.folderPath || ''
 
 const isTerminalVisibleInGrid = (wsId: string, termId: string): boolean => {
   if (wsId !== activeWorkstationId.value) return false
@@ -457,7 +454,7 @@ const gridClass = computed(() => {
               :title="item.term.title"
               :shell="item.term.shell"
               :cwd="item.term.cwd"
-              :project-folder="wsFolder(item.wsId)"
+              :project-folder="item.folderPath"
               :initial-command="item.term.initialCommand"
               :last-command="item.term.lastCommand"
               :is-active="activeWorkstationId === item.wsId && activeTerminalId === item.term.id"
