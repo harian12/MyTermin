@@ -88,24 +88,13 @@ const newPaneTitle = ref(props.title)
 const paneStats = ref<PtyStats | null>(null)
 const isFileDraggingOver = ref(false)
 
-// --- Deteksi selisih cwd terminal vs folder project -------------------------
-const normalizePath = (p?: string) =>
-  (p || '')
-    .trim()
-    .replace(/^["']+|["']+$/g, '')
-    .replace(/\//g, '\\')
-    .replace(/\\+$/, '')
-    .toLowerCase()
-
 // Prefer cwd proses nyata dari sysinfo; fallback ke cwd tersimpan di store.
 const effectiveCwd = computed(() => paneStats.value?.cwd || props.cwd || '')
 
 const isCwdMismatch = computed(() => {
-  const project = normalizePath(props.projectFolder)
-  if (!project) return false
-  const current = normalizePath(effectiveCwd.value)
-  if (!current) return false
-  return current !== project
+  if (!normalizePath(props.projectFolder)) return false
+  if (!normalizePath(effectiveCwd.value)) return false
+  return !isPathInsideProject(effectiveCwd.value, props.projectFolder)
 })
 
 const goToProjectFolder = async () => {
