@@ -97,6 +97,11 @@ const isCwdMismatch = computed(() => {
   return !isPathInsideProject(effectiveCwd.value, props.projectFolder)
 })
 
+const getSafeSpawnCwd = (candidate?: string) => {
+  if (!props.projectFolder) return candidate || ''
+  return isPathInsideProject(candidate, props.projectFolder) ? candidate : props.projectFolder
+}
+
 const goToProjectFolder = async () => {
   const target = props.projectFolder
   if (!target || !isTauri.value) return
@@ -461,8 +466,7 @@ const initTerminal = async () => {
   const rows = term.rows && term.rows > 2 ? term.rows : 24
 
   try {
-    // Fallback ke folder project bila cwd tersimpan kosong/tidak valid.
-    const spawnCwd = props.cwd || props.projectFolder
+    const spawnCwd = getSafeSpawnCwd(props.cwd)
     await createPty(props.paneId, props.shell || settings.value.defaultShell, spawnCwd, cols, rows)
     // Guard: bila pane sudah unmount selama await (tab ditutup cepat), matikan PTY yatim
     if (!terminalContainer.value || !term) {
@@ -560,7 +564,8 @@ const restartTerminalSession = async (silent = false) => {
 
   const cols = term?.cols && term.cols > 10 ? term.cols : 80
   const rows = term?.rows && term.rows > 2 ? term.rows : 24
-  const latestCwd = terminals.value.find(t => t.id === props.paneId)?.cwd || props.cwd
+  const candidateCwd = terminals.value.find(t => t.id === props.paneId)?.cwd || props.cwd
+  const latestCwd = getSafeSpawnCwd(candidateCwd)
 
   try {
     await createPty(props.paneId, props.shell || settings.value.defaultShell, latestCwd, cols, rows)
