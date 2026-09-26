@@ -66,7 +66,7 @@ Pengguna menutup MyTermin dan membukanya lagi untuk melanjutkan kerja. Yang terj
 ### Key Technical Decisions
 
 - KTD1. **Satu helper containment sebagai satu-satunya pemilik aturan.** Helper menormalkan separator ke satu gaya, membuang kutip dan trailing slash, membandingkan tanpa memedulikan huruf besar/kecil, dan hanya menganggap "di dalam" bila path sama dengan root atau diawali root lalu separator — sehingga `D:\MYP\MyTermin2` tidak dianggap di dalam `D:\MYP\MyTermin`. Root kosong berarti tanpa aturan containment: kandidat cwd dipakai apa adanya dan badge tetap nonaktif. Dipulihkan, dispawn, dan dibadge semuanya memanggil helper ini. (session-settled: user-directed — chosen over menyimpan provenance cwd di storage: satu pemilik aturan mencegah drift antar titik penerapan.) Governs R1, R2, R3.
-- KTD2. **Penerapan dibatasi ke dua titik baca — restore dan spawn — tanpa menulis ulang storage di tempat lain.** Blok self-healing yang sudah ada di `initFromStorage` dilebaskan dari kondisi "cwd kosong" menjadi "cwd tidak dipercaya"; `updateTerminalCwd` dan kelima ekspresi cadangan `cwd || folderPath` lain tetap apa adanya. Governs R1, R2.
+- KTD2. **Penerapan aturan containment dibatasi ke dua titik baca — restore dan spawn — tanpa menulis ulang storage di tempat lain.** Blok self-healing yang sudah ada di `initFromStorage` dilebaskan dari kondisi "cwd kosong" menjadi "cwd tidak dipercaya". `updateTerminalCwd` sendiri memang diubah: pencarian terminalnya kini lintas-workstation, karena semua pane ikut dirender dan di-poll sehingga terminal background pun harus menemukan cwd-nya tersimpan (path lama hanya mencari di workstation aktif dan menjatuhkan update terminal background — berisiko AE1 terselubung setelah reload). Perubahan itu hanya melebarkan *lokasi* terminal yang ditemukan, bukan menerapkan aturan containment; ekspresi cadangan `cwd || folderPath` lain tetap apa adanya. Governs R1, R2.
 
 ### High-Level Technical Design
 
@@ -151,6 +151,7 @@ U1 lebih dulu karena U2 dan U3 memakai helper yang dibuatnya; U2 dan U3 berjalan
 | Smoke perilaku | AE1, AE2, AE3 di aplikasi berjalan | U1, U2, U3 |
 | Smoke degraded 1 | Restore lebih lambat dari 3s (log `sessionReady belum siap` muncul di console) — terminal tetap berakhir di folder project, atau fallback ke home terlihat jelas di console | U2, U3 |
 | Smoke degraded 2 | Tutup pane/tab selama restore berjalan — tidak ada PTY yatim dan tidak ada pane kosong permanen | U2 |
+| Smoke lintas-workstation | Dua workstation: `cd` dari terminal pada workstation non-aktif (atau pane background), lalu reload — cwd terminal itu tersimpan di storage dan tidak ada error `setPtyCwd` | U2 |
 
 Repo tidak punya test runner, sehingga seluruh skenario unit dibuktikan lewat smoke manual pada aplikasi berjalan; skenario tetap ditulis eksplisit agar cakupannya tidak menyusut diam-diam.
 
