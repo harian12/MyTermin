@@ -406,7 +406,7 @@ export const useWorkspaceStore = () => {
                 seenTermIds.add(t.id)
                 // Self-healing: terminal tanpa cwd dipulihkan ke folder project
                 // agar spawn PTY tidak jatuh ke cwd proses aplikasi (home user).
-                if (!t.cwd && ws.folderPath) {
+                if ((!t.cwd || !isPathInsideProject(t.cwd, ws.folderPath)) && ws.folderPath) {
                   t.cwd = ws.folderPath
                 }
               })
