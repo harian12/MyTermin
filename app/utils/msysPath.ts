@@ -9,13 +9,21 @@ export function parseMsysTitle(title?: string | null): string | null {
   if (!title) return null
   const tokens = title.trim().split(/\s+/)
   for (let i = tokens.length - 1; i >= 0; i--) {
-    if (/^\/[a-zA-Z]\//.test(tokens[i])) return tokens[i]
+    const token = tokens[i]
+    if (/^[A-Za-z]:/.test(token)) continue
+    const idx = token.search(/\/[a-zA-Z]\//)
+    if (idx >= 0) return tokens.slice(i).join(' ').slice(idx)
   }
   return null
 }
 
 export function matchMsysPrompt(buffer?: string | null): string | null {
   if (!buffer) return null
-  const match = /(?:^|\s)(\/[a-zA-Z]\/[^\s$#]*)[$#]\s*$/.exec(buffer)
-  return match ? match[1] : null
+  const matches = [
+    ...buffer.matchAll(
+      /(\/[a-zA-Z]\/[^\r\n]*?)(?:[ \t]+\([^)\r\n]*\))?[ \t]*\r?\n[$#]/g
+    )
+  ]
+  const last = matches[matches.length - 1]
+  return last ? last[1] : null
 }
