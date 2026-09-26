@@ -58,6 +58,7 @@ const {
   onPtyData,
   onPtyExit,
   getAllPtyStats,
+  getPtyCwd,
   saveTempImage,
   saveTempFile,
   pasteFromClipboard,
@@ -88,8 +89,13 @@ const newPaneTitle = ref(props.title)
 const paneStats = ref<PtyStats | null>(null)
 const isFileDraggingOver = ref(false)
 
-// Prefer cwd proses nyata dari sysinfo; fallback ke cwd tersimpan di store.
-const effectiveCwd = computed(() => paneStats.value?.cwd || props.cwd || '')
+// Sysinfo cwd tidak dipercaya saat ada child process (loop Rust menimpa cwd
+// shell dengan cwd child -> false positive badge). Selama child berjalan,
+// props.cwd dari parse prompt dianggap authoritative.
+const effectiveCwd = computed(() => {
+  if ((paneStats.value?.child_count ?? 0) > 0) return props.cwd || ''
+  return paneStats.value?.cwd || props.cwd || ''
+})
 
 const isCwdMismatch = computed(() => {
   if (!normalizePath(props.projectFolder)) return false
@@ -102,11 +108,33 @@ const getSafeSpawnCwd = (candidate?: string) => {
   return isPathInsideProject(candidate, props.projectFolder) ? candidate : props.projectFolder
 }
 
+// Verifikasi cwd aktual setelah createPty: guard string containment bisa lolos
+// padahal Rust menolak path (tidak ada) dan fallback ke cwd proses = home.
+const verifySpawnCwd = async () => {
+  if (!isTauri.value || !props.projectFolder) return
+  try {
+    const actual = await getPtyCwd(props.paneId)
+    if (actual && !isPathInsideProject(actual, props.projectFolder)) {
+      await writePty(props.paneId, `cd "${props.projectFolder}"\r`)
+    }
+  } catch (e) {
+    console.warn('Verifikasi cwd pasca-spawn gagal:', e)
+  }
+}
+
+const canGoToProject = computed(() =>
+  isPtyReady.value && !isPtyExited.value && (paneStats.value?.child_count ?? 0) === 0
+)
+
 const goToProjectFolder = async () => {
   const target = props.projectFolder
-  if (!target || !isTauri.value) return
-  await writePty(props.paneId, `cd "${target}"\r`)
-  updateTerminalCwd(props.paneId, target)
+  if (!target || !isTauri.value || !canGoToProject.value) return
+  try {
+    await writePty(props.paneId, `cd "${target}"\r`)
+  } catch (e) {
+    console.error('cd project gagal:', e)
+    return
+  }
   term?.focus()
 }
 
@@ -288,17 +316,22 @@ const parseStreamForCwd = (rawChunk: string) => {
 
 // Tunggu sesi dipulihkan dari storage agar cwd spawn tidak kosong (state default
 // saat boot tidak punya folder project -> Rust fallback ke cwd proses = home user).
-const waitForSessionReady = async (timeoutMs = 3000) => {
-  if (sessionReady.value) return
+// false = restore belum selesai saat timeout -> spawn bisa jatuh ke home.
+const waitForSessionReady = async (timeoutMs = 3000): Promise<boolean> => {
+  if (sessionReady.value) return true
   const started = Date.now()
   while (!sessionReady.value && Date.now() - started < timeoutMs) {
     await new Promise(resolve => setTimeout(resolve, 50))
   }
+  return sessionReady.value
 }
 
 const initTerminal = async () => {
   if (!terminalContainer.value) return
-  await waitForSessionReady()
+  const restored = await waitForSessionReady()
+  if (!restored) {
+    console.warn('[MyTermin] sessionReady belum siap dalam 3000ms — spawn bisa jatuh ke cwd proses (home). Lihat smoke degraded pada Verification Contract.')
+  }
   if (!terminalContainer.value || term) return
 
   term = new Terminal({
@@ -511,6 +544,8 @@ const initTerminal = async () => {
       }
     })
 
+    await verifySpawnCwd()
+
     // Auto-run hanya initialCommand (preset). Perintah terakhir tidak dijalankan ulang;
     // hanya direktori terakhir yang dipulihkan via props.cwd.
     if (props.initialCommand) {
@@ -579,6 +614,8 @@ const restartTerminalSession = async (silent = false) => {
     unlistenExit = await onPtyExit(props.paneId, () => {
       isPtyExited.value = true
     })
+
+    await verifySpawnCwd()
 
     term?.focus()
   } catch (err) {
@@ -830,8 +867,10 @@ const fetchStats = async () => {
         }
       }
 
-      // Jika Rust sysinfo mendeteksi CWD proses aktif (misal opencode, node, dsb), update direktori tab
-      if (stats.cwd) {
+      // Jika Rust sysinfo mendeteksi CWD proses aktif (misal opencode, node, dsb),
+      // update direktori tab — hanya saat tidak ada child, karena loop Rust
+      // menimpa cwd shell dengan cwd child.
+      if (stats.cwd && stats.child_count === 0) {
         updateTerminalCwd(props.paneId, stats.cwd)
       }
       // Jika mendeteksi subproses aktif (misal opencode, codex, vite, cargo), simpan ke lastCommand
@@ -996,8 +1035,11 @@ onBeforeUnmount(async () => {
         <!-- Selisih cwd: terminal tidak berada di folder project -->
         <button
           v-if="isTauri && !isPtyExited && isCwdMismatch"
-          class="flex items-center gap-1 text-[10px] font-mono text-amber-300 bg-amber-950/60 hover:bg-amber-900/80 px-2 py-0.5 rounded border border-amber-800/70 transition-colors cursor-pointer flex-shrink-0"
-          :title="`Terminal di ${effectiveCwd} — klik untuk masuk ke folder project (${projectFolder})`"
+          class="flex items-center gap-1 text-[10px] font-mono text-amber-300 bg-amber-950/60 hover:bg-amber-900/80 px-2 py-0.5 rounded border border-amber-800/70 transition-colors cursor-pointer flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+          :disabled="!canGoToProject"
+          :title="canGoToProject
+            ? `Terminal di ${effectiveCwd} — klik untuk masuk ke folder project (${projectFolder})`
+            : 'Menunggu shell siap atau program berjalan selesai'"
           @click.stop="goToProjectFolder()"
         >
           <FolderInput class="w-2.5 h-2.5" />
