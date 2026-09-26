@@ -45,19 +45,19 @@ async function run() {
 
   const releaseBody = `## MyTermin ${tag} 🚀
 
-Pembaruan **MyTermin ${tag}** dengan fitur **Open New Blank Window**, **Taskbar JumpList Support**, dan perbaikan IPv6 listening port detection.
+Pembaruan **MyTermin ${tag}** — perbaikan stabilitas terminal & persistensi workspace.
 
 ---
 
 ### ✨ Apa yang Baru di ${tag}
-1. **Open New Blank Window**:
-   - Shortcut \`Ctrl+Shift+N\` / \`Cmd+Shift+N\` untuk membuka instance baru aplikasi dengan workspace bersih.
-   - Tombol icon jendela baru di samping tab workstation TitleBar.
-   - Perintah "Open New Blank Window" di Command Palette (\`Ctrl+K\`).
-2. **Windows Taskbar JumpList Support**:
-   - Klik kanan icon MyTermin di Taskbar Windows untuk membuka **New Blank Window** langsung.
-3. **Deteksi Port IPv6 & IPv4**:
-   - Port Manager sekarang mendeteksi port IPv6 (misal \`[::1]:3050\` atau bun dev server).
+1. **Terminal tetap hidup saat pindah workstation**:
+   - Proses yang berjalan di terminal (mis. \`bun run dev\`, \`opencode\`, server lokal) tidak restart lagi saat berpindah antar workstation lalu kembali.
+   - Isi terminal, scrollback, tab aktif, dan layout tiap workstation tetap persis seperti saat ditinggalkan.
+   - Empty state workstation kosong kini ditampilkan sebagai overlay — grid terminal tidak lagi unmount.
+2. **Posisi split terminal per-workstation**:
+   - Garis pembagian split (split-h / split-v) disimpan per-workstation, bukan global.
+3. **Cegah kebocoran proses PTY**:
+   - Sesi PTY lama dengan id yang sama otomatis dimatikan saat dibuat ulang — tidak ada proses yatim yang menumpuk.
 
 ---
 
@@ -154,7 +154,7 @@ Pembaruan **MyTermin ${tag}** dengan fitur **Open New Blank Window**, **Taskbar 
     }
   }
 
-  console.log('\n🎉 Selesai! Semua file rilis installer v0.2.1 berhasil diunggah ke GitHub!')
+  console.log(`\n🎉 Selesai! Semua file rilis installer ${tag} berhasil diunggah ke GitHub!`)
   console.log(`Kunjungi: ${releaseData.html_url}`)
 }
 
