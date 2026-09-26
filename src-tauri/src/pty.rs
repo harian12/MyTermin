@@ -251,7 +251,7 @@ impl PtyManager {
                         setup.push_str(&format!("; . '{}'", script_path.replace('\'', "''")));
                     }
                 }
-                cmd.args(["-NoExit", "-NoLogo", "-Command", &setup]);
+                cmd.args(["-ExecutionPolicy", "Bypass", "-NoExit", "-NoLogo", "-Command", &setup]);
             } else if lower.ends_with("cmd.exe") || lower == "cmd" {
                 cmd.args(["/K", "chcp 65001 > nul"]);
             } else if lower.ends_with("bash.exe") || lower == "bash" {

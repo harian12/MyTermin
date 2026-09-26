@@ -1,7 +1,6 @@
 import type { NotificationRule, ShellStatus } from '~/types/terminal'
 
 interface ShellIntegrationPayload {
-  state?: 'running' | 'idle'
   exit?: number
   ms?: number
   cwd?: string
@@ -17,29 +16,12 @@ export const useShellIntegration = () => {
 
   const getStatus = (termId: string): ShellStatus | null => statuses.value[termId] || null
 
-  const markRunning = (termId: string) => {
-    const prev = statuses.value[termId]
-    statuses.value = {
-      ...statuses.value,
-      [termId]: {
-        termId,
-        state: 'running',
-        exitCode: prev?.exitCode ?? 0,
-        durationMs: 0,
-        branch: prev?.branch ?? '',
-        cwd: prev?.cwd ?? '',
-        updatedAt: Date.now()
-      }
-    }
-  }
-
   const reportIdle = (termId: string, payload: ShellIntegrationPayload) => {
     const prev = statuses.value[termId]
     statuses.value = {
       ...statuses.value,
       [termId]: {
         termId,
-        state: 'idle',
         exitCode: payload.exit ?? 0,
         durationMs: payload.ms ?? 0,
         branch: payload.branch ?? prev?.branch ?? '',
@@ -82,7 +64,7 @@ export const useShellIntegration = () => {
       let reason = ''
 
       if (rule.kind === 'exit-code') {
-        matched = status.state === 'idle' && status.exitCode !== 0
+        matched = status.exitCode !== 0
         reason = `exit code ${status.exitCode}`
       } else if (rule.kind === 'terminal-name') {
         const needle = rule.pattern.toLowerCase()
@@ -90,7 +72,7 @@ export const useShellIntegration = () => {
         reason = `terminal "${termTitle}"`
       } else if (rule.kind === 'duration') {
         const threshold = Number(rule.pattern) || 0
-        matched = status.state === 'idle' && status.durationMs >= threshold * 1000
+        matched = status.durationMs >= threshold * 1000
         reason = `durasi ${(status.durationMs / 1000).toFixed(1)}s`
       } else if (rule.pattern) {
         if (rule.kind === 'regex') {
@@ -156,7 +138,6 @@ export const useShellIntegration = () => {
   return {
     statuses,
     getStatus,
-    markRunning,
     reportIdle,
     trackOutput,
     getOutputBuffer,

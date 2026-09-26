@@ -184,7 +184,6 @@ export const DEFAULT_NOTIFICATION_RULES: NotificationRule[] = [
 
 export interface ShellStatus {
   termId: string
-  state: 'running' | 'idle' | 'unknown'
   exitCode: number
   durationMs: number
   branch: string

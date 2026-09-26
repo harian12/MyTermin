@@ -16,8 +16,7 @@ import {
   Search,
   ListTodo,
   CheckCircle2,
-  XCircle,
-  Loader2
+  XCircle
 } from 'lucide-vue-next'
 import type { LayoutType, TerminalTab } from '~/types/terminal'
 import { useEditorStore } from '~/composables/useEditorStore'
@@ -401,17 +400,11 @@ const gridClass = computed(() => {
             v-if="getTermStatus(term.id)"
             :class="[
               'flex shrink-0 items-center',
-              getTermStatus(term.id)!.state === 'running' ? 'text-blue-400' :
               getTermStatus(term.id)!.exitCode === 0 ? 'text-emerald-400' : 'text-rose-400'
             ]"
-            :title="
-              getTermStatus(term.id)!.state === 'running'
-                ? 'Command sedang berjalan'
-                : `Exit ${getTermStatus(term.id)!.exitCode} — ${formatDuration(getTermStatus(term.id)!.durationMs)}`
-            "
+            :title="`Exit ${getTermStatus(term.id)!.exitCode} — ${formatDuration(getTermStatus(term.id)!.durationMs)}`"
           >
-            <Loader2 v-if="getTermStatus(term.id)!.state === 'running'" class="h-3 w-3 animate-spin" />
-            <CheckCircle2 v-else-if="getTermStatus(term.id)!.exitCode === 0" class="h-3 w-3" />
+            <CheckCircle2 v-if="getTermStatus(term.id)!.exitCode === 0" class="h-3 w-3" />
             <XCircle v-else class="h-3 w-3" />
           </span>
           <input

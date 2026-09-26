@@ -20,7 +20,6 @@ import {
   ArrowDown,
   Download,
   X,
-  Loader2,
   CheckCircle2,
   XCircle,
   GitBranch
@@ -73,7 +72,7 @@ const {
 const { settings, isShortcut, updateSettings } = useSettingsStore()
 const { terminals, renameTerminal, updateTerminalCwd, updateTerminalLastCommand, setTerminalAlert, clearTerminalAlert, sessionReady } = useWorkspaceStore()
 const { togglePalette, openPalette } = useCommandPalette()
-const { markRunning, reportIdle, trackOutput, evaluateRules, parsePayload, clearStatus, formatDuration, statuses } = useShellIntegration()
+const { reportIdle, trackOutput, evaluateRules, parsePayload, clearStatus, formatDuration, statuses } = useShellIntegration()
 const { envMap, configPath } = useProjectConfig()
 const { error: logError } = useDiagnostics()
 
@@ -112,7 +111,6 @@ const shellStatus = computed(() => statuses.value[props.paneId] || null)
 const shellStatusTitle = computed(() => {
   const s = shellStatus.value
   if (!s) return ''
-  if (s.state === 'running') return 'Command sedang berjalan'
   const code = s.exitCode === 0 ? 'berhasil' : `gagal (exit ${s.exitCode})`
   return `Command terakhir ${code} dalam ${formatDuration(s.durationMs)}`
 })
@@ -620,11 +618,6 @@ const initTerminal = async () => {
           updateTerminalLastCommand(props.paneId, cmd)
         }
         inputLineBuffer = ''
-        // Shell integration hanya melaporkan status setelah command berikutnya selesai,
-        // jadi status "running" harus ditebak dari saat user menekan Enter.
-        if (settings.value.shellIntegration !== false) {
-          markRunning(props.paneId)
-        }
       } else if (data === '\u007F' || data === '\b') {
         inputLineBuffer = inputLineBuffer.slice(0, -1)
       } else if (data.length === 1 && data.charCodeAt(0) >= 32) {
@@ -1142,17 +1135,17 @@ onBeforeUnmount(async () => {
 
         <!-- Process Status Badge -->
         <div v-if="isTauri && paneStats" class="flex items-center gap-1.5 pl-1">
-          <!-- Status Dot -->
+          <!-- Status Dot: hanya menyorot saat proses selesai/mati.
+               Indikator "sedang berjalan" dihapus karena process interaktif
+               seperti opencode selalu aktif sehingga dot berdenyut terus. -->
           <div
             :class="[
               'w-2 h-2 rounded-full transition-all duration-300',
               isPtyExited
                 ? 'bg-rose-500 shadow-sm shadow-rose-500/50'
-                : (paneStats.cpu_usage > 2.0 || paneStats.child_count > 0)
-                  ? 'bg-emerald-400 animate-pulse shadow-sm shadow-emerald-400/50'
-                  : 'bg-slate-500/60'
+                : 'bg-slate-500/60'
             ]"
-            :title="isPtyExited ? 'Process Completed' : (paneStats.cpu_usage > 2.0 || paneStats.child_count > 0) ? 'Active Workload' : 'Idle'"
+            :title="isPtyExited ? 'Process Completed' : 'Running'"
           />
 
           <!-- Process Name -->
@@ -1175,24 +1168,23 @@ onBeforeUnmount(async () => {
           </button>
         </div>
 
-        <!-- Shell Integration Badge: exit code + durasi command terakhir -->
+        <!-- Shell Integration Badge: exit code + durasi command terakhir.
+             Status "sedang berjalan" sengaja tidak ada: program TTY interaktif
+             (opencode, codex, vim) tidak pernah mengembalikan prompt shell,
+             sehingga indikator itu akan nyangkut selamanya. -->
         <span
           v-if="settings.shellIntegration !== false && shellStatus"
           :class="[
             'flex items-center gap-1 rounded border px-1.5 py-0.5 font-mono text-[10px] transition-colors',
-            shellStatus.state === 'running'
-              ? 'border-blue-500/40 bg-blue-500/10 text-blue-300'
-              : shellStatus.exitCode === 0
+            shellStatus.exitCode === 0
               ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
               : 'border-rose-500/40 bg-rose-500/10 text-rose-300'
           ]"
           :title="shellStatusTitle"
         >
-          <Loader2 v-if="shellStatus.state === 'running'" class="h-2.5 w-2.5 animate-spin" />
-          <CheckCircle2 v-else-if="shellStatus.exitCode === 0" class="h-2.5 w-2.5" />
+          <CheckCircle2 v-if="shellStatus.exitCode === 0" class="h-2.5 w-2.5" />
           <XCircle v-else class="h-2.5 w-2.5" />
-          <span v-if="shellStatus.state === 'idle'">{{ formatDuration(shellStatus.durationMs) }}</span>
-          <span v-else>running</span>
+          <span>{{ formatDuration(shellStatus.durationMs) }}</span>
         </span>
 
         <!-- Git branch dari shell integration -->
