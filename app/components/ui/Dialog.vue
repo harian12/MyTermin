@@ -1,8 +1,12 @@
 <script setup lang="ts">
+import { type HTMLAttributes } from 'vue'
+import { cn } from '~/lib/utils'
+
 interface Props {
   open: boolean
   title?: string
   description?: string
+  class?: HTMLAttributes['class']
 }
 
 const props = defineProps<Props>()
@@ -25,7 +29,10 @@ const close = () => {
       />
       <!-- Modal Content -->
       <div
-        class="relative z-50 flex flex-col w-full max-w-lg max-h-[85vh] overflow-hidden gap-4 border border-border bg-background p-6 shadow-lg sm:rounded-lg animate-in fade-in zoom-in-95"
+        :class="cn(
+          'relative z-50 flex flex-col w-full max-w-lg max-h-[85vh] overflow-hidden gap-4 border border-border bg-background p-6 shadow-lg sm:rounded-lg animate-in fade-in zoom-in-95',
+          props.class
+        )"
       >
         <div v-if="title || description" class="flex flex-col space-y-1.5 text-center sm:text-left shrink-0">
           <h2 v-if="title" class="text-lg font-semibold leading-none tracking-tight">

@@ -17,8 +17,10 @@ fn create_pty(
     cwd: Option<String>,
     cols: u16,
     rows: u16,
+    env: Option<HashMap<String, String>>,
+    shell_integration: Option<bool>,
 ) -> Result<(), String> {
-    state.spawn_pty(app, id, shell, cwd, cols, rows)
+    state.spawn_pty(app, id, shell, cwd, cols, rows, env, shell_integration)
 }
 
 #[tauri::command]
@@ -96,6 +98,14 @@ fn get_available_shells() -> Vec<ShellInfo> {
             path: "wsl.exe".into(),
             icon: "linux".into(),
         });
+        // Distro WSL terinstall sebagai pilihan shell terpisah
+        for distro in list_wsl_distros() {
+            shells.push(ShellInfo {
+                name: format!("WSL: {}", distro),
+                path: format!("wsl.exe -d {}", distro),
+                icon: "linux".into(),
+            });
+        }
     } else {
         shells.push(ShellInfo {
             name: "Bash".into(),
@@ -1660,17 +1670,24 @@ fn get_listening_ports() -> Result<Vec<ListeningPortInfo>, String> {
 }
 
 #[tauri::command]
-fn kill_process_by_pid(pid: u32) -> Result<(), String> {
+fn kill_process_by_pid(pid: u32, tree: Option<bool>) -> Result<(), String> {
+    // tree = true memakai /T agar seluruh process tree (node/vite/cargo) ikut mati,
+    // bukan hanya parent-nya. Port pun langsung lepas tanpa sisa proses yatim.
+    let kill_tree = tree.unwrap_or(true);
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
         let mut cmd = std::process::Command::new("taskkill");
-        cmd.arg("/F").arg("/PID").arg(pid.to_string());
+        cmd.arg("/F");
+        if kill_tree {
+            cmd.arg("/T");
+        }
+        cmd.arg("/PID").arg(pid.to_string());
         cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
         let output = cmd.output().map_err(|e| e.to_string())?;
         if !output.status.success() {
             let err = String::from_utf8_lossy(&output.stderr).to_string();
-            return Err(if err.is_empty() { "Gagal mematikan proses".to_string() } else { err });
+            return Err(if err.trim().is_empty() { "Gagal mematikan proses".to_string() } else { err });
         }
         Ok(())
     }
@@ -1683,6 +1700,381 @@ fn kill_process_by_pid(pid: u32) -> Result<(), String> {
         if !output.status.success() {
             return Err("Gagal mematikan proses".to_string());
         }
+        Ok(())
+    }
+}
+
+// ===== WSL =====
+fn list_wsl_distros() -> Vec<String> {
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        let mut cmd = std::process::Command::new("wsl.exe");
+        cmd.args(["-l", "-q"]);
+        cmd.creation_flags(0x08000000);
+
+        if let Ok(output) = cmd.output() {
+            let bytes = output.stdout;
+            // wsl.exe menulis UTF-16LE ke pipe; fallback ke UTF-8 bila tidak ada byte null.
+            let text = if bytes.contains(&0) {
+                let utf16: Vec<u16> = bytes
+                    .chunks_exact(2)
+                    .map(|c| u16::from_le_bytes([c[0], c[1]]))
+                    .collect();
+                String::from_utf16_lossy(&utf16)
+            } else {
+                String::from_utf8_lossy(&bytes).to_string()
+            };
+
+            return text
+                .lines()
+                .map(|l| l.trim().trim_start_matches('\u{feff}').trim())
+                .filter(|l| !l.is_empty() && *l != "Windows Subsystem for Linux")
+                .map(|l| l.to_string())
+                .collect();
+        }
+        Vec::new()
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        Vec::new()
+    }
+}
+
+#[tauri::command]
+fn get_wsl_distros() -> Vec<ShellInfo> {
+    list_wsl_distros()
+        .into_iter()
+        .map(|d| ShellInfo {
+            name: format!("WSL: {}", d),
+            path: format!("wsl.exe -d {}", d),
+            icon: "linux".into(),
+        })
+        .collect()
+}
+
+// ===== Task Runner =====
+#[derive(serde::Serialize, Clone, Debug)]
+struct TaskDefinition {
+    label: String,
+    command: String,
+    source: String,
+    is_watch: bool,
+}
+
+fn task_is_watch(label: &str) -> bool {
+    let lower = label.to_lowercase();
+    ["watch", "dev", "serve", "start", "tauri", "nodemon"].iter().any(|k| lower.contains(k))
+}
+
+#[tauri::command]
+fn discover_tasks(root_path: String) -> Vec<TaskDefinition> {
+    let root = Path::new(&root_path);
+    if !root.exists() || !root.is_dir() {
+        return Vec::new();
+    }
+
+    let mut tasks: Vec<TaskDefinition> = Vec::new();
+
+    // package.json scripts
+    let pkg_path = root.join("package.json");
+    if let Ok(raw) = std::fs::read_to_string(&pkg_path) {
+        if let Ok(json) = serde_json::from_str::<serde_json::Value>(&raw) {
+            if let Some(scripts) = json.get("scripts").and_then(|s| s.as_object()) {
+                let pkg_name = json
+                    .get("name")
+                    .and_then(|n| n.as_str())
+                    .unwrap_or("package");
+                for (name, _) in scripts {
+                    tasks.push(TaskDefinition {
+                        label: name.clone(),
+                        command: format!("npm run {}", name),
+                        source: pkg_name.to_string(),
+                        is_watch: task_is_watch(name),
+                    });
+                }
+            }
+        }
+    }
+
+    // Makefile targets (sebelum "." dan tanpa indentasi)
+    let makefile = root.join("Makefile");
+    let makefile_alt = root.join("makefile");
+    let make_path = if makefile.exists() { Some(makefile) } else if makefile_alt.exists() { Some(makefile_alt) } else { None };
+    if let Some(path) = make_path {
+        if let Ok(content) = std::fs::read_to_string(&path) {
+            for line in content.lines() {
+                if line.starts_with('\t') || line.trim().is_empty() || line.trim_start().starts_with('#') {
+                    continue;
+                }
+                if line.starts_with('.') || line.contains('=') && !line.contains(':') {
+                    continue;
+                }
+                if let Some(colon) = line.find(':') {
+                    let name = line[..colon].trim();
+                    if name.is_empty() || name.contains(' ') && !name.contains('/') {
+                        continue;
+                    }
+                    if name == "PHONY" || name == "DEFAULT" {
+                        continue;
+                    }
+                    tasks.push(TaskDefinition {
+                        label: name.to_string(),
+                        command: format!("make {}", name),
+                        source: "Makefile".into(),
+                        is_watch: task_is_watch(name),
+                    });
+                }
+            }
+        }
+    }
+
+    // justfile recipes
+    let just_path = root.join("justfile");
+    if just_path.exists() {
+        if let Ok(content) = std::fs::read_to_string(&just_path) {
+            for line in content.lines() {
+                if line.starts_with(' ') || line.starts_with('\t') || line.trim_start().starts_with('#') {
+                    continue;
+                }
+                let trimmed = line.trim();
+                if let Some(colon) = trimmed.find(':') {
+                    let name = trimmed[..colon].trim();
+                    if name.is_empty() || name == "set" || name == "export" || name == "alias" {
+                        continue;
+                    }
+                    // Abaikan blok variabel (baris pertama "nama = value" tanpa recipe command)
+                    if line.contains('=') && !trimmed.starts_with('[') {
+                        continue;
+                    }
+                    tasks.push(TaskDefinition {
+                        label: name.to_string(),
+                        command: format!("just {}", name),
+                        source: "justfile".into(),
+                        is_watch: task_is_watch(name),
+                    });
+                }
+            }
+        }
+    }
+
+    tasks
+}
+
+// ===== Utilitas Git =====
+fn run_git_output(root: &Path, args: &[&str]) -> Result<String, String> {
+    let mut cmd = std::process::Command::new("git");
+    cmd.args(args).current_dir(root);
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x08000000);
+    }
+    let output = cmd.output().map_err(|e| format!("Git error: {}", e))?;
+    if !output.status.success() {
+        let err = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        let out = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        return Err(if err.is_empty() {
+            if out.is_empty() { format!("git {} gagal", args.join(" ")) } else { out }
+        } else {
+            err
+        });
+    }
+    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+}
+
+#[derive(serde::Serialize, Clone, Debug)]
+struct GitAheadBehind {
+    ahead: u32,
+    behind: u32,
+    upstream: String,
+    has_upstream: bool,
+}
+
+#[tauri::command]
+fn git_fetch(repo_path: String) -> Result<String, String> {
+    let root = Path::new(&repo_path);
+    if !root.exists() {
+        return Err("Path tidak ditemukan".into());
+    }
+    run_git_output(root, &["fetch", "--all", "--prune"])
+}
+
+#[tauri::command]
+fn git_ahead_behind(repo_path: String) -> Result<GitAheadBehind, String> {
+    let root = Path::new(&repo_path);
+    if !root.exists() {
+        return Err("Path tidak ditemukan".into());
+    }
+    let upstream = run_git_output(root, &["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"])
+        .unwrap_or_default();
+
+    if upstream.is_empty() {
+        return Ok(GitAheadBehind { ahead: 0, behind: 0, upstream: String::new(), has_upstream: false });
+    }
+
+    let counts = run_git_output(root, &["rev-list", "--left-right", "--count", &format!("HEAD...{}", upstream)])
+        .unwrap_or_default();
+    let mut parts = counts.split_whitespace();
+    let ahead = parts.next().and_then(|v| v.parse::<u32>().ok()).unwrap_or(0);
+    let behind = parts.next().and_then(|v| v.parse::<u32>().ok()).unwrap_or(0);
+
+    Ok(GitAheadBehind { ahead, behind, upstream, has_upstream: true })
+}
+
+#[derive(serde::Serialize, Clone, Debug)]
+struct GitStashEntry {
+    index: u32,
+    selector: String,
+    message: String,
+    branch: String,
+    date: String,
+}
+
+#[tauri::command]
+fn git_stash_list(repo_path: String) -> Result<Vec<GitStashEntry>, String> {
+    let root = Path::new(&repo_path);
+    if !root.exists() {
+        return Err("Path tidak ditemukan".into());
+    }
+    let raw = run_git_output(root, &["stash", "list", "--format=%gd%x1f%gs%x1f%cr"])?;
+    if raw.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    Ok(raw
+        .lines()
+        .filter_map(|line| {
+            let mut cols = line.split('\u{1f}');
+            let selector = cols.next()?.trim().to_string();
+            let message = cols.next().unwrap_or("").to_string();
+            let date = cols.next().unwrap_or("").trim().to_string();
+            // "On main: pesan" -> branch "main"
+            let branch = message
+                .strip_prefix("On ")
+                .and_then(|rest| rest.split(':').next())
+                .unwrap_or("")
+                .trim()
+                .to_string();
+            let index: u32 = selector.trim_start_matches("stash@{").trim_end_matches('}').parse().unwrap_or(0);
+            Some(GitStashEntry { index, selector, message, branch, date })
+        })
+        .collect())
+}
+
+#[tauri::command]
+fn git_stash_save(repo_path: String, message: Option<String>) -> Result<String, String> {
+    let root = Path::new(&repo_path);
+    if !root.exists() {
+        return Err("Path tidak ditemukan".into());
+    }
+    match message {
+        Some(msg) if !msg.trim().is_empty() => run_git_output(root, &["stash", "push", "-m", msg.trim()]),
+        _ => run_git_output(root, &["stash", "push"]),
+    }
+}
+
+#[tauri::command]
+fn git_stash_apply(repo_path: String, selector: String, pop: Option<bool>) -> Result<String, String> {
+    let root = Path::new(&repo_path);
+    if !root.exists() {
+        return Err("Path tidak ditemukan".into());
+    }
+    let args = if pop.unwrap_or(false) {
+        vec!["stash", "pop", selector.as_str()]
+    } else {
+        vec!["stash", "apply", selector.as_str()]
+    };
+    run_git_output(root, &args)
+}
+
+#[tauri::command]
+fn git_stash_drop(repo_path: String, selector: String) -> Result<String, String> {
+    let root = Path::new(&repo_path);
+    if !root.exists() {
+        return Err("Path tidak ditemukan".into());
+    }
+    run_git_output(root, &["stash", "drop", selector.as_str()])
+}
+
+#[tauri::command]
+fn git_stash_show(repo_path: String, selector: String) -> Result<String, String> {
+    let root = Path::new(&repo_path);
+    if !root.exists() {
+        return Err("Path tidak ditemukan".into());
+    }
+    run_git_output(root, &["stash", "show", "-p", selector.as_str()])
+}
+
+#[tauri::command]
+fn git_amend(repo_path: String, message: Option<String>) -> Result<String, String> {
+    let root = Path::new(&repo_path);
+    if !root.exists() {
+        return Err("Path tidak ditemukan".into());
+    }
+    match message {
+        Some(msg) if !msg.trim().is_empty() => run_git_output(root, &["commit", "--amend", "-m", msg.trim()]),
+        _ => run_git_output(root, &["commit", "--amend", "--no-edit"]),
+    }
+}
+
+#[tauri::command]
+fn git_cherry_pick(repo_path: String, commit_hash: String) -> Result<String, String> {
+    let root = Path::new(&repo_path);
+    if !root.exists() {
+        return Err("Path tidak ditemukan".into());
+    }
+    run_git_output(root, &["cherry-pick", commit_hash.trim()])
+}
+
+#[tauri::command]
+fn git_get_tags(repo_path: String) -> Result<Vec<String>, String> {
+    let root = Path::new(&repo_path);
+    if !root.exists() {
+        return Err("Path tidak ditemukan".into());
+    }
+    let raw = run_git_output(root, &["tag", "--sort=-creatordate"])?;
+    Ok(raw.lines().map(|l| l.trim().to_string()).filter(|l| !l.is_empty()).collect())
+}
+
+#[tauri::command]
+fn git_create_tag(repo_path: String, tag_name: String, message: Option<String>) -> Result<String, String> {
+    let root = Path::new(&repo_path);
+    if !root.exists() {
+        return Err("Path tidak ditemukan".into());
+    }
+    let name = tag_name.trim();
+    if name.is_empty() {
+        return Err("Nama tag tidak boleh kosong".into());
+    }
+    match message {
+        Some(msg) if !msg.trim().is_empty() => run_git_output(root, &["tag", "-a", name, "-m", msg.trim()]),
+        _ => run_git_output(root, &["tag", name]),
+    }
+}
+
+#[tauri::command]
+fn open_url(url: String) -> Result<(), String> {
+    let trimmed = url.trim();
+    if !(trimmed.starts_with("http://") || trimmed.starts_with("https://")) {
+        return Err("URL tidak valid".into());
+    }
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        let mut cmd = std::process::Command::new("cmd");
+        cmd.args(["/C", "start", "", trimmed]);
+        cmd.creation_flags(0x08000000);
+        cmd.spawn().map_err(|e| e.to_string())?;
+        Ok(())
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(trimmed)
+            .spawn()
+            .map_err(|e| e.to_string())?;
         Ok(())
     }
 }
@@ -1835,6 +2227,9 @@ fn main() {
             get_pty_cwd,
             set_pty_cwd,
             get_available_shells,
+            get_wsl_distros,
+            discover_tasks,
+            open_url,
             save_temp_image,
             save_temp_file,
             paste_from_clipboard,
@@ -1872,6 +2267,17 @@ fn main() {
             git_compare_branches,
             git_get_file_at_ref,
             git_merge_branch,
+            git_fetch,
+            git_ahead_behind,
+            git_stash_list,
+            git_stash_save,
+            git_stash_apply,
+            git_stash_drop,
+            git_stash_show,
+            git_amend,
+            git_cherry_pick,
+            git_get_tags,
+            git_create_tag,
             get_listening_ports,
             kill_process_by_pid,
             git_commit,

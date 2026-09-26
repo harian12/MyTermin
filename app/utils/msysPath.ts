@@ -28,3 +28,14 @@ export function matchMsysPrompt(buffer?: string | null): string | null {
     )
   return match?.[1] ?? null
 }
+
+// Path Windows -> path WSL (C:\src\app -> /mnt/c/src/app).
+// WSL otomatis mount drive Windows di /mnt/<drive>, kecuali drive sudah
+// dikonfigurasi lewat /etc/wsl.conf — kasus itu biarkan user yang adjusts.
+export function winPathToWsl(path?: string | null): string | null {
+  if (!path) return null
+  const match = /^([a-zA-Z]):[\\/](.*)$/.exec(path.trim())
+  if (!match || match[1] === undefined) return null
+  const rest = (match[2] || '').replace(/\\/g, '/').replace(/\/+/g, '/')
+  return `/mnt/${match[1].toLowerCase()}${rest ? `/${rest}` : ''}`
+}

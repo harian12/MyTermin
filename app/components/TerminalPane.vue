@@ -19,9 +19,14 @@ import {
   ArrowUp,
   ArrowDown,
   Download,
-  X
+  X,
+  Loader2,
+  CheckCircle2,
+  XCircle,
+  GitBranch
 } from 'lucide-vue-next'
 import { TERMINAL_THEMES } from '~/composables/useThemes'
+import { winPathToWsl } from '~/utils/msysPath'
 import type { PtyStats } from '~/types/terminal'
 import { sendDesktopNotification } from '~/composables/useSettingsStore'
 
@@ -68,6 +73,18 @@ const {
 const { settings, isShortcut, updateSettings } = useSettingsStore()
 const { terminals, renameTerminal, updateTerminalCwd, updateTerminalLastCommand, setTerminalAlert, clearTerminalAlert, sessionReady } = useWorkspaceStore()
 const { togglePalette, openPalette } = useCommandPalette()
+const { markRunning, reportIdle, trackOutput, evaluateRules, parsePayload, clearStatus, formatDuration, statuses } = useShellIntegration()
+const { envMap, configPath } = useProjectConfig()
+const { error: logError } = useDiagnostics()
+
+// Env project hanya dipakai terminal yang folder-nya cocok dengan pemilik
+// .mytermin/project.json — kalau tidak, env bisa "bocor" ke project lain.
+const paneEnv = computed<Record<string, string> | undefined>(() => {
+  if (settings.value.useProjectConfig === false) return undefined
+  if (!props.projectFolder || !configPath.value) return undefined
+  if (!normalizePath(configPath.value).startsWith(normalizePath(props.projectFolder))) return undefined
+  return Object.keys(envMap.value).length > 0 ? envMap.value : undefined
+})
 
 let term: Terminal | null = null
 let fitAddon: FitAddon | null = null
@@ -89,6 +106,16 @@ const isEditingTitle = ref(false)
 const newPaneTitle = ref(props.title)
 const paneStats = ref<PtyStats | null>(null)
 const isFileDraggingOver = ref(false)
+
+const shellStatus = computed(() => statuses.value[props.paneId] || null)
+
+const shellStatusTitle = computed(() => {
+  const s = shellStatus.value
+  if (!s) return ''
+  if (s.state === 'running') return 'Command sedang berjalan'
+  const code = s.exitCode === 0 ? 'berhasil' : `gagal (exit ${s.exitCode})`
+  return `Command terakhir ${code} dalam ${formatDuration(s.durationMs)}`
+})
 
 // Sysinfo cwd tidak dipercaya saat ada child process (loop Rust menimpa cwd
 // shell dengan cwd child -> false positive badge). Selama child berjalan,
@@ -146,6 +173,10 @@ const searchMatchCase = ref(false)
 const searchFound = ref<boolean | null>(null)
 
 const currentTheme = computed(() => {
+  // Theme "custom" memakai palet buatan sendiri di Pengaturan > Tampilan.
+  if (settings.value.theme === 'custom' && settings.value.customTheme) {
+    return settings.value.customTheme.theme
+  }
   return TERMINAL_THEMES[settings.value.theme]?.theme || TERMINAL_THEMES['tokyoNight']?.theme || {}
 })
 
@@ -274,6 +305,36 @@ const applyMsysCwd = (msysPath: string | null) => {
   updateTerminalCwd(props.paneId, winPath)
   lastPromptCwdAt = Date.now()
   if (paneStats.value) paneStats.value.cwd = ''
+}
+
+// Satu pintu masuk untuk semua data dari PTY: tulis ke xterm, kumpulkan output
+// untuk notification rule, lalu tangkap metadata shell integration & cwd.
+const handleIncomingData = (data: string) => {
+  term?.write(data)
+  trackOutput(props.paneId, data)
+
+  const payload = parsePayload(data)
+  if (payload) {
+    reportIdle(props.paneId, payload)
+    if (payload.cwd) {
+      updateTerminalCwd(props.paneId, payload.cwd)
+    }
+    const status = statuses.value[props.paneId]
+    if (status) {
+      const reason = evaluateRules(
+        props.paneId,
+        props.title,
+        status,
+        settings.value.notificationRules || [],
+        settings.value.enableNotifications !== false
+      )
+      if (reason) {
+        sendDesktopNotification('MyTermin', reason)
+      }
+    }
+  }
+
+  parseStreamForCwd(data)
 }
 
 const parseStreamForCwd = (rawChunk: string) => {
@@ -512,7 +573,15 @@ const initTerminal = async () => {
 
   try {
     const spawnCwd = getSafeSpawnCwd(props.cwd)
-    await createPty(props.paneId, props.shell || settings.value.defaultShell, spawnCwd, cols, rows)
+    await createPty(
+      props.paneId,
+      props.shell || settings.value.defaultShell,
+      spawnCwd,
+      cols,
+      rows,
+      paneEnv.value,
+      settings.value.shellIntegration !== false
+    )
     // Guard: bila pane sudah unmount selama await (tab ditutup cepat), matikan PTY yatim
     if (!terminalContainer.value || !term) {
       await killPty(props.paneId)
@@ -521,8 +590,7 @@ const initTerminal = async () => {
     isPtyReady.value = true
 
     unlistenData = await onPtyData(props.paneId, (data) => {
-      term?.write(data)
-      parseStreamForCwd(data)
+      handleIncomingData(data)
     })
 
     unlistenExit = await onPtyExit(props.paneId, () => {
@@ -552,6 +620,11 @@ const initTerminal = async () => {
           updateTerminalLastCommand(props.paneId, cmd)
         }
         inputLineBuffer = ''
+        // Shell integration hanya melaporkan status setelah command berikutnya selesai,
+        // jadi status "running" harus ditebak dari saat user menekan Enter.
+        if (settings.value.shellIntegration !== false) {
+          markRunning(props.paneId)
+        }
       } else if (data === '\u007F' || data === '\b') {
         inputLineBuffer = inputLineBuffer.slice(0, -1)
       } else if (data.length === 1 && data.charCodeAt(0) >= 32) {
@@ -618,12 +691,19 @@ const restartTerminalSession = async (silent = false) => {
   const latestCwd = getSafeSpawnCwd(candidateCwd)
 
   try {
-    await createPty(props.paneId, props.shell || settings.value.defaultShell, latestCwd, cols, rows)
+    await createPty(
+      props.paneId,
+      props.shell || settings.value.defaultShell,
+      latestCwd,
+      cols,
+      rows,
+      paneEnv.value,
+      settings.value.shellIntegration !== false
+    )
     isPtyReady.value = true
 
     unlistenData = await onPtyData(props.paneId, (data) => {
-      term?.write(data)
-      parseStreamForCwd(data)
+      handleIncomingData(data)
     })
 
     unlistenExit = await onPtyExit(props.paneId, () => {
@@ -710,7 +790,16 @@ const handleContainerDrop = async (e: DragEvent) => {
   }
 
   if (paths.length > 0) {
-    writePty(props.paneId, paths.join(' ') + ' ')
+    // Terminal WSL tidak paham path Windows — konversi ke /mnt/<drive> dulu.
+    const isWslShell = /wsl(\.exe)?/i.test(props.shell || '')
+    const finalPaths = isWslShell
+      ? paths.map(p => {
+          const quoted = p.replace(/^"|"$/g, '')
+          const converted = winPathToWsl(quoted)
+          return converted ? `"${converted}"` : p
+        })
+      : paths
+    writePty(props.paneId, finalPaths.join(' ') + ' ')
     term?.focus()
   }
 }
@@ -728,12 +817,44 @@ const handleContextMenu = (e: MouseEvent) => {
   })
 }
 
+// Pencarian lintas buffer (dipakai Unified Search): telusuri seluruh baris scrollback
+// dan kembalikan match beserta nomor baris agar bisa di-navigate.
+const searchInBuffer = (query: string, caseSensitive = false, limit = 50) => {
+  if (!term || !query.trim()) return []
+  const buffer = term.buffer.active
+  const needle = caseSensitive ? query : query.toLowerCase()
+  const results: { line: number; text: string }[] = []
+
+  for (let i = 0; i < buffer.length && results.length < limit; i++) {
+    const line = buffer.getLine(i)
+    if (!line) continue
+    const text = line.translateToString(true)
+    const haystack = caseSensitive ? text : text.toLowerCase()
+    if (haystack.includes(needle)) {
+      results.push({ line: i, text })
+    }
+  }
+  return results
+}
+
+const scrollToBufferLine = (line: number) => {
+  if (!term) return
+  const buffer = term.buffer.active
+  const target = buffer.getLine(line)
+  if (!target) return
+  term.scrollToLine(line)
+  term.select(line, 0, target.length)
+  term.focus()
+}
+
 defineExpose({
   copySelection,
   pasteClipboard,
   clearTerminal,
   openSearch,
   exportBufferToFile,
+  searchInBuffer,
+  scrollToBufferLine,
   focus: () => term?.focus()
 })
 
@@ -965,6 +1086,7 @@ onBeforeUnmount(async () => {
   resizeObserver?.disconnect()
   if (unlistenData) unlistenData()
   if (unlistenExit) unlistenExit()
+  clearStatus(props.paneId)
   ligaturesAddon?.dispose()
   ligaturesAddon = null
   webglAddon?.dispose()
@@ -1052,6 +1174,36 @@ onBeforeUnmount(async () => {
             <span>Restart</span>
           </button>
         </div>
+
+        <!-- Shell Integration Badge: exit code + durasi command terakhir -->
+        <span
+          v-if="settings.shellIntegration !== false && shellStatus"
+          :class="[
+            'flex items-center gap-1 rounded border px-1.5 py-0.5 font-mono text-[10px] transition-colors',
+            shellStatus.state === 'running'
+              ? 'border-blue-500/40 bg-blue-500/10 text-blue-300'
+              : shellStatus.exitCode === 0
+              ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
+              : 'border-rose-500/40 bg-rose-500/10 text-rose-300'
+          ]"
+          :title="shellStatusTitle"
+        >
+          <Loader2 v-if="shellStatus.state === 'running'" class="h-2.5 w-2.5 animate-spin" />
+          <CheckCircle2 v-else-if="shellStatus.exitCode === 0" class="h-2.5 w-2.5" />
+          <XCircle v-else class="h-2.5 w-2.5" />
+          <span v-if="shellStatus.state === 'idle'">{{ formatDuration(shellStatus.durationMs) }}</span>
+          <span v-else>running</span>
+        </span>
+
+        <!-- Git branch dari shell integration -->
+        <span
+          v-if="settings.shellIntegration !== false && shellStatus?.branch"
+          class="flex items-center gap-1 rounded border border-border/30 bg-background/40 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground"
+          :title="`Git branch: ${shellStatus.branch}`"
+        >
+          <GitBranch class="h-2.5 w-2.5" />
+          {{ shellStatus.branch }}
+        </span>
 
         <!-- Selisih cwd: terminal tidak berada di folder project -->
         <button

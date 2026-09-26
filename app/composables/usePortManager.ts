@@ -33,7 +33,9 @@ export const usePortManager = () => {
     }
   }
 
-  const killProcess = async (pid: number): Promise<boolean> => {
+  // tree = true memakai taskkill /T sehingga proses anak (node, vite, cargo)
+  // ikut mati. Tanpa ini port sering masih "bekas" karena parent sudah tapi child hidup.
+  const killProcess = async (pid: number, tree = true): Promise<boolean> => {
     if (!isTauri.value) {
       portsList.value = portsList.value.filter(p => p.pid !== pid)
       return true
@@ -41,11 +43,12 @@ export const usePortManager = () => {
 
     isKilling.value = true
     try {
-      await invoke('kill_process_by_pid', { pid })
+      await invoke('kill_process_by_pid', { pid, tree })
       await fetchPorts()
       return true
     } catch (e: any) {
       console.error('Failed to kill process by PID:', e)
+      errorMsg.value = e?.message || String(e)
       return false
     } finally {
       isKilling.value = false
@@ -56,10 +59,15 @@ export const usePortManager = () => {
     const url = `http://localhost:${port}`
     if (isTauri.value) {
       try {
-        const { open } = await import('@tauri-apps/plugin-shell')
-        await open(url)
+        // Backend memakai cmd /C start supaya handler http:// tetap opened browser default.
+        await invoke('open_url', { url })
       } catch {
-        window.open(url, '_blank')
+        try {
+          const { open } = await import('@tauri-apps/plugin-shell')
+          await open(url)
+        } catch {
+          window.open(url, '_blank')
+        }
       }
     } else {
       window.open(url, '_blank')

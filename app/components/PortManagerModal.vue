@@ -215,12 +215,12 @@ const handleKillProcess = async (port: number, pid: number, procName: string) =>
                 <button
                   :disabled="killingPid === item.pid"
                   class="px-2.5 py-1 rounded-md bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 hover:text-rose-200 border border-rose-500/30 text-[10px] font-medium flex items-center gap-1 transition-all cursor-pointer disabled:opacity-40"
-                  title="Hentikan Proses (Kill PID)"
+                  title="Hentikan proses beserta seluruh process tree-nya (Kill PID /T)"
                   @click="handleKillProcess(item.port, item.pid, item.process_name)"
                 >
                   <RotateCcw v-if="killingPid === item.pid" class="w-3 h-3 animate-spin" />
                   <Trash2 v-else class="w-3 h-3" />
-                  <span>Kill</span>
+                  <span>Kill Tree</span>
                 </button>
               </div>
             </div>

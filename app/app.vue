@@ -48,9 +48,23 @@ const {
 } = useEditorStore()
 const { gitBranch, refreshGitStatus, fetchBranches } = useProjectExplorer()
 const { isTauri, writePty, pasteFromClipboard } = useTauriPty()
-const { isShortcut, requestDesktopNotification } = useSettingsStore()
+const { isShortcut, requestDesktopNotification, settings, updateSettings } = useSettingsStore()
 const { showAppConfirm } = useAppDialog()
 const { backgroundAlerts } = useWorkspaceStore()
+const { loadConfig, loadEnvFile, envEntries } = useProjectConfig()
+const { error: logError, warn: logWarn } = useDiagnostics()
+
+const envEntriesAreEmpty = () => envEntries.value.length === 0
+
+// Error runtime global disimpan agar bisa dilihat di Pengaturan > Diagnostik
+// tanpa harus membuka DevTools.
+const handleGlobalError = (event: ErrorEvent) => {
+  logError('runtime', event.message || String(event.error || 'unknown error'))
+}
+
+const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+  logError('promise', String(event.reason?.message || event.reason || 'unhandled rejection'))
+}
 const {
   status: updateStatus,
   currentAppVersion,
@@ -71,6 +85,8 @@ const isBranchModalOpen = ref(false)
 const isGitGraphModalOpen = ref(false)
 const isBranchCompareModalOpen = ref(false)
 const isPortManagerModalOpen = ref(false)
+const isAiPanelOpen = ref(false)
+const isOnboardingOpen = ref(false)
 
 const { portsList: activePortsList, startPolling: startPortPolling, stopPolling: stopPortPolling } = usePortManager()
 
@@ -323,8 +339,8 @@ const handleKeydown = (e: KeyboardEvent) => {
     return
   }
 
-  // Reopen Closed Editor Tab: Ctrl+Shift+T / Cmd+Shift+T
-  if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 't' || e.key === 'T')) {
+  // Reopen Closed Editor Tab: default Ctrl+Shift+T ( customizable via keybindings)
+  if (isShortcut(e, 'reopenClosedTab')) {
     e.preventDefault()
     reopenClosedTab()
     return
@@ -458,6 +474,18 @@ const handleKeydown = (e: KeyboardEvent) => {
     return
   }
 
+  if (isShortcut(e, 'aiPanel')) {
+    e.preventDefault()
+    isAiPanelOpen.value = true
+    return
+  }
+
+  // Sidebar punya shortcut sendiri di luar blok ctrl+shift, jadi cukup
+  // cegah agar tidak ikut memicu aksi lain.
+  if (isShortcut(e, 'toggleSidebar')) {
+    return
+  }
+
   // Tab Reorder Shortcuts
   if (e.ctrlKey && e.shiftKey) {
     if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
@@ -481,6 +509,19 @@ const handleKeydown = (e: KeyboardEvent) => {
   }
 }
 
+// Folder project bisa diganti kapan saja; env & config ikut dimuat ulang
+// supaya terminal berikutnya langsung memakai nilai yang benar.
+watch(
+  () => activeWorkstation.value?.folderPath,
+  async (folder) => {
+    if (!folder || settings.value.useProjectConfig === false) return
+    await loadConfig(folder)
+    if (envEntriesAreEmpty()) {
+      await loadEnvFile(folder)
+    }
+  }
+)
+
 onMounted(async () => {
   let isBlank = false
   if (isTauri.value) {
@@ -497,14 +538,30 @@ onMounted(async () => {
       initFromStorage()
       initEditorSession()
     }
+  } catch (err) {
+    logError('startup', `Gagal memulihkan sesi: ${err instanceof Error ? err.message : String(err)}`)
   } finally {
     // Sesi selesai dipulihkan (atau sengaja dikosongkan) — izinkan terminal spawn PTY.
     // Tanpa flag ini PTY bisa spawn duluan dengan state default (tanpa folder project)
     // sehingga Rust fallback ke cwd proses aplikasi (home user).
     sessionReady.value = true
   }
+
+  // Env & config project ikut dimuat sebelum PTY pertama spawn.
+  const bootFolder = activeWorkstation.value?.folderPath
+  if (!isBlank && bootFolder && settings.value.useProjectConfig !== false) {
+    await loadConfig(bootFolder)
+    if (envEntriesAreEmpty()) {
+      await loadEnvFile(bootFolder)
+    }
+  }
+
+  // Onboarding hanya sekali per instalasi.
+  if (!isBlank && settings.value.firstRunDone !== true) {
+    isOnboardingOpen.value = true
+  }
+
   // Apply startup presets after session init (if configured in Settings and not blank)
-  const { settings } = useSettingsStore()
   const startupIds = settings.value.startupPresetIds || []
   if (!isBlank && startupIds.length > 0) {
     const preset = presets.value.filter(p => startupIds.includes(p.id))
@@ -546,6 +603,8 @@ onMounted(async () => {
     persistWindowState()
     stopPortPolling()
   })
+  window.addEventListener('error', handleGlobalError)
+  window.addEventListener('unhandledrejection', handleUnhandledRejection)
 })
 
 onBeforeUnmount(() => {
@@ -556,6 +615,8 @@ onBeforeUnmount(() => {
   unlistenMove?.()
   stopPortPolling()
   window.removeEventListener('keydown', handleKeydown, true)
+  window.removeEventListener('error', handleGlobalError)
+  window.removeEventListener('unhandledrejection', handleUnhandledRejection)
 })
 </script>
 
@@ -761,5 +822,7 @@ onBeforeUnmount(() => {
     <GitGraphModal v-model:open="isGitGraphModalOpen" />
     <BranchCompareModal v-model:open="isBranchCompareModalOpen" />
     <PortManagerModal v-model:open="isPortManagerModalOpen" />
+    <AiPanelModal v-model:open="isAiPanelOpen" />
+    <OnboardingModal v-model:open="isOnboardingOpen" />
   </div>
 </template>

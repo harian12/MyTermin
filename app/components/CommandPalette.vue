@@ -20,7 +20,9 @@ import {
   Check,
   BookmarkPlus,
   Download,
-  AppWindow
+  AppWindow,
+  ListTodo,
+  Search as SearchIcon
 } from 'lucide-vue-next'
 import { TERMINAL_THEMES } from '~/composables/useThemes'
 
@@ -274,6 +276,28 @@ const allCommands = computed<CommandItem[]>(() => {
       category: 'System',
       icon: Settings,
       action: () => emit('open-settings')
+    },
+    {
+      id: 'toggle-task-panel',
+      title: 'Toggle Panel Tasks',
+      subtitle: `${normalizeShortcut(settings.value.keybindings?.taskPanel || 'Ctrl+Shift+M')} - Task dari package.json / Makefile / justfile`,
+      category: 'System',
+      icon: ListTodo,
+      action: () => {
+        const open = useState<boolean>('layout-task-panel-open', () => false)
+        open.value = !open.value
+      }
+    },
+    {
+      id: 'unified-search',
+      title: 'Unified Search',
+      subtitle: `${normalizeShortcut(settings.value.keybindings?.unifiedSearch || 'Ctrl+Shift+U')} - Cari di buffer terminal & file project`,
+      category: 'System',
+      icon: SearchIcon,
+      action: () => {
+        const open = useState<boolean>('layout-unified-search-open', () => false)
+        open.value = true
+      }
     }
   )
 

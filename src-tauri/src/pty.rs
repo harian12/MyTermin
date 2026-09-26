@@ -24,6 +24,129 @@ pub struct PtyStats {
     pub cwd: Option<String>,
 }
 
+// Script injeksi shell integration untuk PowerShell.
+// Mengirim status command (selesai/durasi/exit code/cwd/git branch) ke frontend lewat
+// OSC 1337 ; MyTermin=<base64 json> agar xterm.js bisa.metadata tanpa parses ANSI prompt.
+const POWERSHELL_INIT_SCRIPT: &str = r#"
+$global:MyTerminPromptStamp = $null
+$global:MyTerminBranchCache = ''
+$global:MyTerminBranchStamp = $null
+
+function global:MyTermin-GetBranch {
+  $now = Get-Date
+  if ($global:MyTerminBranchStamp -and ($now - $global:MyTerminBranchStamp).TotalSeconds -lt 3) {
+    return $global:MyTerminBranchCache
+  }
+  $global:MyTerminBranchStamp = $now
+  try {
+    $b = (& git rev-parse --abbrev-ref HEAD 2>$null)
+    if ($LASTEXITCODE -eq 0 -and $b) { $global:MyTerminBranchCache = $b.Trim() } else { $global:MyTerminBranchCache = '' }
+  } catch { $global:MyTerminBranchCache = '' }
+  return $global:MyTerminBranchCache
+}
+
+function global:MyTermin-Report($exitCode, $durationMs) {
+  try {
+    $payload = @{
+      state = 'idle'
+      exit = $exitCode
+      ms = $durationMs
+      cwd = (Get-Location).Path
+      branch = (MyTermin-GetBranch)
+    } | ConvertTo-Json -Compress
+    $b64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($payload))
+    # Windows PowerShell 5.1 tidak mengenal escape `e, jadi pakai [char]27.
+    $esc = [char]27
+    $bel = [char]7
+    [Console]::Out.Write("$esc]1337;MyTermin=$b64$bel")
+    [Console]::Out.Flush()
+  } catch { }
+}
+
+function global:Prompt {
+  $now = Get-Date
+  $ms = 0
+  if ($global:MyTerminPromptStamp) {
+    $ms = [int]($now - $global:MyTerminPromptStamp).TotalMilliseconds
+  }
+  $code = 0
+  if ($null -ne $LASTEXITCODE) { $code = [int]$LASTEXITCODE }
+  MyTermin-Report $code $ms
+  $global:MyTerminPromptStamp = $now
+
+  $loc = $executionContext.SessionState.Path.CurrentLocation.Path
+  $branch = MyTermin-GetBranch
+  $suffix = ''
+  if ($branch) { $suffix = " [$branch]" }
+  "PS $loc$suffix> "
+}
+"#;
+
+// Versi bash (Git Bash / MSYS) untuk shell integration yang sama.
+const BASH_INIT_SCRIPT: &str = r#"
+__mytermin_branch() {
+  local stamp_file="${TMPDIR:-/tmp}/.mytermin_branch_stamp"
+  local cache_file="${TMPDIR:-/tmp}/.mytermin_branch_cache"
+  local now
+  now=$(date +%s)
+  if [ -f "$stamp_file" ] && [ -f "$cache_file" ]; then
+    local last
+    last=$(cat "$stamp_file" 2>/dev/null || echo 0)
+    if [ $((now - last)) -lt 3 ]; then
+      cat "$cache_file" 2>/dev/null
+      return
+    fi
+  fi
+  local b
+  b=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+  echo "$now" > "$stamp_file" 2>/dev/null
+  echo "$b" > "$cache_file" 2>/dev/null
+  printf '%s' "$b"
+}
+
+__mytermin_report() {
+  local code=$1
+  local ms=$2
+  local cwd
+  cwd=$(pwd)
+  local branch
+  branch=$(__mytermin_branch)
+  local payload
+  payload=$(printf '{"state":"idle","exit":%s,"ms":%s,"cwd":"%s","branch":"%s"}' "$code" "$ms" "$cwd" "$branch")
+  local b64
+  b64=$(printf '%s' "$payload" | base64 | tr -d '\n')
+  printf '\033]1337;MyTermin=%s\a' "$b64"
+}
+
+__mytermin_prompt() {
+  local exit_code=$?
+  local now
+  now=$(date +%s%3N)
+  if [ -n "$__MYTERMIN_STAMP" ]; then
+    __mytermin_report "$exit_code" "$((now - __MYTERMIN_STAMP))"
+  fi
+  __MYTERMIN_STAMP=$now
+  local branch
+  branch=$(__mytermin_branch)
+  local suffix=""
+  [ -n "$branch" ] && suffix=" [$branch]"
+  printf '\033[32m%s\033[0m%s$ ' "$(pwd)" "$suffix"
+}
+PS1='$(__mytermin_prompt)'
+PROMPT_COMMAND=__mytermin_prompt
+"#;
+
+fn write_init_script(file_name: &str, content: &str) -> Option<String> {
+    let path = std::env::temp_dir().join(file_name);
+    if let Ok(existing) = std::fs::read_to_string(&path) {
+        if existing == content {
+            return Some(path.to_string_lossy().to_string());
+        }
+    }
+    std::fs::write(&path, content).ok()?;
+    Some(path.to_string_lossy().to_string())
+}
+
 pub struct PtySession {
     pub pid: Option<u32>,
     pub child: Box<dyn Child + Send>,
@@ -60,6 +183,8 @@ impl PtyManager {
         cwd: Option<String>,
         cols: u16,
         rows: u16,
+        env: Option<HashMap<String, String>>,
+        shell_integration: Option<bool>,
     ) -> Result<(), String> {
         // Bila id sudah dipakai sesi lama, matikan dulu agar tidak ada proses yatim
         // yang menumpuk (insert di bawah akan menimpa sesi lama tanpa kill).
@@ -83,17 +208,58 @@ impl PtyManager {
             }
         });
 
-        let mut cmd = CommandBuilder::new(&target_shell);
+        // Shell boleh berupa command line utuh (mis. "wsl.exe -d Ubuntu"),
+        // sehingga distro WSL bisa dipilih tanpa menambah argumen terpisah.
+        let mut shell_program = target_shell.clone();
+        let mut extra_args: Vec<String> = Vec::new();
+        if target_shell.contains(' ') {
+            let mut parts = target_shell.split_whitespace();
+            if let Some(program) = parts.next() {
+                shell_program = program.to_string();
+                extra_args = parts.map(|p| p.to_string()).collect();
+            }
+        }
+
+        let mut cmd = CommandBuilder::new(&shell_program);
         cmd.env("TERM", "xterm-256color");
         cmd.env("COLORTERM", "truecolor");
         cmd.env("PYTHONIOENCODING", "utf-8");
+        cmd.env("MYTERMIN_SESSION", "1");
+
+        if let Some(vars) = env {
+            for (key, value) in vars {
+                let clean_key = key.trim();
+                if clean_key.is_empty() {
+                    continue;
+                }
+                cmd.env(clean_key, value);
+            }
+        }
+
+        if !extra_args.is_empty() {
+            cmd.args(&extra_args);
+        }
+
+        let use_shell_integration = shell_integration.unwrap_or(false);
 
         if cfg!(target_os = "windows") {
-            let lower = target_shell.to_lowercase();
+            let lower = shell_program.to_lowercase();
             if lower.ends_with("powershell.exe") || lower.ends_with("pwsh.exe") || lower == "powershell" || lower == "pwsh" {
-                cmd.args(["-NoExit", "-NoLogo", "-Command", "[Console]::OutputEncoding=[System.Text.Encoding]::UTF8; [Console]::InputEncoding=[System.Text.Encoding]::UTF8; chcp 65001 > $null"]);
+                let mut setup = String::from("[Console]::OutputEncoding=[System.Text.Encoding]::UTF8; [Console]::InputEncoding=[System.Text.Encoding]::UTF8; chcp 65001 > $null");
+                if use_shell_integration {
+                    if let Some(script_path) = write_init_script("mytermin_shell_init.ps1", POWERSHELL_INIT_SCRIPT) {
+                        setup.push_str(&format!("; . '{}'", script_path.replace('\'', "''")));
+                    }
+                }
+                cmd.args(["-NoExit", "-NoLogo", "-Command", &setup]);
             } else if lower.ends_with("cmd.exe") || lower == "cmd" {
                 cmd.args(["/K", "chcp 65001 > nul"]);
+            } else if lower.ends_with("bash.exe") || lower == "bash" {
+                if use_shell_integration {
+                    if let Some(script_path) = write_init_script("mytermin_shell_init.sh", BASH_INIT_SCRIPT) {
+                        cmd.args(["--init-file", &script_path]);
+                    }
+                }
             }
         }
 

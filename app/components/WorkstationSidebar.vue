@@ -41,7 +41,9 @@ import {
   History,
   Minus,
   List,
-  Network
+  Network,
+  CloudDownload,
+  Archive
 } from 'lucide-vue-next'
 import type { FileEntry } from '~/types/terminal'
 import type { GitTreeNode } from '~/components/GitFileTreeItem.vue'
@@ -358,6 +360,35 @@ const handlePull = async () => {
 const openBranchModal = async () => {
   await fetchBranches()
   showBranchPicker.value = true
+}
+
+const isFetchingGit = ref(false)
+const isAmending = ref(false)
+const showStashModal = ref(false)
+const { fetchAll, refreshAheadBehind, aheadBehind, amendCommit } = useGitExtras()
+
+const handleFetch = async () => {
+  if (isFetchingGit.value) return
+  isFetchingGit.value = true
+  try {
+    await fetchAll()
+    await refreshAheadBehind()
+  } finally {
+    isFetchingGit.value = false
+  }
+}
+
+const handleAmend = async () => {
+  if (isAmending.value) return
+  isAmending.value = true
+  try {
+    // Pesan yang diketik ikut dipakai agar amend tidak perlu dialog tambahan.
+    await amendCommit(commitMessage.value.trim() || undefined)
+    commitMessage.value = ''
+    await refreshGitStatus()
+  } finally {
+    isAmending.value = false
+  }
 }
 
 const handleStageFolder = async (files: string[]) => {
@@ -806,6 +837,14 @@ const finishRename = (termId: string) => {
           >
             <GitBranch class="w-3.5 h-3.5 flex-shrink-0" />
             <span class="truncate font-semibold">{{ gitBranch || 'Branch' }}</span>
+            <span
+              v-if="aheadBehind?.has_upstream"
+              class="flex shrink-0 items-center gap-1 text-[10px]"
+              :title="`vs ${aheadBehind.upstream}: ${aheadBehind.ahead} ahead, ${aheadBehind.behind} behind`"
+            >
+              <span v-if="aheadBehind.ahead > 0" class="text-emerald-400">↑{{ aheadBehind.ahead }}</span>
+              <span v-if="aheadBehind.behind > 0" class="text-amber-400">↓{{ aheadBehind.behind }}</span>
+            </span>
             <ChevronDown class="w-3 h-3 flex-shrink-0 opacity-60" />
           </button>
 
@@ -835,6 +874,21 @@ const finishRename = (termId: string) => {
             >
               <Network v-if="gitViewMode === 'tree'" class="w-3.5 h-3.5 text-primary" />
               <List v-else class="w-3.5 h-3.5" />
+            </button>
+            <button
+              class="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+              :disabled="isFetchingGit"
+              :title="isFetchingGit ? 'Fetching...' : 'Fetch dari remote (git fetch --all --prune)'"
+              @click="handleFetch"
+            >
+              <CloudDownload :class="['w-3.5 h-3.5', isFetchingGit && 'animate-bounce text-primary']" />
+            </button>
+            <button
+              class="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+              title="Kelola Stash & Tag"
+              @click="showStashModal = true"
+            >
+              <Archive class="w-3.5 h-3.5 text-amber-400" />
             </button>
             <button
               class="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
@@ -872,14 +926,24 @@ const finishRename = (termId: string) => {
             @keydown.ctrl.enter="handleCommit"
           />
 
-          <button
-            :disabled="!commitMessage.trim() || isCommitting"
-            class="w-full py-1.5 px-3 rounded bg-primary hover:bg-primary/90 disabled:opacity-40 text-primary-foreground text-xs font-medium flex items-center justify-center gap-1.5 transition-colors shadow-sm"
-            @click="handleCommit"
-          >
-            <GitCommit class="w-3.5 h-3.5" />
-            <span>{{ isCommitting ? 'Menyimpan...' : 'Commit Perubahan' }}</span>
-          </button>
+          <div class="flex items-center gap-1.5">
+            <button
+              class="flex-1 py-1.5 px-3 rounded bg-primary hover:bg-primary/90 disabled:opacity-40 text-primary-foreground text-xs font-medium flex items-center justify-center gap-1.5 transition-colors shadow-sm"
+              :disabled="!commitMessage.trim() || isCommitting"
+              @click="handleCommit"
+            >
+              <GitCommit class="w-3.5 h-3.5" />
+              <span>{{ isCommitting ? 'Menyimpan...' : 'Commit Perubahan' }}</span>
+            </button>
+            <button
+              class="shrink-0 rounded border border-border/60 px-2 py-1.5 text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-40"
+              :disabled="isAmending"
+              title="Amend commit terakhir dengan pesan yang sama"
+              @click="handleAmend"
+            >
+              Amend
+            </button>
+          </div>
 
           <div v-if="commitResultMsg" class="text-[11px] text-emerald-400 text-center font-mono py-0.5">
             {{ commitResultMsg }}
@@ -1210,6 +1274,7 @@ const finishRename = (termId: string) => {
 
     <!-- Visual Git Commit Graph Modal -->
     <GitGraphModal v-model:open="showGitGraphModal" />
+<GitStashModal v-model:open="showStashModal" />
 
     <!-- Visual Branch Compare & Diff Modal -->
     <BranchCompareModal v-model:open="showBranchCompareModal" />

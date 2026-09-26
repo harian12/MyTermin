@@ -54,13 +54,23 @@ export const useTauriPty = () => {
     shell?: string,
     cwd?: string,
     cols: number = 80,
-    rows: number = 24
+    rows: number = 24,
+    env?: Record<string, string>,
+    shellIntegration?: boolean
   ) => {
     if (!isTauri.value) {
       console.log(`[Mock PTY] Created session ${id} with shell ${shell}`)
       return
     }
-    await invoke('create_pty', { id, shell: shell || null, cwd: cwd || null, cols, rows })
+    await invoke('create_pty', {
+      id,
+      shell: shell || null,
+      cwd: cwd || null,
+      cols,
+      rows,
+      env: env || null,
+      shellIntegration: shellIntegration ?? null
+    })
   }
 
   const writePty = async (id: string, data: string) => {
@@ -149,6 +159,28 @@ export const useTauriPty = () => {
     }
   }
 
+  const openUrl = async (url: string) => {
+    if (!isTauri.value) {
+      window.open(url, '_blank')
+      return
+    }
+    try {
+      await invoke('open_url', { url })
+    } catch (e) {
+      console.error('Failed to open url:', e)
+    }
+  }
+
+  const killProcess = async (pid: number, tree = true) => {
+    if (!isTauri.value) return
+    try {
+      await invoke('kill_process_by_pid', { pid, tree })
+    } catch (e) {
+      console.error('Failed to kill process:', e)
+      throw e
+    }
+  }
+
   return {
     isTauri,
     getAvailableShells,
@@ -165,7 +197,9 @@ export const useTauriPty = () => {
     saveTempFile,
     pasteFromClipboard,
     getClipboardFiles,
-    copyToClipboard
+    copyToClipboard,
+    openUrl,
+    killProcess
   }
 }
 

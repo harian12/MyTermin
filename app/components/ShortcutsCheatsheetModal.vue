@@ -48,8 +48,9 @@ const groups = computed<ShortcutGroup[]>(() => [
       { keys: [kb('commandPalette', 'Ctrl+K')], label: 'Command Palette' },
       { keys: ['Ctrl+P'], label: 'Quick Open File' },
       { keys: ['Ctrl+Shift+F'], label: 'Cari & Ganti di Semua File' },
+      { keys: [kb('unifiedSearch', 'Ctrl+Shift+U')], label: 'Unified Search (Terminal + File)' },
       { keys: ['Ctrl+Shift+N'], label: 'Buka Jendela Baru (Blank Workspace)' },
-      { keys: ['Ctrl+B'], label: 'Toggle Sidebar' },
+      { keys: [kb('toggleSidebar', 'Ctrl+B')], label: 'Toggle Sidebar' },
       { keys: ['F1', 'Ctrl+/'], label: 'Buka Cheatsheet Shortcut Ini' },
       { keys: ['Ctrl+Shift+P'], label: 'Buka Presets Workspace' }
     ]
@@ -59,7 +60,7 @@ const groups = computed<ShortcutGroup[]>(() => [
     items: [
       { keys: ['Ctrl+S'], label: 'Simpan File' },
       { keys: ['Ctrl+Shift+S'], label: 'Simpan Semua File' },
-      { keys: ['Ctrl+Shift+T'], label: 'Buka Kembali Tab yang Ditutup' },
+      { keys: [kb('reopenClosedTab', 'Ctrl+Shift+T')], label: 'Buka Kembali Tab yang Ditutup' },
       { keys: ['Shift+Alt+F'], label: 'Format Dokumen (Prettier)' },
       { keys: ['Alt+Z'], label: 'Toggle Word Wrap' },
       { keys: ['Ctrl+F'], label: 'Cari di File' },
@@ -93,6 +94,14 @@ const groups = computed<ShortcutGroup[]>(() => [
       { keys: [kb('singleView', 'Ctrl+Shift+L')], label: 'Layout Terminal Tunggal' },
       { keys: ['Ctrl+Shift+←/→'], label: 'Geser Urutan Tab Terminal' },
       { keys: ['Ctrl+Shift+W'], label: 'Tutup Workstation Aktif' }
+    ]
+  },
+  {
+    title: 'Tools',
+    items: [
+      { keys: [kb('taskPanel', 'Ctrl+Shift+M')], label: 'Buka/Tutup Panel Tasks' },
+      { keys: [kb('runTask', 'Ctrl+Shift+B')], label: 'Jalankan Task Utama' },
+      { keys: [kb('aiPanel', 'Ctrl+Shift+I')], label: 'Buka AI CLI Runner' }
     ]
   }
 ])

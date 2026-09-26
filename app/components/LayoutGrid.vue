@@ -12,7 +12,12 @@ import {
   Maximize2,
   Minimize2,
   FolderOpen,
-  Clock
+  Clock,
+  Search,
+  ListTodo,
+  CheckCircle2,
+  XCircle,
+  Loader2
 } from 'lucide-vue-next'
 import type { LayoutType, TerminalTab } from '~/types/terminal'
 import { useEditorStore } from '~/composables/useEditorStore'
@@ -36,6 +41,79 @@ const {
 
 const { viewportMode, openFiles, lastFocusedPane } = useEditorStore()
 const { pickFolder, setWorkstationFolder, recentProjects } = useProjectExplorer()
+const { statuses, formatDuration } = useShellIntegration()
+const { isShortcut } = useSettingsStore()
+const { tasks, loadTasks, runTask } = useTaskRunner()
+
+// Panel Tasks & Unified Search memakai state global supaya tombol toolbar,
+// shortcut keyboard, dan modal selalu sinkron.
+const isTaskPanelOpen = useState<boolean>('layout-task-panel-open', () => false)
+const isUnifiedSearchOpen = useState<boolean>('layout-unified-search-open', () => false)
+const paneRefs = new Map<string, any>()
+
+const getTermStatus = (termId: string) => statuses.value[termId] || null
+
+const registerPane = (termId: string, el: any) => {
+  if (el) paneRefs.set(termId, el)
+  else paneRefs.delete(termId)
+}
+
+// Unified Search memakai ini untuk menelusuri scrollback semua terminal.
+const searchTerminalBuffers = (query: string, caseSensitive = false) => {
+  const results: { termId: string; title: string; line: number; text: string }[] = []
+  for (const [termId, pane] of paneRefs.entries()) {
+    const term = terminals.value.find(t => t.id === termId)
+    const hits = pane?.searchInBuffer?.(query, caseSensitive, 20) || []
+    for (const hit of hits) {
+      results.push({ termId, title: term?.title || 'Terminal', line: hit.line, text: hit.text })
+    }
+  }
+  return results
+}
+
+const jumpToBufferLine = (termId: string, line: number) => {
+  const pane = paneRefs.get(termId)
+  pane?.scrollToBufferLine?.(line)
+  activeTerminalId.value = termId
+}
+
+onBeforeUnmount(() => {
+  paneRefs.clear()
+  window.removeEventListener('keydown', onGridShortcut, true)
+})
+
+// Shortcut level LayoutGrid: panel Tasks, unified search, dan run task.
+// Forwarding dari xterm sudah terjadi di attachCustomKeyEventHandler TerminalPane.
+function onGridShortcut(e: KeyboardEvent) {
+  if (isShortcut(e, 'taskPanel')) {
+    e.preventDefault()
+    isTaskPanelOpen.value = !isTaskPanelOpen.value
+    return
+  }
+
+  if (isShortcut(e, 'unifiedSearch')) {
+    e.preventDefault()
+    isUnifiedSearchOpen.value = true
+    return
+  }
+
+  if (isShortcut(e, 'runTask')) {
+    e.preventDefault()
+    runFirstTask()
+  }
+}
+
+const runFirstTask = async () => {
+  const folder = activeWorkstation.value.folderPath
+  if (!folder) return
+  await loadTasks(folder)
+  const first = tasks.value.find(t => /^(build|dev|start|serve)$/i.test(t.label)) || tasks.value[0]
+  if (first) runTask(first)
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', onGridShortcut, true)
+})
 
 const editingTermId = ref<string | null>(null)
 const editingTitle = ref('')
@@ -194,7 +272,10 @@ const emit = defineEmits<{
   (e: 'close', termId: string): void
   (e: 'open-presets'): void
   (e: 'contextmenu', payload: { x: number; y: number; hasSelection: boolean; paneId: string }): void
+  (e: 'unified-search', payload: { query: string; caseSensitive: boolean }): void
 }>()
+
+defineExpose({ searchTerminalBuffers, jumpToBufferLine, isTaskPanelOpen })
 
 // Kapasitas layout dinamis: single=1, split=2, grid-2x2=4
 const layoutCapacity = computed(() => {
@@ -314,6 +395,25 @@ const gridClass = computed(() => {
           @dblclick="startRenameTab(term)"
         >
           <Terminal class="w-3.5 h-3.5 text-primary flex-shrink-0" />
+
+          <!-- Status command terakhir (shell integration) -->
+          <span
+            v-if="getTermStatus(term.id)"
+            :class="[
+              'flex shrink-0 items-center',
+              getTermStatus(term.id)!.state === 'running' ? 'text-blue-400' :
+              getTermStatus(term.id)!.exitCode === 0 ? 'text-emerald-400' : 'text-rose-400'
+            ]"
+            :title="
+              getTermStatus(term.id)!.state === 'running'
+                ? 'Command sedang berjalan'
+                : `Exit ${getTermStatus(term.id)!.exitCode} — ${formatDuration(getTermStatus(term.id)!.durationMs)}`
+            "
+          >
+            <Loader2 v-if="getTermStatus(term.id)!.state === 'running'" class="h-3 w-3 animate-spin" />
+            <CheckCircle2 v-else-if="getTermStatus(term.id)!.exitCode === 0" class="h-3 w-3" />
+            <XCircle v-else class="h-3 w-3" />
+          </span>
           <input
             v-if="editingTermId === term.id"
             :id="`tab-rename-input-${term.id}`"
@@ -393,6 +493,27 @@ const gridClass = computed(() => {
           </button>
         </div>
 
+        <!-- Unified Search (buffer semua terminal + file project) -->
+        <button
+          class="p-1 rounded hover:bg-[#181924] text-muted-foreground hover:text-foreground transition-colors"
+          title="Cari di semua Terminal & File (Ctrl+Shift+U)"
+          @click="emit('unified-search', { query: '', caseSensitive: false })"
+        >
+          <Search class="w-3.5 h-3.5" />
+        </button>
+
+        <!-- Task Panel Toggle -->
+        <button
+          :class="[
+            'p-1 rounded transition-colors',
+            isTaskPanelOpen ? 'bg-primary text-primary-foreground' : 'hover:bg-[#181924] text-muted-foreground hover:text-foreground'
+          ]"
+          title="Panel Tasks (Ctrl+Shift+M)"
+          @click="isTaskPanelOpen = !isTaskPanelOpen"
+        >
+          <ListTodo class="w-3.5 h-3.5" />
+        </button>
+
         <!-- Presets Button -->
         <button
           class="p-1 rounded hover:bg-[#181924] text-muted-foreground hover:text-foreground transition-colors"
@@ -416,7 +537,8 @@ const gridClass = computed(() => {
     </div>
 
     <!-- Terminal Content Area -->
-    <div class="flex-1 w-full h-full p-1.5 relative overflow-hidden min-h-0 min-w-0">
+    <div class="flex min-h-0 flex-1 w-full">
+      <div class="relative min-h-0 min-w-0 flex-1 overflow-hidden p-1.5">
       <!-- Persistent Dynamic Grid Container for All Workstations (PTY stays alive in background) -->
       <!-- Jangan dibungkus v-if/v-else: unmount akan mematikan seluruh PTY termasuk milik workstation lain -->
       <div
@@ -450,6 +572,7 @@ const gridClass = computed(() => {
             ]"
           >
             <TerminalPane
+              :ref="el => registerPane(item.term.id, el)"
               :pane-id="item.term.id"
               :title="item.term.title"
               :shell="item.term.shell"
@@ -557,7 +680,20 @@ const gridClass = computed(() => {
           </div>
         </div>
       </div>
+      </div>
+
+      <!-- Panel Tasks -->
+      <TaskPanel
+        v-model:open="isTaskPanelOpen"
+        :project-folder="activeWorkstation.folderPath"
+      />
     </div>
+
+    <UnifiedSearchModal
+      v-model:open="isUnifiedSearchOpen"
+      :searcher="searchTerminalBuffers"
+      :on-jump="jumpToBufferLine"
+    />
   </div>
 </template>
 
