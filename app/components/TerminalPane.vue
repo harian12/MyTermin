@@ -24,6 +24,7 @@ import {
 import { TERMINAL_THEMES } from '~/composables/useThemes'
 import type { PtyStats } from '~/types/terminal'
 import { sendDesktopNotification } from '~/composables/useSettingsStore'
+import { msysToWinPath, parseMsysTitle, matchMsysPrompt } from '~/utils/msysPath'
 
 interface Props {
   paneId: string
@@ -311,6 +312,16 @@ const parseStreamForCwd = (rawChunk: string) => {
     if (matched.length >= 2) {
       updateTerminalCwd(props.paneId, matched)
     }
+    return
+  }
+
+  const msysPromptPath = matchMsysPrompt(ptyStreamBuffer)
+  if (msysPromptPath) {
+    const winPath = msysToWinPath(msysPromptPath)
+    if (winPath) {
+      updateTerminalCwd(props.paneId, winPath)
+      if (paneStats.value) paneStats.value.cwd = ''
+    }
   }
 }
 
@@ -523,6 +534,16 @@ const initTerminal = async () => {
       const match = newTitle.match(/([A-Za-z]:\\[^\r\n]*)/)
       if (match && match[1]) {
         updateTerminalCwd(props.paneId, match[1].trim())
+        return
+      }
+
+      const msysTitlePath = parseMsysTitle(newTitle)
+      if (msysTitlePath) {
+        const winPath = msysToWinPath(msysTitlePath)
+        if (winPath) {
+          updateTerminalCwd(props.paneId, winPath)
+          if (paneStats.value) paneStats.value.cwd = ''
+        }
       }
     })
 
