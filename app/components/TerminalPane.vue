@@ -80,6 +80,7 @@ let resizeObserver: ResizeObserver | null = null
 let statsInterval: any = null
 let ptyStreamBuffer = ''
 let wasProcessBusy = false
+let lastPromptCwdAt = 0
 
 const isPtyReady = ref(false)
 const isPtyExited = ref(false)
@@ -267,6 +268,14 @@ const exportBufferToFile = () => {
   URL.revokeObjectURL(url)
 }
 
+const applyMsysCwd = (msysPath: string | null) => {
+  const winPath = msysToWinPath(msysPath)
+  if (!winPath) return
+  updateTerminalCwd(props.paneId, winPath)
+  lastPromptCwdAt = Date.now()
+  if (paneStats.value) paneStats.value.cwd = ''
+}
+
 const parseStreamForCwd = (rawChunk: string) => {
   // OSC 9;9 (Windows Terminal / ConEmu)
   const osc9Match = rawChunk.match(/\x1B\]9;9;"?([^"\x07\x1B]+)"?(?:\x07|\x1B\\)/)
@@ -311,7 +320,10 @@ const parseStreamForCwd = (rawChunk: string) => {
     if (matched.length >= 2) {
       updateTerminalCwd(props.paneId, matched)
     }
+    return
   }
+
+  applyMsysCwd(matchMsysPrompt(ptyStreamBuffer))
 }
 
 // Tunggu sesi dipulihkan dari storage agar cwd spawn tidak kosong (state default
@@ -523,7 +535,10 @@ const initTerminal = async () => {
       const match = newTitle.match(/([A-Za-z]:\\[^\r\n]*)/)
       if (match && match[1]) {
         updateTerminalCwd(props.paneId, match[1].trim())
+        return
       }
+
+      applyMsysCwd(parseMsysTitle(newTitle))
     })
 
     let inputLineBuffer = ''
@@ -838,11 +853,17 @@ watch(
 
 const fetchStats = async () => {
   if (!isTauri.value || !isPtyReady.value || isPtyExited.value) return
+  const startedAt = Date.now()
   try {
     const all = await getAllPtyStats()
     const stats = all?.[props.paneId]
     if (stats) {
-      paneStats.value = stats
+      // Snapshot yang dimulai sebelum prompt terakhir terdeteksi sudah basi —
+      // jangan timpa cwd yang baru saja dibaca dari prompt.
+      const promptCwdIsNewer = lastPromptCwdAt > startedAt
+      paneStats.value = promptCwdIsNewer
+        ? { ...stats, cwd: paneStats.value?.cwd ?? '' }
+        : stats
       const isBusy = stats.child_count > 0 || stats.cpu_usage > 5.0
 
       if (isBusy) {
