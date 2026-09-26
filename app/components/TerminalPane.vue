@@ -80,6 +80,7 @@ let resizeObserver: ResizeObserver | null = null
 let statsInterval: any = null
 let ptyStreamBuffer = ''
 let wasProcessBusy = false
+let lastPromptCwdAt = 0
 
 const isPtyReady = ref(false)
 const isPtyExited = ref(false)
@@ -271,6 +272,7 @@ const applyMsysCwd = (msysPath: string | null) => {
   const winPath = msysToWinPath(msysPath)
   if (!winPath) return
   updateTerminalCwd(props.paneId, winPath)
+  lastPromptCwdAt = Date.now()
   if (paneStats.value) paneStats.value.cwd = ''
 }
 
@@ -851,11 +853,17 @@ watch(
 
 const fetchStats = async () => {
   if (!isTauri.value || !isPtyReady.value || isPtyExited.value) return
+  const startedAt = Date.now()
   try {
     const all = await getAllPtyStats()
     const stats = all?.[props.paneId]
     if (stats) {
-      paneStats.value = stats
+      // Snapshot yang dimulai sebelum prompt terakhir terdeteksi sudah basi —
+      // jangan timpa cwd yang baru saja dibaca dari prompt.
+      const promptCwdIsNewer = lastPromptCwdAt > startedAt
+      paneStats.value = promptCwdIsNewer
+        ? { ...stats, cwd: paneStats.value?.cwd ?? '' }
+        : stats
       const isBusy = stats.child_count > 0 || stats.cpu_usage > 5.0
 
       if (isBusy) {
