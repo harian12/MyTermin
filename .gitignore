@@ -15,6 +15,9 @@ target/
 .env.*
 !.env.example
 
+# Tauri updater signing keys (JANGAN pernah di-commit)
+.tauri/
+
 # System & IDE files
 .DS_Store
 Thumbs.db

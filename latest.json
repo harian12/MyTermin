@@ -1,15 +1,15 @@
 {
-  "version": "0.2.9",
-  "notes": "Release v0.2.9 - Task Runner otomatis (deteksi package.json/Makefile/justfile, panel Ctrl+Shift+M, jalankan task utama Ctrl+Shift+B), shell integration (badge exit code, durasi, dan git branch per terminal via OSC 1337 di PowerShell & Git Bash), notification rules (keyword/regex/exit code/nama terminal/durasi dengan cooldown), project config .mytermin/project.json dengan env per project, Unified Search (Ctrl+Shift+U) di scrollback terminal + file project, AI CLI Runner (Ctrl+Shift+I), Git stash manager + tag dengan fetch dan indikator ahead/behind serta amend, keybinding recorder dengan deteksi konflik, theme editor palet ANSI, diagnostics dengan copy debug info dan backup settings, onboarding sekali jalan, dukungan distro WSL dengan konversi path /mnt, serta kill process tree di Port Manager.",
-  "pub_date": "2026-09-26T18:00:39.077Z",
+  "version": "0.2.10",
+  "notes": "Release v0.2.10 - Perbaikan shell integration di PowerShell. PowerShell sekarang dijalankan dengan -ExecutionPolicy Bypass, jadi mytermin_shell_init.ps1 tidak lagi ditolak dengan PSSecurityException pada policy default Windows (Restricted) yang membuat seluruh shell integration mati. Badge \"running\" beserta ikon berputar di header terminal dan tab dihapus, karena status itu tidak pernah kembali ke idle saat memakai program TTY interaktif seperti opencode, codex, atau vim sehingga nyangkut terus. Badge \"cd project\" juga tidak lagi muncul palsu saat cwd terminal belum terdeteksi.",
+  "pub_date": "2026-09-26T18:45:32.571Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcjU5M1ZFMWtCZVlGdnZSdXdLRnZPaVIySmJxM1dsTHlRbk9NdzJqR0Z6OVkzY3dXMzhqOUFXN0pWZFJUUW9wVytZaFcwS3R4KzU2aktRdnNMN3JBOTBodFJwVWQ2b2dNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkwNDQ1NjMwCWZpbGU6TXlUZXJtaW5fMC4yLjlfeDY0LXNldHVwLmV4ZQpoVEZmakk2WkJjblUrUjY3aDJXc3VDanE5NEtGRmVGZm5PYWV0bzJCb1pDcE9PbTNoT09VNlpxdW5XdTZVVGgzN3UvVmdlRW9YWGJheGRXazNWUUpEQT09Cg==",
-      "url": "https://github.com/harian12/MyTermin/releases/download/v0.2.9/MyTermin_0.2.9_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcjU5M1ZFMWtCZWVPY3FSbkwzVTVMWFMzYXdnQXc0RUROZk1ENjI4cGdlazE3ZVVnWDNZTDhIOVpWL1dIa0s4QllWVlZxN2pHUEVSWEtpNndMR2cvMVdkWnJGdm1oZ1E4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkwNDQ4MzExCWZpbGU6TXlUZXJtaW5fMC4yLjEwX3g2NC1zZXR1cC5leGUKTjVKRHRwVmlHbEllNlIxVmhpeTEvRG81TGl0Sm1acFh5RWUyWkwzNkd6bjEraFBCMGlhbGE3aUMvOXFybktLSisyNkVuMnlCMSt0SnlFLzd0bXBEQ0E9PQo=",
+      "url": "https://github.com/harian12/MyTermin/releases/download/v0.2.10/MyTermin_0.2.10_x64-setup.exe"
     },
     "windows-x86_64-nsis": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcjU5M1ZFMWtCZVlGdnZSdXdLRnZPaVIySmJxM1dsTHlRbk9NdzJqR0Z6OVkzY3dXMzhqOUFXN0pWZFJUUW9wVytZaFcwS3R4KzU2aktRdnNMN3JBOTBodFJwVWQ2b2dNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkwNDQ1NjMwCWZpbGU6TXlUZXJtaW5fMC4yLjlfeDY0LXNldHVwLmV4ZQpoVEZmakk2WkJjblUrUjY3aDJXc3VDanE5NEtGRmVGZm5PYWV0bzJCb1pDcE9PbTNoT09VNlpxdW5XdTZVVGgzN3UvVmdlRW9YWGJheGRXazNWUUpEQT09Cg==",
-      "url": "https://github.com/harian12/MyTermin/releases/download/v0.2.9/MyTermin_0.2.9_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcjU5M1ZFMWtCZWVPY3FSbkwzVTVMWFMzYXdnQXc0RUROZk1ENjI4cGdlazE3ZVVnWDNZTDhIOVpWL1dIa0s4QllWVlZxN2pHUEVSWEtpNndMR2cvMVdkWnJGdm1oZ1E4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkwNDQ4MzExCWZpbGU6TXlUZXJtaW5fMC4yLjEwX3g2NC1zZXR1cC5leGUKTjVKRHRwVmlHbEllNlIxVmhpeTEvRG81TGl0Sm1acFh5RWUyWkwzNkd6bjEraFBCMGlhbGE3aUMvOXFybktLSisyNkVuMnlCMSt0SnlFLzd0bXBEQ0E9PQo=",
+      "url": "https://github.com/harian12/MyTermin/releases/download/v0.2.10/MyTermin_0.2.10_x64-setup.exe"
     }
   }
 }
