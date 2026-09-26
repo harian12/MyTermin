@@ -25,6 +25,7 @@ const {
   setLayout,
   initFromStorage,
   saveSession,
+  sessionReady,
   presets,
   applyPreset
 } = useWorkspaceStore()
@@ -491,9 +492,16 @@ onMounted(async () => {
     }
   }
 
-  if (!isBlank) {
-    initFromStorage()
-    initEditorSession()
+  try {
+    if (!isBlank) {
+      initFromStorage()
+      initEditorSession()
+    }
+  } finally {
+    // Sesi selesai dipulihkan (atau sengaja dikosongkan) — izinkan terminal spawn PTY.
+    // Tanpa flag ini PTY bisa spawn duluan dengan state default (tanpa folder project)
+    // sehingga Rust fallback ke cwd proses aplikasi (home user).
+    sessionReady.value = true
   }
   // Apply startup presets after session init (if configured in Settings and not blank)
   const { settings } = useSettingsStore()

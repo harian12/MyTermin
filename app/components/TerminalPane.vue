@@ -14,6 +14,7 @@ import {
   Activity,
   Cpu,
   RotateCcw,
+  FolderInput,
   Search,
   ArrowUp,
   ArrowDown,
@@ -30,6 +31,8 @@ interface Props {
   isActive: boolean
   shell?: string
   cwd?: string
+  /** Folder project milik workstation pemilik pane ini (untuk deteksi selisih cwd). */
+  projectFolder?: string
   initialCommand?: string
   lastCommand?: string
   isTabActive?: boolean
@@ -62,7 +65,7 @@ const {
   copyToClipboard
 } = useTauriPty()
 const { settings, isShortcut, updateSettings } = useSettingsStore()
-const { terminals, renameTerminal, updateTerminalCwd, updateTerminalLastCommand, setTerminalAlert, clearTerminalAlert } = useWorkspaceStore()
+const { terminals, renameTerminal, updateTerminalCwd, updateTerminalLastCommand, setTerminalAlert, clearTerminalAlert, sessionReady } = useWorkspaceStore()
 const { togglePalette, openPalette } = useCommandPalette()
 
 let term: Terminal | null = null
@@ -84,6 +87,34 @@ const isEditingTitle = ref(false)
 const newPaneTitle = ref(props.title)
 const paneStats = ref<PtyStats | null>(null)
 const isFileDraggingOver = ref(false)
+
+// --- Deteksi selisih cwd terminal vs folder project -------------------------
+const normalizePath = (p?: string) =>
+  (p || '')
+    .trim()
+    .replace(/^["']+|["']+$/g, '')
+    .replace(/\//g, '\\')
+    .replace(/\\+$/, '')
+    .toLowerCase()
+
+// Prefer cwd proses nyata dari sysinfo; fallback ke cwd tersimpan di store.
+const effectiveCwd = computed(() => paneStats.value?.cwd || props.cwd || '')
+
+const isCwdMismatch = computed(() => {
+  const project = normalizePath(props.projectFolder)
+  if (!project) return false
+  const current = normalizePath(effectiveCwd.value)
+  if (!current) return false
+  return current !== project
+})
+
+const goToProjectFolder = async () => {
+  const target = props.projectFolder
+  if (!target || !isTauri.value) return
+  await writePty(props.paneId, `cd "${target}"\r`)
+  updateTerminalCwd(props.paneId, target)
+  term?.focus()
+}
 
 // Search bar state
 const isSearchOpen = ref(false)
@@ -261,8 +292,20 @@ const parseStreamForCwd = (rawChunk: string) => {
   }
 }
 
+// Tunggu sesi dipulihkan dari storage agar cwd spawn tidak kosong (state default
+// saat boot tidak punya folder project -> Rust fallback ke cwd proses = home user).
+const waitForSessionReady = async (timeoutMs = 3000) => {
+  if (sessionReady.value) return
+  const started = Date.now()
+  while (!sessionReady.value && Date.now() - started < timeoutMs) {
+    await new Promise(resolve => setTimeout(resolve, 50))
+  }
+}
+
 const initTerminal = async () => {
   if (!terminalContainer.value) return
+  await waitForSessionReady()
+  if (!terminalContainer.value || term) return
 
   term = new Terminal({
     fontSize: settings.value.fontSize,
@@ -429,7 +472,9 @@ const initTerminal = async () => {
   const rows = term.rows && term.rows > 2 ? term.rows : 24
 
   try {
-    await createPty(props.paneId, props.shell || settings.value.defaultShell, props.cwd, cols, rows)
+    // Fallback ke folder project bila cwd tersimpan kosong/tidak valid.
+    const spawnCwd = props.cwd || props.projectFolder
+    await createPty(props.paneId, props.shell || settings.value.defaultShell, spawnCwd, cols, rows)
     // Guard: bila pane sudah unmount selama await (tab ditutup cepat), matikan PTY yatim
     if (!terminalContainer.value || !term) {
       await killPty(props.paneId)
@@ -953,6 +998,17 @@ onBeforeUnmount(async () => {
             <span>Restart</span>
           </button>
         </div>
+
+        <!-- Selisih cwd: terminal tidak berada di folder project -->
+        <button
+          v-if="isTauri && !isPtyExited && isCwdMismatch"
+          class="flex items-center gap-1 text-[10px] font-mono text-amber-300 bg-amber-950/60 hover:bg-amber-900/80 px-2 py-0.5 rounded border border-amber-800/70 transition-colors cursor-pointer flex-shrink-0"
+          :title="`Terminal di ${effectiveCwd} — klik untuk masuk ke folder project (${projectFolder})`"
+          @click.stop="goToProjectFolder()"
+        >
+          <FolderInput class="w-2.5 h-2.5" />
+          <span class="max-w-[110px] truncate">cd project</span>
+        </button>
       </div>
 
       <!-- Pane Controls -->

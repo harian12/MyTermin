@@ -21,6 +21,9 @@ export const useWorkspaceStore = () => {
   ])
   const activeWorkstationId = useState<string>('active-workstation-id', () => 'ws-1')
   const isSidebarOpen = useState<boolean>('workspace-sidebar-open', () => true)
+  // True setelah sesi pulih dari storage (atau dipastikan tidak ada sesi untuk dipulihkan).
+  // TerminalPane menunggu flag ini sebelum spawn PTY agar cwd spawn tidak kosong.
+  const sessionReady = useState<boolean>('workspace-session-ready', () => false)
 
   const backgroundAlerts = useState<Record<string, 'running' | 'completed'>>('workspace-alerts', () => ({}))
   const customPresets = useState<WorkspacePreset[]>('workspace-custom-presets', () => [])
@@ -401,6 +404,11 @@ export const useWorkspaceStore = () => {
                   t.id = generateUid(`term-${tIdx + 1}`)
                 }
                 seenTermIds.add(t.id)
+                // Self-healing: terminal tanpa cwd dipulihkan ke folder project
+                // agar spawn PTY tidak jatuh ke cwd proses aplikasi (home user).
+                if (!t.cwd && ws.folderPath) {
+                  t.cwd = ws.folderPath
+                }
               })
             } else {
               ws.terminals = []
@@ -574,10 +582,11 @@ export const useWorkspaceStore = () => {
   }
 
   const updateTerminalCwd = (termId: string, cwd: string) => {
-    const ws = workstations.value.find(w => w.id === activeWorkstationId.value)
-    if (!ws) return
-    const term = ws.terminals.find(t => t.id === termId)
-    if (term && cwd && cwd !== term.cwd) {
+    if (!cwd) return
+    // Semua terminal semua workstation ikut dirender (dan di-poll), jadi cari lintas
+    // workstation — bukan hanya yang aktif, agar cwd terminal background tetap tersimpan.
+    const term = workstations.value.flatMap(w => w.terminals).find(t => t.id === termId)
+    if (term && cwd !== term.cwd) {
       term.cwd = cwd
       saveSession(false)
       const { setPtyCwd } = useTauriPty()
@@ -734,6 +743,7 @@ export const useWorkspaceStore = () => {
     presets: allPresets,
     customPresets,
     saveNotification,
+    sessionReady,
     initFromStorage,
     saveSession,
     clearSavedSession,

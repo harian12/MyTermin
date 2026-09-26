@@ -131,6 +131,9 @@ const allWorkstationTerminals = computed(() => {
   return list
 })
 
+const wsFolder = (wsId: string): string =>
+  workstations.value.find(w => w.id === wsId)?.folderPath || ''
+
 const isTerminalVisibleInGrid = (wsId: string, termId: string): boolean => {
   if (wsId !== activeWorkstationId.value) return false
   return isTerminalVisible(termId)
@@ -454,6 +457,7 @@ const gridClass = computed(() => {
               :title="item.term.title"
               :shell="item.term.shell"
               :cwd="item.term.cwd"
+              :project-folder="wsFolder(item.wsId)"
               :initial-command="item.term.initialCommand"
               :last-command="item.term.lastCommand"
               :is-active="activeWorkstationId === item.wsId && activeTerminalId === item.term.id"
