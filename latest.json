@@ -1,15 +1,15 @@
 {
-  "version": "0.2.11",
-  "notes": "Release v0.2.11 - Git Commit Graph sekarang punya diff viewer: klik file yang berubah untuk membuka diff Monaco side-by-side antara isi file di parent pertama dan isi di commit tersebut. Panel diff bisa diperbesar, ditoggle unified/side-by-side, dan menampilkan path lama untuk file yang di-rename. File binary diberi pesan terpisah, bukan diff teks yang rusak. Tooltip diganti total dari atribut title native browser ke komponen UiTooltip: delay 250ms, auto-flip dan clamp ke dalam viewport, posisi ikut diperbarui saat scroll, dan styling-nya mengikuti dark theme. Bug tooltip yang sering tidak muncul ikut diperbaiki - title pada elemen ber pointer-events-none dan pada tombol disabled sebelumnya mati permanen. Strip tab editor kini menggulir mengikuti mouse wheel dan otomatis menyorot tab aktif saat tab banyak. Ctrl+W dan navigasi tab sekarang mengenali pane yang benar: membuka file dari terminal langsung memindahkan fokus ke editor, dan Deteksi editor tidak lagi salah menangkap tab terminal. Tombol Tutup di Panel Tasks diperbaiki kembali memakai ikon X. Cheatsheet shortcut punya tombol yang langsung membuka Settings di tab Pintasan, dan shortcut yang bisa diubah ditandai badge. Kode dibersihkan: residu struct yang tidak terpakai dihapus, dan tombol ikon yang bisa menyusut kini memakai shrink-0.",
-  "pub_date": "2026-09-27T06:49:07.383Z",
+  "version": "0.2.12",
+  "notes": "Release v0.2.12 - Branding baru. Logo MyTermin diganti total dengan mark \"Prompt Monogram\": glyph M yang sekaligus dibaca sebagai huruf M dan chevron prompt terminal, digabung dengan garis hijau emerald sebagai blinking cursor. Latar squircle gelap dengan glow biru lembut dan gradasi biru-ke-cyan yang mengikuti warna primary aplikasi. Semua ikon di-regenerate dari sumber baru: installer NSIS dan MSI, ikon taskbar Windows, favicon browser, Windows Store, serta varian iOS dan Android. Logo baru dipakai juga di dalam aplikasi lewat AppLogo.vue.",
+  "pub_date": "2026-09-27T10:05:32.144Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcjU5M1ZFMWtCZVZJV0FKM1VpdnBsN2x4MzVMQmsxUWtINDVLd1Nod29UbXBXT2pGWVB4eVpTYzc4RXNEZWs4QTRtMlBRVEk1c2liRmt1aGxGcEdzQWZVaml1ckxYL3dZPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkwNDkxNzMxCWZpbGU6TXlUZXJtaW5fMC4yLjExX3g2NC1zZXR1cC5leGUKSWN2bHlFRkJNTGE0aFZjU1I4bmlGdFgzL3VtaUQ0M0dGenBWR3I5NzFuLzdUOWNmWjJObmIrQm9sUElzMWNlQkZFZG9ENGZhM1RHNW1tR0RpQWF1REE9PQo=",
-      "url": "https://github.com/harian12/MyTermin/releases/download/v0.2.11/MyTermin_0.2.11_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcjU5M1ZFMWtCZWJ4K3BGZ2V1QlgxZWdaMVdaUGpoTlQ5YnNoT2d2UDhBaE1kK3Q4VHk4ZW85MWRkRnE5WnZTSzRuYk5IWjVUcm5nMGczbkhLU2NyZTM5NXYvL0JVK3dVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkwNTAzNTI2CWZpbGU6TXlUZXJtaW5fMC4yLjEyX3g2NC1zZXR1cC5leGUKNjcyMUhTcGlCWmo4MEhYZUVEcm13TE9GRm5WVzFCaVJGYU5UWFRBWk5CdFVLdEZTdnIzdWRVWmorVTFJY1dyTUVlSnhqU1RyWXhybGErSTRmek9KQkE9PQo=",
+      "url": "https://github.com/harian12/MyTermin/releases/download/v0.2.12/MyTermin_0.2.12_x64-setup.exe"
     },
     "windows-x86_64-nsis": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcjU5M1ZFMWtCZVZJV0FKM1VpdnBsN2x4MzVMQmsxUWtINDVLd1Nod29UbXBXT2pGWVB4eVpTYzc4RXNEZWs4QTRtMlBRVEk1c2liRmt1aGxGcEdzQWZVaml1ckxYL3dZPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkwNDkxNzMxCWZpbGU6TXlUZXJtaW5fMC4yLjExX3g2NC1zZXR1cC5leGUKSWN2bHlFRkJNTGE0aFZjU1I4bmlGdFgzL3VtaUQ0M0dGenBWR3I5NzFuLzdUOWNmWjJObmIrQm9sUElzMWNlQkZFZG9ENGZhM1RHNW1tR0RpQWF1REE9PQo=",
-      "url": "https://github.com/harian12/MyTermin/releases/download/v0.2.11/MyTermin_0.2.11_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcjU5M1ZFMWtCZWJ4K3BGZ2V1QlgxZWdaMVdaUGpoTlQ5YnNoT2d2UDhBaE1kK3Q4VHk4ZW85MWRkRnE5WnZTSzRuYk5IWjVUcm5nMGczbkhLU2NyZTM5NXYvL0JVK3dVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkwNTAzNTI2CWZpbGU6TXlUZXJtaW5fMC4yLjEyX3g2NC1zZXR1cC5leGUKNjcyMUhTcGlCWmo4MEhYZUVEcm13TE9GRm5WVzFCaVJGYU5UWFRBWk5CdFVLdEZTdnIzdWRVWmorVTFJY1dyTUVlSnhqU1RyWXhybGErSTRmek9KQkE9PQo=",
+      "url": "https://github.com/harian12/MyTermin/releases/download/v0.2.12/MyTermin_0.2.12_x64-setup.exe"
     }
   }
 }
