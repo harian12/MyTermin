@@ -1117,114 +1117,122 @@ onBeforeUnmount(async () => {
             <Check class="w-3 h-3" />
           </button>
         </div>
-        <div
-          v-else
-          class="flex items-center gap-1.5 cursor-pointer"
-          title="Double-click to rename"
-          @dblclick.stop="startRename"
-        >
-          <span class="font-medium text-foreground/90 tracking-wide">{{ title }}</span>
-          <button
-            class="opacity-0 group-hover:opacity-100 hover:text-foreground text-muted-foreground p-0.5 rounded transition-opacity"
-            title="Rename Pane"
-            @click.stop="startRename"
+        <UiTooltip v-else text="Double-click to rename" side="bottom" class="flex-shrink-0">
+          <div
+            class="flex items-center gap-1.5 cursor-pointer"
+            @dblclick.stop="startRename"
           >
-            <Pencil class="w-2.5 h-2.5" />
-          </button>
-        </div>
+            <span class="font-medium text-foreground/90 tracking-wide">{{ title }}</span>
+            <UiTooltip text="Rename Pane" side="bottom">
+              <button
+                class="opacity-0 group-hover:opacity-100 hover:text-foreground text-muted-foreground p-0.5 rounded transition-opacity"
+                @click.stop="startRename"
+              >
+                <Pencil class="w-2.5 h-2.5" />
+              </button>
+            </UiTooltip>
+          </div>
+        </UiTooltip>
 
         <!-- Process Status Badge -->
         <div v-if="isTauri && paneStats" class="flex items-center gap-1.5 pl-1">
           <!-- Status Dot: hanya menyorot saat proses selesai/mati.
                Indikator "sedang berjalan" dihapus karena process interaktif
                seperti opencode selalu aktif sehingga dot berdenyut terus. -->
-          <div
-            :class="[
-              'w-2 h-2 rounded-full transition-all duration-300',
-              isPtyExited
-                ? 'bg-rose-500 shadow-sm shadow-rose-500/50'
-                : 'bg-slate-500/60'
-            ]"
-            :title="isPtyExited ? 'Process Completed' : 'Running'"
-          />
+          <UiTooltip :text="isPtyExited ? 'Process Completed' : 'Running'" side="bottom" class="flex-shrink-0">
+            <div
+              :class="[
+                'w-2 h-2 rounded-full transition-all duration-300',
+                isPtyExited
+                  ? 'bg-rose-500 shadow-sm shadow-rose-500/50'
+                  : 'bg-slate-500/60'
+              ]"
+            />
+          </UiTooltip>
 
           <!-- Process Name -->
           <div
             v-if="!isPtyExited"
             class="flex items-center gap-1.5 text-[10px] font-mono text-muted-foreground bg-background/40 px-1.5 py-0.5 rounded border border-border/30"
           >
-            <span class="text-foreground/80 font-medium truncate max-w-[100px]" :title="paneStats.process_name">
-              {{ paneStats.process_name }}
-            </span>
+            <UiTooltip :text="paneStats.process_name" side="bottom" class="contents">
+              <span class="text-foreground/80 font-medium truncate max-w-[100px]">
+                {{ paneStats.process_name }}
+              </span>
+            </UiTooltip>
           </div>
-          <button
-            v-else
-            class="flex items-center gap-1 text-[10px] text-rose-300 font-mono bg-rose-950/60 hover:bg-rose-900/80 px-2 py-0.5 rounded border border-rose-800/60 transition-colors cursor-pointer"
-            title="Klik untuk memulai ulang sesi terminal"
-            @click.stop="restartTerminalSession()"
-          >
-            <RotateCcw class="w-2.5 h-2.5" />
-            <span>Restart</span>
-          </button>
+          <UiTooltip v-else text="Klik untuk memulai ulang sesi terminal" side="bottom" class="flex-shrink-0">
+            <button
+              class="flex items-center gap-1 text-[10px] text-rose-300 font-mono bg-rose-950/60 hover:bg-rose-900/80 px-2 py-0.5 rounded border border-rose-800/60 transition-colors cursor-pointer"
+              @click.stop="restartTerminalSession()"
+            >
+              <RotateCcw class="w-2.5 h-2.5" />
+              <span>Restart</span>
+            </button>
+          </UiTooltip>
         </div>
 
         <!-- Shell Integration Badge: exit code + durasi command terakhir.
              Status "sedang berjalan" sengaja tidak ada: program TTY interaktif
              (opencode, codex, vim) tidak pernah mengembalikan prompt shell,
              sehingga indikator itu akan nyangkut selamanya. -->
-        <span
-          v-if="settings.shellIntegration !== false && shellStatus"
-          :class="[
-            'flex items-center gap-1 rounded border px-1.5 py-0.5 font-mono text-[10px] transition-colors',
-            shellStatus.exitCode === 0
-              ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
-              : 'border-rose-500/40 bg-rose-500/10 text-rose-300'
-          ]"
-          :title="shellStatusTitle"
-        >
-          <CheckCircle2 v-if="shellStatus.exitCode === 0" class="h-2.5 w-2.5" />
-          <XCircle v-else class="h-2.5 w-2.5" />
-          <span>{{ formatDuration(shellStatus.durationMs) }}</span>
-        </span>
+        <UiTooltip v-if="settings.shellIntegration !== false && shellStatus" :text="shellStatusTitle" side="bottom" class="flex-shrink-0">
+          <span
+            :class="[
+              'flex items-center gap-1 rounded border px-1.5 py-0.5 font-mono text-[10px] transition-colors',
+              shellStatus.exitCode === 0
+                ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
+                : 'border-rose-500/40 bg-rose-500/10 text-rose-300'
+            ]"
+          >
+            <CheckCircle2 v-if="shellStatus.exitCode === 0" class="h-2.5 w-2.5" />
+            <XCircle v-else class="h-2.5 w-2.5" />
+            <span>{{ formatDuration(shellStatus.durationMs) }}</span>
+          </span>
+        </UiTooltip>
 
         <!-- Git branch dari shell integration -->
-        <span
-          v-if="settings.shellIntegration !== false && shellStatus?.branch"
-          class="flex items-center gap-1 rounded border border-border/30 bg-background/40 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground"
-          :title="`Git branch: ${shellStatus.branch}`"
-        >
-          <GitBranch class="h-2.5 w-2.5" />
-          {{ shellStatus.branch }}
-        </span>
+        <UiTooltip v-if="settings.shellIntegration !== false && shellStatus?.branch" :text="`Git branch: ${shellStatus.branch}`" side="bottom" class="flex-shrink-0">
+          <span
+            class="flex items-center gap-1 rounded border border-border/30 bg-background/40 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground"
+          >
+            <GitBranch class="h-2.5 w-2.5" />
+            {{ shellStatus.branch }}
+          </span>
+        </UiTooltip>
 
         <!-- Selisih cwd: terminal tidak berada di folder project -->
-        <button
+        <UiTooltip
           v-if="isTauri && !isPtyExited && isCwdMismatch"
-          class="flex items-center gap-1 text-[10px] font-mono text-amber-300 bg-amber-950/60 hover:bg-amber-900/80 px-2 py-0.5 rounded border border-amber-800/70 transition-colors cursor-pointer flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
-          :disabled="!canGoToProject"
-          :title="canGoToProject
-            ? `Terminal di ${effectiveCwd} — klik untuk masuk ke folder project (${projectFolder})`
-            : 'Menunggu shell siap atau program berjalan selesai'"
-          @click.stop="goToProjectFolder()"
+          :text="canGoToProject ? `Terminal di ${effectiveCwd} — klik untuk masuk ke folder project (${projectFolder})` : 'Menunggu shell siap atau program berjalan selesai'"
+          side="bottom"
+          class="flex-shrink-0"
         >
-          <FolderInput class="w-2.5 h-2.5" />
-          <span class="max-w-[110px] truncate">cd project</span>
-        </button>
+          <button
+            class="flex items-center gap-1 text-[10px] font-mono text-amber-300 bg-amber-950/60 hover:bg-amber-900/80 px-2 py-0.5 rounded border border-amber-800/70 transition-colors cursor-pointer flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+            :disabled="!canGoToProject"
+            @click.stop="goToProjectFolder()"
+          >
+            <FolderInput class="w-2.5 h-2.5" />
+            <span class="max-w-[110px] truncate">cd project</span>
+          </button>
+        </UiTooltip>
       </div>
 
       <!-- Pane Controls -->
       <div class="flex items-center gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
         <!-- Quick Action Dropdown -->
         <div class="relative">
-          <UiButton
-            variant="ghost"
-            size="icon"
-            class="h-6 w-6 text-muted-foreground hover:text-foreground"
-            title="Quick Action"
-            @click.stop="showQuickCommands = !showQuickCommands"
-          >
-            <Play class="w-3 h-3 text-emerald-400" />
-          </UiButton>
+          <UiTooltip text="Quick Action" side="bottom" class="flex-shrink-0">
+            <UiButton
+              variant="ghost"
+              size="icon"
+              class="h-6 w-6 text-muted-foreground hover:text-foreground"
+              @click.stop="showQuickCommands = !showQuickCommands"
+            >
+              <Play class="w-3 h-3 text-emerald-400" />
+            </UiButton>
+          </UiTooltip>
 
           <div
             v-if="showQuickCommands"
@@ -1249,35 +1257,38 @@ onBeforeUnmount(async () => {
           </div>
         </div>
 
-        <UiButton
-          variant="ghost"
-          size="icon"
-          class="h-6 w-6 text-muted-foreground hover:text-foreground"
-          title="Cari di Buffer (Ctrl+F)"
-          @click.stop="openSearch"
-        >
-          <Search class="w-3 h-3 text-sky-400" />
-        </UiButton>
+        <UiTooltip text="Cari di Buffer (Ctrl+F)" side="bottom" class="flex-shrink-0">
+          <UiButton
+            variant="ghost"
+            size="icon"
+            class="h-6 w-6 text-muted-foreground hover:text-foreground"
+            @click.stop="openSearch"
+          >
+            <Search class="w-3 h-3 text-sky-400" />
+          </UiButton>
+        </UiTooltip>
 
-        <UiButton
-          variant="ghost"
-          size="icon"
-          class="h-6 w-6 text-muted-foreground hover:text-foreground"
-          title="Export Log ke File (.txt)"
-          @click.stop="exportBufferToFile"
-        >
-          <Download class="w-3 h-3 text-teal-400" />
-        </UiButton>
+        <UiTooltip text="Export Log ke File (.txt)" side="bottom" class="flex-shrink-0">
+          <UiButton
+            variant="ghost"
+            size="icon"
+            class="h-6 w-6 text-muted-foreground hover:text-foreground"
+            @click.stop="exportBufferToFile"
+          >
+            <Download class="w-3 h-3 text-teal-400" />
+          </UiButton>
+        </UiTooltip>
 
-        <UiButton
-          variant="ghost"
-          size="icon"
-          class="h-6 w-6 text-muted-foreground hover:text-foreground"
-          title="Clear Buffer"
-          @click.stop="clearTerminal"
-        >
-          <Trash2 class="w-3 h-3" />
-        </UiButton>
+        <UiTooltip text="Clear Buffer" side="bottom" class="flex-shrink-0">
+          <UiButton
+            variant="ghost"
+            size="icon"
+            class="h-6 w-6 text-muted-foreground hover:text-foreground"
+            @click.stop="clearTerminal"
+          >
+            <Trash2 class="w-3 h-3" />
+          </UiButton>
+        </UiTooltip>
       </div>
     </div>
 
@@ -1312,40 +1323,44 @@ onBeforeUnmount(async () => {
           @keydown.esc.prevent="closeSearch"
         />
 
-        <button
-          class="p-1 hover:bg-accent rounded text-muted-foreground hover:text-foreground transition-colors"
-          title="Match Sebelumnya (Shift+Enter)"
-          @click.stop="searchPrev"
-        >
-          <ArrowUp class="w-3.5 h-3.5" />
-        </button>
+        <UiTooltip text="Match Sebelumnya (Shift+Enter)" side="bottom" class="flex-shrink-0">
+          <button
+            class="p-1 hover:bg-accent rounded text-muted-foreground hover:text-foreground transition-colors"
+            @click.stop="searchPrev"
+          >
+            <ArrowUp class="w-3.5 h-3.5" />
+          </button>
+        </UiTooltip>
 
-        <button
-          class="p-1 hover:bg-accent rounded text-muted-foreground hover:text-foreground transition-colors"
-          title="Match Berikutnya (Enter)"
-          @click.stop="searchNext"
-        >
-          <ArrowDown class="w-3.5 h-3.5" />
-        </button>
+        <UiTooltip text="Match Berikutnya (Enter)" side="bottom" class="flex-shrink-0">
+          <button
+            class="p-1 hover:bg-accent rounded text-muted-foreground hover:text-foreground transition-colors"
+            @click.stop="searchNext"
+          >
+            <ArrowDown class="w-3.5 h-3.5" />
+          </button>
+        </UiTooltip>
 
-        <button
-          :class="[
-            'px-1.5 py-0.5 rounded text-[10px] font-mono transition-colors',
-            searchMatchCase ? 'bg-primary text-primary-foreground font-semibold' : 'hover:bg-accent text-muted-foreground hover:text-foreground'
-          ]"
-          title="Match Case (Aa)"
-          @click.stop="searchMatchCase = !searchMatchCase; onSearchInput()"
-        >
-          Aa
-        </button>
+        <UiTooltip text="Match Case (Aa)" side="bottom" class="flex-shrink-0">
+          <button
+            :class="[
+              'px-1.5 py-0.5 rounded text-[10px] font-mono transition-colors',
+              searchMatchCase ? 'bg-primary text-primary-foreground font-semibold' : 'hover:bg-accent text-muted-foreground hover:text-foreground'
+            ]"
+            @click.stop="searchMatchCase = !searchMatchCase; onSearchInput()"
+          >
+            Aa
+          </button>
+        </UiTooltip>
 
-        <button
-          class="p-1 hover:bg-accent rounded text-muted-foreground hover:text-foreground transition-colors ml-1"
-          title="Tutup Pencarian (Esc)"
-          @click.stop="closeSearch"
-        >
-          <X class="w-3.5 h-3.5" />
-        </button>
+        <UiTooltip text="Tutup Pencarian (Esc)" side="bottom" class="flex-shrink-0 ml-1">
+          <button
+            class="p-1 hover:bg-accent rounded text-muted-foreground hover:text-foreground transition-colors"
+            @click.stop="closeSearch"
+          >
+            <X class="w-3.5 h-3.5" />
+          </button>
+        </UiTooltip>
       </div>
 
       <!-- Drop File Visual Overlay -->

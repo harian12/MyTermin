@@ -396,17 +396,20 @@ const gridClass = computed(() => {
           <Terminal class="w-3.5 h-3.5 text-primary flex-shrink-0" />
 
           <!-- Status command terakhir (shell integration) -->
-          <span
+          <UiTooltip
             v-if="getTermStatus(term.id)"
+            :text="`Exit ${getTermStatus(term.id)!.exitCode} — ${formatDuration(getTermStatus(term.id)!.durationMs)}`"
+            side="bottom"
             :class="[
               'flex shrink-0 items-center',
               getTermStatus(term.id)!.exitCode === 0 ? 'text-emerald-400' : 'text-rose-400'
             ]"
-            :title="`Exit ${getTermStatus(term.id)!.exitCode} — ${formatDuration(getTermStatus(term.id)!.durationMs)}`"
           >
-            <CheckCircle2 v-if="getTermStatus(term.id)!.exitCode === 0" class="h-3 w-3" />
-            <XCircle v-else class="h-3 w-3" />
-          </span>
+            <span>
+              <CheckCircle2 v-if="getTermStatus(term.id)!.exitCode === 0" class="h-3 w-3" />
+              <XCircle v-else class="h-3 w-3" />
+            </span>
+          </UiTooltip>
           <input
             v-if="editingTermId === term.id"
             :id="`tab-rename-input-${term.id}`"
@@ -417,115 +420,131 @@ const gridClass = computed(() => {
             @blur="finishRenameTab(term.id)"
             @click.stop
           />
-          <span v-else class="truncate max-w-[120px] pointer-events-none">{{ term.title }}</span>
+          <span v-else class="truncate max-w-[120px]">{{ term.title }}</span>
 
           <!-- Close Terminal Tab Button -->
-          <button
+          <UiTooltip
             v-if="terminals.length > 1 && editingTermId !== term.id"
-            class="p-0.5 rounded hover:bg-white/10 text-muted-foreground hover:text-foreground transition-colors ml-0.5 opacity-0 group-hover:opacity-100"
-            title="Tutup Terminal"
-            @click.stop="removeTerminal(term.id)"
+            text="Tutup Terminal"
+            side="bottom"
+            class="ml-0.5 opacity-0 group-hover:opacity-100 flex-shrink-0"
           >
-            <X class="w-3 h-3" />
-          </button>
+            <button
+              class="p-0.5 rounded hover:bg-white/10 text-muted-foreground hover:text-foreground transition-colors"
+              @click.stop="removeTerminal(term.id)"
+            >
+              <X class="w-3 h-3" />
+            </button>
+          </UiTooltip>
         </div>
 
         <!-- Add New Terminal Button -->
-        <button
-          class="p-1 rounded hover:bg-[#181924] text-muted-foreground hover:text-foreground transition-colors ml-1"
-          title="Buka Terminal Baru (Ctrl+T)"
-          @click="addTerminal()"
-        >
-          <Plus class="w-3.5 h-3.5" />
-        </button>
+        <UiTooltip text="Buka Terminal Baru (Ctrl+T)" side="bottom">
+          <button
+            class="p-1 rounded hover:bg-[#181924] text-muted-foreground hover:text-foreground transition-colors ml-1"
+            @click="addTerminal()"
+          >
+            <Plus class="w-3.5 h-3.5" />
+          </button>
+        </UiTooltip>
       </div>
 
       <!-- Right: Layout Grid Switchers & Presets -->
       <div class="flex items-center gap-1 pl-2 flex-shrink-0">
         <!-- Layout Grid Switcher -->
         <div class="flex items-center bg-[#181924] p-0.5 rounded border border-border/50">
-          <button
-            :class="[
-              'p-1 rounded transition-colors',
-              currentLayout === 'single' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
-            ]"
-            title="Single Terminal"
-            @click="setLayout('single')"
-          >
-            <Square class="w-3 h-3" />
-          </button>
-          <button
-            :class="[
-              'p-1 rounded transition-colors',
-              currentLayout === 'split-h' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
-            ]"
-            title="Split Horizontal (2 Kolom)"
-            @click="setLayout('split-h')"
-          >
-            <Columns2 class="w-3 h-3" />
-          </button>
-          <button
-            :class="[
-              'p-1 rounded transition-colors',
-              currentLayout === 'split-v' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
-            ]"
-            title="Split Vertikal (2 Baris)"
-            @click="setLayout('split-v')"
-          >
-            <Rows2 class="w-3 h-3" />
-          </button>
-          <button
-            :class="[
-              'p-1 rounded transition-colors',
-              currentLayout === 'grid-2x2' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
-            ]"
-            title="Grid 2x2"
-            @click="setLayout('grid-2x2')"
-          >
-            <GridIcon class="w-3 h-3" />
-          </button>
+          <UiTooltip text="Single Terminal">
+            <button
+              :class="[
+                'p-1 rounded transition-colors',
+                currentLayout === 'single' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+              ]"
+              @click="setLayout('single')"
+            >
+              <Square class="w-3 h-3" />
+            </button>
+          </UiTooltip>
+          <UiTooltip text="Split Horizontal (2 Kolom)">
+            <button
+              :class="[
+                'p-1 rounded transition-colors',
+                currentLayout === 'split-h' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+              ]"
+              @click="setLayout('split-h')"
+            >
+              <Columns2 class="w-3 h-3" />
+            </button>
+          </UiTooltip>
+          <UiTooltip text="Split Vertikal (2 Baris)">
+            <button
+              :class="[
+                'p-1 rounded transition-colors',
+                currentLayout === 'split-v' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+              ]"
+              @click="setLayout('split-v')"
+            >
+              <Rows2 class="w-3 h-3" />
+            </button>
+          </UiTooltip>
+          <UiTooltip text="Grid 2x2">
+            <button
+              :class="[
+                'p-1 rounded transition-colors',
+                currentLayout === 'grid-2x2' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+              ]"
+              @click="setLayout('grid-2x2')"
+            >
+              <GridIcon class="w-3 h-3" />
+            </button>
+          </UiTooltip>
         </div>
 
         <!-- Unified Search (buffer semua terminal + file project) -->
-        <button
-          class="p-1 rounded hover:bg-[#181924] text-muted-foreground hover:text-foreground transition-colors"
-          title="Cari di semua Terminal & File (Ctrl+Shift+U)"
-          @click="emit('unified-search', { query: '', caseSensitive: false })"
-        >
-          <Search class="w-3.5 h-3.5" />
-        </button>
+        <UiTooltip text="Cari di semua Terminal & File (Ctrl+Shift+U)">
+          <button
+            class="p-1 rounded hover:bg-[#181924] text-muted-foreground hover:text-foreground transition-colors"
+            @click="emit('unified-search', { query: '', caseSensitive: false })"
+          >
+            <Search class="w-3.5 h-3.5" />
+          </button>
+        </UiTooltip>
 
         <!-- Task Panel Toggle -->
-        <button
-          :class="[
-            'p-1 rounded transition-colors',
-            isTaskPanelOpen ? 'bg-primary text-primary-foreground' : 'hover:bg-[#181924] text-muted-foreground hover:text-foreground'
-          ]"
-          title="Panel Tasks (Ctrl+Shift+M)"
-          @click="isTaskPanelOpen = !isTaskPanelOpen"
-        >
-          <ListTodo class="w-3.5 h-3.5" />
-        </button>
+        <UiTooltip :text="isTaskPanelOpen ? 'Tutup Panel Tasks (Ctrl+Shift+M)' : 'Buka Panel Tasks (Ctrl+Shift+M)'">
+          <button
+            :class="[
+              'p-1 rounded transition-colors',
+              isTaskPanelOpen ? 'bg-primary text-primary-foreground' : 'hover:bg-[#181924] text-muted-foreground hover:text-foreground'
+            ]"
+            @click="isTaskPanelOpen = !isTaskPanelOpen"
+          >
+            <ListTodo class="w-3.5 h-3.5" />
+          </button>
+        </UiTooltip>
 
         <!-- Presets Button -->
-        <button
-          class="p-1 rounded hover:bg-[#181924] text-muted-foreground hover:text-foreground transition-colors"
-          title="Buka Preset Workspace"
-          @click="emit('open-presets')"
-        >
-          <Sparkles class="w-3.5 h-3.5 text-indigo-400" />
-        </button>
+        <UiTooltip text="Buka Preset Workspace">
+          <button
+            class="p-1 rounded hover:bg-[#181924] text-muted-foreground hover:text-foreground transition-colors"
+            @click="emit('open-presets')"
+          >
+            <Sparkles class="w-3.5 h-3.5 text-indigo-400" />
+          </button>
+        </UiTooltip>
 
         <!-- Maximize / Restore Terminal Button -->
-        <button
+        <UiTooltip
           v-if="openFiles.length > 0"
-          class="p-1 rounded hover:bg-[#181924] text-muted-foreground hover:text-foreground transition-colors"
-          :title="viewportMode === 'terminal-full' ? 'Kembalikan Tampilan Split' : 'Fullscreen Terminal'"
-          @click="toggleFullscreenTerminal"
+          :text="viewportMode === 'terminal-full' ? 'Kembalikan Tampilan Split' : 'Fullscreen Terminal'"
         >
-          <Minimize2 v-if="viewportMode === 'terminal-full'" class="w-3.5 h-3.5" />
-          <Maximize2 v-else class="w-3.5 h-3.5" />
-        </button>
+          <button
+            class="p-1 rounded hover:bg-[#181924] text-muted-foreground hover:text-foreground transition-colors"
+            @click="toggleFullscreenTerminal"
+          >
+            <Minimize2 v-if="viewportMode === 'terminal-full'" class="w-3.5 h-3.5" />
+            <Maximize2 v-else class="w-3.5 h-3.5" />
+          </button>
+        </UiTooltip>
       </div>
     </div>
 
@@ -661,15 +680,20 @@ const gridClass = computed(() => {
           </div>
 
           <div class="flex flex-wrap items-center justify-center gap-1.5 max-h-40 overflow-y-auto no-scrollbar p-1">
-            <button
+            <UiTooltip
               v-for="rec in recentProjects"
               :key="rec.path"
-              class="px-2.5 py-1.5 rounded-md bg-[#161722] hover:bg-primary/80 text-foreground text-xs border border-border/60 hover:border-primary transition-colors truncate max-w-[200px] font-mono shadow-sm"
-              :title="rec.path"
-              @click="handleOpenProjectFolder(rec.path)"
+              :text="rec.path"
+              side="bottom"
+              class="flex-shrink-0"
             >
-              {{ rec.name }}
-            </button>
+              <button
+                class="px-2.5 py-1.5 rounded-md bg-[#161722] hover:bg-primary/80 text-foreground text-xs border border-border/60 hover:border-primary transition-colors truncate max-w-[200px] font-mono shadow-sm"
+                @click="handleOpenProjectFolder(rec.path)"
+              >
+                {{ rec.name }}
+              </button>
+            </UiTooltip>
           </div>
         </div>
       </div>

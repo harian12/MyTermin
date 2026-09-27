@@ -209,16 +209,17 @@ const closeWindow = async () => {
       </div>
 
       <!-- Toggle Sidebar Button -->
-      <button
-        :class="[
-          'p-1.5 rounded transition-colors mr-1 cursor-pointer flex-shrink-0',
-          isSidebarOpen ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:bg-[#181924] hover:text-foreground'
-        ]"
-        title="Toggle Sidebar Workstation (Ctrl+B)"
-        @click="toggleSidebar"
-      >
-        <PanelLeft class="w-3.5 h-3.5" />
-      </button>
+      <UiTooltip text="Toggle Sidebar Workstation (Ctrl+B)" side="bottom">
+        <button
+          :class="[
+            'p-1.5 rounded transition-colors mr-1 cursor-pointer flex-shrink-0',
+            isSidebarOpen ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:bg-[#181924] hover:text-foreground'
+          ]"
+          @click="toggleSidebar"
+        >
+          <PanelLeft class="w-3.5 h-3.5" />
+        </button>
+      </UiTooltip>
 
       <!-- Workstation Tabs (Draggable & Reorderable & Scrollable) -->
       <div
@@ -231,6 +232,7 @@ const closeWindow = async () => {
           :key="ws.id"
           :data-ws-tab-index="index"
           :data-ws-tab-id="ws.id"
+          :title="`${ws.name} (Double-click to rename, Drag to reorder)`"
           :class="[
             'group flex items-center gap-1.5 px-3 py-1 text-xs rounded-t-md transition-all border-b-2 font-medium cursor-pointer relative select-none touch-none flex-shrink-0',
             activeWorkstationId === ws.id
@@ -264,7 +266,9 @@ const closeWindow = async () => {
             </button>
           </div>
 
-          <span v-else class="max-w-[130px] truncate pointer-events-none" :title="`${ws.name} (Double-click to rename, Drag to reorder)`">
+          <!-- Judul tidak boleh pointer-events-none: span itu jadi bukan hover
+               target, sehingga title-nya tidak pernah muncul. -->
+          <span v-else class="max-w-[130px] truncate">
             {{ ws.name }}
           </span>
 
@@ -275,42 +279,44 @@ const closeWindow = async () => {
 
           <!-- Workstation Actions: Rename, Close -->
           <div class="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-            <span
-              v-if="editingWsId !== ws.id"
-              class="hover:bg-accent rounded p-0.5 text-muted-foreground hover:text-foreground cursor-pointer"
-              title="Rename Workstation"
-              @click.stop="startRename(ws.id, ws.name)"
-            >
-              <Pencil class="w-2.5 h-2.5" />
-            </span>
-            <span
-              v-if="workstations.length > 1"
-              class="hover:bg-accent rounded p-0.5 text-muted-foreground hover:text-foreground cursor-pointer"
-              title="Tutup Workstation"
-              @click.stop="removeWorkstation(ws.id)"
-            >
-              <X class="w-3 h-3" />
-            </span>
+            <UiTooltip v-if="editingWsId !== ws.id" text="Rename Workstation" side="bottom">
+              <span
+                class="hover:bg-accent rounded p-0.5 text-muted-foreground hover:text-foreground cursor-pointer"
+                @click.stop="startRename(ws.id, ws.name)"
+              >
+                <Pencil class="w-2.5 h-2.5" />
+              </span>
+            </UiTooltip>
+            <UiTooltip v-if="workstations.length > 1" text="Tutup Workstation" side="bottom">
+              <span
+                class="hover:bg-accent rounded p-0.5 text-muted-foreground hover:text-foreground cursor-pointer"
+                @click.stop="removeWorkstation(ws.id)"
+              >
+                <X class="w-3 h-3" />
+              </span>
+            </UiTooltip>
           </div>
         </div>
 
         <!-- Add Workstation Tab Button -->
-        <button
-          class="p-1 rounded hover:bg-[#1e1f2b] text-muted-foreground hover:text-foreground transition-colors cursor-pointer flex-shrink-0"
-          title="Workstation Baru"
-          @click="addWorkstation()"
-        >
-          <Plus class="w-3.5 h-3.5" />
-        </button>
+        <UiTooltip text="Workstation Baru" side="bottom">
+          <button
+            class="p-1 rounded hover:bg-[#1e1f2b] text-muted-foreground hover:text-foreground transition-colors cursor-pointer flex-shrink-0"
+            @click="addWorkstation()"
+          >
+            <Plus class="w-3.5 h-3.5" />
+          </button>
+        </UiTooltip>
 
         <!-- Open New Blank Window Button -->
-        <button
-          class="p-1 rounded hover:bg-[#1e1f2b] text-muted-foreground hover:text-foreground transition-colors cursor-pointer flex-shrink-0 ml-0.5"
-          title="Buka Jendela Baru (Blank)"
-          @click="openNewBlankWindow"
-        >
-          <AppWindow class="w-3.5 h-3.5" />
-        </button>
+        <UiTooltip text="Buka Jendela Baru (Blank)" side="bottom">
+          <button
+            class="p-1 rounded hover:bg-[#1e1f2b] text-muted-foreground hover:text-foreground transition-colors cursor-pointer flex-shrink-0 ml-0.5"
+            @click="openNewBlankWindow"
+          >
+            <AppWindow class="w-3.5 h-3.5" />
+          </button>
+        </UiTooltip>
       </div>
     </div>
 
@@ -325,17 +331,18 @@ const closeWindow = async () => {
     <!-- Right Controls -->
     <div class="flex items-center gap-1.5" data-tauri-drag-region>
       <!-- Command Palette Launcher -->
-      <UiButton
-        variant="ghost"
-        size="sm"
-        class="h-7 text-xs gap-1.5 text-muted-foreground hover:text-foreground border border-border/40 hover:bg-[#1c1d2b] px-2"
-        title="Buka Command Palette (Ctrl+K)"
-        @click="emit('open-palette')"
-      >
-        <Search class="w-3.5 h-3.5 text-white/80" />
-        <span class="text-[11px] font-medium hidden sm:inline">Search</span>
-        <kbd class="px-1 py-0.2 rounded bg-muted/60 text-[9px] font-mono text-muted-foreground ml-0.5">Ctrl+K</kbd>
-      </UiButton>
+      <UiTooltip text="Buka Command Palette (Ctrl+K)" side="bottom">
+        <UiButton
+          variant="ghost"
+          size="sm"
+          class="h-7 text-xs gap-1.5 text-muted-foreground hover:text-foreground border border-border/40 hover:bg-[#1c1d2b] px-2"
+          @click="emit('open-palette')"
+        >
+          <Search class="w-3.5 h-3.5 text-white/80" />
+          <span class="text-[11px] font-medium hidden sm:inline">Search</span>
+          <kbd class="px-1 py-0.2 rounded bg-muted/60 text-[9px] font-mono text-muted-foreground ml-0.5">Ctrl+K</kbd>
+        </UiButton>
+      </UiTooltip>
 
       <!-- Presets Launcher Button -->
       <UiButton
@@ -349,37 +356,40 @@ const closeWindow = async () => {
       </UiButton>
 
       <!-- Port Manager Button -->
-      <UiButton
-        variant="ghost"
-        size="icon"
-        class="h-7 w-7 text-muted-foreground hover:text-emerald-400"
-        title="Port & Process Manager"
-        @click="emit('open-ports')"
-      >
-        <Radio class="w-3.5 h-3.5" />
-      </UiButton>
+      <UiTooltip text="Port & Process Manager" side="bottom">
+        <UiButton
+          variant="ghost"
+          size="icon"
+          class="h-7 w-7 text-muted-foreground hover:text-emerald-400"
+          @click="emit('open-ports')"
+        >
+          <Radio class="w-3.5 h-3.5" />
+        </UiButton>
+      </UiTooltip>
 
       <!-- Keyboard Shortcuts Cheatsheet Button -->
-      <UiButton
-        variant="ghost"
-        size="icon"
-        class="h-7 w-7 text-muted-foreground hover:text-foreground"
-        title="Keyboard Shortcuts (F1)"
-        @click="emit('open-shortcuts')"
-      >
-        <Keyboard class="w-3.5 h-3.5" />
-      </UiButton>
+      <UiTooltip text="Keyboard Shortcuts (F1)" side="bottom">
+        <UiButton
+          variant="ghost"
+          size="icon"
+          class="h-7 w-7 text-muted-foreground hover:text-foreground"
+          @click="emit('open-shortcuts')"
+        >
+          <Keyboard class="w-3.5 h-3.5" />
+        </UiButton>
+      </UiTooltip>
 
       <!-- Settings Button -->
-      <UiButton
-        variant="ghost"
-        size="icon"
-        class="h-7 w-7 text-muted-foreground hover:text-foreground"
-        title="Settings"
-        @click="emit('open-settings')"
-      >
-        <Settings class="w-3.5 h-3.5" />
-      </UiButton>
+      <UiTooltip text="Settings" side="bottom">
+        <UiButton
+          variant="ghost"
+          size="icon"
+          class="h-7 w-7 text-muted-foreground hover:text-foreground"
+          @click="emit('open-settings')"
+        >
+          <Settings class="w-3.5 h-3.5" />
+        </UiButton>
+      </UiTooltip>
 
       <!-- Windows Controls (Minimize, Maximize, Close) -->
       <div class="flex items-center ml-2 border-l border-border/40 pl-2">

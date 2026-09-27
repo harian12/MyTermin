@@ -1,15 +1,15 @@
 {
-  "version": "0.2.10",
-  "notes": "Release v0.2.10 - Perbaikan shell integration di PowerShell. PowerShell sekarang dijalankan dengan -ExecutionPolicy Bypass, jadi mytermin_shell_init.ps1 tidak lagi ditolak dengan PSSecurityException pada policy default Windows (Restricted) yang membuat seluruh shell integration mati. Badge \"running\" beserta ikon berputar di header terminal dan tab dihapus, karena status itu tidak pernah kembali ke idle saat memakai program TTY interaktif seperti opencode, codex, atau vim sehingga nyangkut terus. Badge \"cd project\" juga tidak lagi muncul palsu saat cwd terminal belum terdeteksi.",
-  "pub_date": "2026-09-26T18:45:32.571Z",
+  "version": "0.2.11",
+  "notes": "Release v0.2.11 - Git Commit Graph sekarang punya diff viewer: klik file yang berubah untuk membuka diff Monaco side-by-side antara isi file di parent pertama dan isi di commit tersebut. Panel diff bisa diperbesar, ditoggle unified/side-by-side, dan menampilkan path lama untuk file yang di-rename. File binary diberi pesan terpisah, bukan diff teks yang rusak. Tooltip diganti total dari atribut title native browser ke komponen UiTooltip: delay 250ms, auto-flip dan clamp ke dalam viewport, posisi ikut diperbarui saat scroll, dan styling-nya mengikuti dark theme. Bug tooltip yang sering tidak muncul ikut diperbaiki - title pada elemen ber pointer-events-none dan pada tombol disabled sebelumnya mati permanen. Strip tab editor kini menggulir mengikuti mouse wheel dan otomatis menyorot tab aktif saat tab banyak. Ctrl+W dan navigasi tab sekarang mengenali pane yang benar: membuka file dari terminal langsung memindahkan fokus ke editor, dan Deteksi editor tidak lagi salah menangkap tab terminal. Tombol Tutup di Panel Tasks diperbaiki kembali memakai ikon X. Cheatsheet shortcut punya tombol yang langsung membuka Settings di tab Pintasan, dan shortcut yang bisa diubah ditandai badge. Kode dibersihkan: residu struct yang tidak terpakai dihapus, dan tombol ikon yang bisa menyusut kini memakai shrink-0.",
+  "pub_date": "2026-09-27T06:49:07.383Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcjU5M1ZFMWtCZWVPY3FSbkwzVTVMWFMzYXdnQXc0RUROZk1ENjI4cGdlazE3ZVVnWDNZTDhIOVpWL1dIa0s4QllWVlZxN2pHUEVSWEtpNndMR2cvMVdkWnJGdm1oZ1E4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkwNDQ4MzExCWZpbGU6TXlUZXJtaW5fMC4yLjEwX3g2NC1zZXR1cC5leGUKTjVKRHRwVmlHbEllNlIxVmhpeTEvRG81TGl0Sm1acFh5RWUyWkwzNkd6bjEraFBCMGlhbGE3aUMvOXFybktLSisyNkVuMnlCMSt0SnlFLzd0bXBEQ0E9PQo=",
-      "url": "https://github.com/harian12/MyTermin/releases/download/v0.2.10/MyTermin_0.2.10_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcjU5M1ZFMWtCZVZJV0FKM1VpdnBsN2x4MzVMQmsxUWtINDVLd1Nod29UbXBXT2pGWVB4eVpTYzc4RXNEZWs4QTRtMlBRVEk1c2liRmt1aGxGcEdzQWZVaml1ckxYL3dZPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkwNDkxNzMxCWZpbGU6TXlUZXJtaW5fMC4yLjExX3g2NC1zZXR1cC5leGUKSWN2bHlFRkJNTGE0aFZjU1I4bmlGdFgzL3VtaUQ0M0dGenBWR3I5NzFuLzdUOWNmWjJObmIrQm9sUElzMWNlQkZFZG9ENGZhM1RHNW1tR0RpQWF1REE9PQo=",
+      "url": "https://github.com/harian12/MyTermin/releases/download/v0.2.11/MyTermin_0.2.11_x64-setup.exe"
     },
     "windows-x86_64-nsis": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcjU5M1ZFMWtCZWVPY3FSbkwzVTVMWFMzYXdnQXc0RUROZk1ENjI4cGdlazE3ZVVnWDNZTDhIOVpWL1dIa0s4QllWVlZxN2pHUEVSWEtpNndMR2cvMVdkWnJGdm1oZ1E4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkwNDQ4MzExCWZpbGU6TXlUZXJtaW5fMC4yLjEwX3g2NC1zZXR1cC5leGUKTjVKRHRwVmlHbEllNlIxVmhpeTEvRG81TGl0Sm1acFh5RWUyWkwzNkd6bjEraFBCMGlhbGE3aUMvOXFybktLSisyNkVuMnlCMSt0SnlFLzd0bXBEQ0E9PQo=",
-      "url": "https://github.com/harian12/MyTermin/releases/download/v0.2.10/MyTermin_0.2.10_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcjU5M1ZFMWtCZVZJV0FKM1VpdnBsN2x4MzVMQmsxUWtINDVLd1Nod29UbXBXT2pGWVB4eVpTYzc4RXNEZWs4QTRtMlBRVEk1c2liRmt1aGxGcEdzQWZVaml1ckxYL3dZPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkwNDkxNzMxCWZpbGU6TXlUZXJtaW5fMC4yLjExX3g2NC1zZXR1cC5leGUKSWN2bHlFRkJNTGE0aFZjU1I4bmlGdFgzL3VtaUQ0M0dGenBWR3I5NzFuLzdUOWNmWjJObmIrQm9sUElzMWNlQkZFZG9ENGZhM1RHNW1tR0RpQWF1REE9PQo=",
+      "url": "https://github.com/harian12/MyTermin/releases/download/v0.2.11/MyTermin_0.2.11_x64-setup.exe"
     }
   }
 }

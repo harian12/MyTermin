@@ -196,41 +196,45 @@ onBeforeUnmount(() => {
     </div>
 
     <div class="grid grid-cols-4 gap-1 px-1 py-0.5">
-      <button
-        class="flex flex-col items-center justify-center p-1.5 rounded-md hover:bg-accent hover:text-foreground text-muted-foreground transition-colors cursor-pointer"
-        title="Single View (Ctrl+Shift+S)"
-        @click="handleAction('layout-single')"
-      >
-        <Square class="w-3.5 h-3.5" />
-        <span class="text-[9px] mt-0.5">1x1</span>
-      </button>
+      <UiTooltip text="Single View (Ctrl+Shift+S)" side="bottom" class="contents">
+        <button
+          class="flex flex-col items-center justify-center p-1.5 rounded-md hover:bg-accent hover:text-foreground text-muted-foreground transition-colors cursor-pointer"
+          @click="handleAction('layout-single')"
+        >
+          <Square class="w-3.5 h-3.5" />
+          <span class="text-[9px] mt-0.5">1x1</span>
+        </button>
+      </UiTooltip>
 
-      <button
-        class="flex flex-col items-center justify-center p-1.5 rounded-md hover:bg-accent hover:text-foreground text-muted-foreground transition-colors cursor-pointer"
-        title="Split Horizontal (Ctrl+Shift+E)"
-        @click="handleAction('layout-split-h')"
-      >
-        <Columns2 class="w-3.5 h-3.5" />
-        <span class="text-[9px] mt-0.5">2-Col</span>
-      </button>
+      <UiTooltip text="Split Horizontal (Ctrl+Shift+E)" side="bottom" class="contents">
+        <button
+          class="flex flex-col items-center justify-center p-1.5 rounded-md hover:bg-accent hover:text-foreground text-muted-foreground transition-colors cursor-pointer"
+          @click="handleAction('layout-split-h')"
+        >
+          <Columns2 class="w-3.5 h-3.5" />
+          <span class="text-[9px] mt-0.5">2-Col</span>
+        </button>
+      </UiTooltip>
 
-      <button
-        class="flex flex-col items-center justify-center p-1.5 rounded-md hover:bg-accent hover:text-foreground text-muted-foreground transition-colors cursor-pointer"
-        title="Split Vertical (Ctrl+Shift+O)"
-        @click="handleAction('layout-split-v')"
-      >
-        <Rows2 class="w-3.5 h-3.5" />
-        <span class="text-[9px] mt-0.5">2-Row</span>
-      </button>
+      <UiTooltip text="Split Vertical (Ctrl+Shift+O)" side="bottom" class="contents">
+        <button
+          class="flex flex-col items-center justify-center p-1.5 rounded-md hover:bg-accent hover:text-foreground text-muted-foreground transition-colors cursor-pointer"
+          @click="handleAction('layout-split-v')"
+        >
+          <Rows2 class="w-3.5 h-3.5" />
+          <span class="text-[9px] mt-0.5">2-Row</span>
+        </button>
+      </UiTooltip>
 
-      <button
-        class="flex flex-col items-center justify-center p-1.5 rounded-md hover:bg-accent hover:text-foreground text-muted-foreground transition-colors cursor-pointer"
-        title="4-Grid (Ctrl+Shift+G)"
-        @click="handleAction('layout-grid-2x2')"
-      >
-        <LayoutGrid class="w-3.5 h-3.5 text-primary" />
-        <span class="text-[9px] mt-0.5 text-primary">4-Grid</span>
-      </button>
+      <UiTooltip text="4-Grid (Ctrl+Shift+G)" side="bottom" class="contents">
+        <button
+          class="flex flex-col items-center justify-center p-1.5 rounded-md hover:bg-accent hover:text-foreground text-muted-foreground transition-colors cursor-pointer"
+          @click="handleAction('layout-grid-2x2')"
+        >
+          <LayoutGrid class="w-3.5 h-3.5 text-primary" />
+          <span class="text-[9px] mt-0.5 text-primary">4-Grid</span>
+        </button>
+      </UiTooltip>
     </div>
   </div>
 </template>

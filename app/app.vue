@@ -77,6 +77,7 @@ const {
 
 const isPresetModalOpen = ref(false)
 const isSettingsModalOpen = ref(false)
+const settingsInitialTab = ref<'appearance' | 'session' | 'shortcuts' | 'cli' | 'diagnostics'>('appearance')
 const isQuickPickerOpen = ref(false)
 const isGlobalSearchOpen = ref(false)
 const isShortcutsOpen = ref(false)
@@ -312,6 +313,16 @@ const handleContextMenuAction = async (action: string) => {
   }
 }
 
+const openSettings = (tab: typeof settingsInitialTab.value = 'appearance') => {
+  settingsInitialTab.value = tab
+  isSettingsModalOpen.value = true
+}
+
+const openSettingsToKeybindings = () => {
+  isShortcutsOpen.value = false
+  openSettings('shortcuts')
+}
+
 // Global Keybindings
 const handleKeydown = (e: KeyboardEvent) => {
   // Keyboard Shortcuts Cheatsheet: F1 or Ctrl+/
@@ -431,12 +442,19 @@ const handleKeydown = (e: KeyboardEvent) => {
   if (isShortcut(e, 'closeTab')) {
     e.preventDefault()
     const activeEl = typeof document !== 'undefined' ? document.activeElement : null
-    const isInsideEditor = Boolean(
+    const isDirectlyInTerminal = Boolean(activeEl?.closest('.xterm') || activeEl?.closest('#terminal-grid-container'))
+    const isDirectlyInEditor = Boolean(
       activeEl?.closest('.monaco-editor') ||
-      activeEl?.closest('#editor-terminal-container > div:first-child')
+      activeEl?.closest('.monaco-diff-editor') ||
+      activeEl?.closest('#code-editor-pane')
     )
 
-    if (isInsideEditor && isEditorVisible.value && activeFileId.value) {
+    // Tab editor cuma div dengan @click, tidak focusable — jadi activeElement
+    // tetap body saat tab diklik dan deteksi ancestor jadi gagal. lastFocusedPane
+    // sudah dicatat lewat @focusin, pakai itu sebagai fallback.
+    const isEditorActive = isDirectlyInEditor || (!isDirectlyInTerminal && lastFocusedPane.value === 'editor')
+
+    if (isEditorActive && isEditorVisible.value && activeFileId.value) {
       closeActiveFile()
     } else if (activeTerminalId.value) {
       removeTerminal(activeTerminalId.value)
@@ -695,82 +713,86 @@ onBeforeUnmount(() => {
       <!-- Left: Git Branch, Folder Path, Workspace Name -->
       <div class="flex items-center gap-3 truncate max-w-[60%]">
         <!-- Git Branch Badge / Selector -->
-        <button
-          v-if="gitBranch"
-          class="flex items-center gap-1.5 px-1.5 py-0.5 rounded hover:bg-[#1c1d2b] text-primary hover:text-primary/90 transition-colors cursor-pointer font-medium flex-shrink-0"
-          :title="`Git Branch: ${gitBranch} (Klik untuk beralih atau buat branch)`"
-          @click="openFooterBranchPicker"
-        >
-          <GitBranch class="w-3.5 h-3.5 text-primary flex-shrink-0" />
-          <span>{{ gitBranch }}</span>
-        </button>
+        <UiTooltip v-if="gitBranch" :text="`Git Branch: ${gitBranch} (Klik untuk beralih atau buat branch)`" side="top" class="flex-shrink-0">
+          <button
+            class="flex items-center gap-1.5 px-1.5 py-0.5 rounded hover:bg-[#1c1d2b] text-primary hover:text-primary/90 transition-colors cursor-pointer font-medium"
+            @click="openFooterBranchPicker"
+          >
+            <GitBranch class="w-3.5 h-3.5 text-primary flex-shrink-0" />
+            <span>{{ gitBranch }}</span>
+          </button>
+        </UiTooltip>
 
         <!-- Git Graph Visual Button -->
-        <button
-          v-if="gitBranch"
-          class="flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-[#1c1d2b] text-muted-foreground hover:text-foreground transition-colors cursor-pointer flex-shrink-0"
-          title="Buka Visual Git Commit Graph"
-          @click="isGitGraphModalOpen = true"
-        >
-          <span class="text-[10px] bg-primary/10 text-primary border border-primary/20 px-1 py-0.2 rounded font-mono font-medium">Graph</span>
-        </button>
+        <UiTooltip v-if="gitBranch" text="Buka Visual Git Commit Graph" side="top" class="flex-shrink-0">
+          <button
+            class="flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-[#1c1d2b] text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+            @click="isGitGraphModalOpen = true"
+          >
+            <span class="text-[10px] bg-primary/10 text-primary border border-primary/20 px-1 py-0.2 rounded font-mono font-medium">Graph</span>
+          </button>
+        </UiTooltip>
 
         <!-- Branch Compare Button -->
-        <button
-          v-if="gitBranch"
-          class="flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-[#1c1d2b] text-muted-foreground hover:text-foreground transition-colors cursor-pointer flex-shrink-0"
-          title="Buka Branch Compare & Diff"
-          @click="isBranchCompareModalOpen = true"
-        >
-          <span class="text-[10px] bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 px-1 py-0.2 rounded font-mono font-medium">Compare</span>
-        </button>
+        <UiTooltip v-if="gitBranch" text="Buka Branch Compare & Diff" side="top" class="flex-shrink-0">
+          <button
+            class="flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-[#1c1d2b] text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+            @click="isBranchCompareModalOpen = true"
+          >
+            <span class="text-[10px] bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 px-1 py-0.2 rounded font-mono font-medium">Compare</span>
+          </button>
+        </UiTooltip>
 
-        <div v-if="activeWorkstation.folderPath" class="flex items-center gap-1.5 text-muted-foreground truncate" :title="activeWorkstation.folderPath">
-          <FolderOpen class="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
-          <span class="truncate">{{ activeWorkstation.name }}</span>
-        </div>
+        <UiTooltip v-if="activeWorkstation.folderPath" :text="activeWorkstation.folderPath" side="top" class="flex-shrink-0 min-w-0">
+          <div class="flex items-center gap-1.5 text-muted-foreground truncate">
+            <FolderOpen class="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+            <span class="truncate">{{ activeWorkstation.name }}</span>
+          </div>
+        </UiTooltip>
 
         <!-- If active file exists in editor -->
-        <span v-if="activeFile && isEditorVisible" class="truncate text-muted-foreground/70 hidden sm:inline" :title="activeFile.path">
-          • {{ activeFile.name }}
-        </span>
+        <UiTooltip v-if="activeFile && isEditorVisible" :text="activeFile.path" side="top" class="flex-shrink-0 truncate hidden sm:inline-flex">
+          <span class="truncate text-muted-foreground/70">
+            • {{ activeFile.name }}
+          </span>
+        </UiTooltip>
       </div>
 
       <!-- Right: Sessions & Layout info -->
       <div class="flex items-center gap-3.5 flex-shrink-0">
         <!-- Listening Ports Indicator -->
-        <button
-          v-if="activePortsList.length > 0"
-          class="flex items-center gap-1.5 px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/25 transition-colors cursor-pointer"
-          :title="`Ada ${activePortsList.length} port listening aktif (${activePortsList.slice(0, 3).map(p => p.port).join(', ')}...). Klik untuk kelola proses.`"
-          @click="isPortManagerModalOpen = true"
-        >
-          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-          <span class="text-[10px] font-mono font-semibold">{{ activePortsList.length }} Ports</span>
-        </button>
+        <UiTooltip v-if="activePortsList.length > 0" :text="`Ada ${activePortsList.length} port listening aktif (${activePortsList.slice(0, 3).map(p => p.port).join(', ')}...). Klik untuk kelola proses.`" side="top" class="flex-shrink-0">
+          <button
+            class="flex items-center gap-1.5 px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/25 transition-colors cursor-pointer"
+            @click="isPortManagerModalOpen = true"
+          >
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span class="text-[10px] font-mono font-semibold">{{ activePortsList.length }} Ports</span>
+          </button>
+        </UiTooltip>
 
         <!-- Update Available Badge -->
-        <button
-          v-if="hasUpdate"
-          class="flex items-center gap-1.5 px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30 hover:bg-blue-500/30 transition-colors animate-pulse"
-          :title="`Versi baru v${newVersion} tersedia. Buka Pengaturan untuk memperbarui.`"
-          @click="isUpdateModalOpen = true"
-        >
-          <Sparkles class="w-3 h-3 text-blue-400" />
-          <span class="text-[10px] font-semibold">Update v{{ newVersion }}</span>
-        </button>
+        <UiTooltip v-if="hasUpdate" :text="`Versi baru v${newVersion} tersedia. Buka Pengaturan untuk memperbarui.`" side="top" class="flex-shrink-0">
+          <button
+            class="flex items-center gap-1.5 px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30 hover:bg-blue-500/30 transition-colors animate-pulse"
+            @click="isUpdateModalOpen = true"
+          >
+            <Sparkles class="w-3 h-3 text-blue-400" />
+            <span class="text-[10px] font-semibold">Update v{{ newVersion }}</span>
+          </button>
+        </UiTooltip>
 
         <!-- Split Orientation Toggle Button -->
-        <button
-          v-if="isEditorVisible"
-          class="flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-[#1c1d2b] text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-          :title="splitOrientation === 'horizontal' ? 'Posisi: Kiri/Kanan (Klik untuk ubah ke Atas/Bawah)' : 'Posisi: Atas/Bawah (Klik untuk ubah ke Kiri/Kanan)'"
-          @click="splitOrientation = splitOrientation === 'horizontal' ? 'vertical' : 'horizontal'"
-        >
-          <Rows2 v-if="splitOrientation === 'vertical'" class="w-3.5 h-3.5 text-primary" />
-          <Columns2 v-else class="w-3.5 h-3.5 text-primary" />
-          <span class="text-[10px] hidden sm:inline">{{ splitOrientation === 'horizontal' ? 'Horizontal' : 'Vertikal' }}</span>
-        </button>
+        <UiTooltip v-if="isEditorVisible" :text="splitOrientation === 'horizontal' ? 'Posisi: Kiri/Kanan (Klik untuk ubah ke Atas/Bawah)' : 'Posisi: Atas/Bawah (Klik untuk ubah ke Kiri/Kanan)'" side="top" class="flex-shrink-0">
+          <button
+            class="flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-[#1c1d2b] text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+            @click="splitOrientation = splitOrientation === 'horizontal' ? 'vertical' : 'horizontal'"
+          >
+            <Rows2 v-if="splitOrientation === 'vertical'" class="w-3.5 h-3.5 text-primary" />
+            <Columns2 v-else class="w-3.5 h-3.5 text-primary" />
+            <span class="text-[10px] hidden sm:inline">{{ splitOrientation === 'horizontal' ? 'Horizontal' : 'Vertikal' }}</span>
+          </button>
+        </UiTooltip>
 
         <!-- Terminal Count -->
         <span class="text-muted-foreground/60 hidden md:inline">
@@ -778,13 +800,14 @@ onBeforeUnmount(() => {
         </span>
 
         <!-- App Version Badge -->
-        <span
-          class="text-muted-foreground/80 hover:text-foreground cursor-pointer transition-colors"
-          title="Klik untuk membuka Pengaturan Pembaruan"
-          @click="isSettingsModalOpen = true"
-        >
-          v{{ currentAppVersion }}
-        </span>
+        <UiTooltip text="Klik untuk membuka Pengaturan Pembaruan" side="top" class="flex-shrink-0">
+          <span
+            class="text-muted-foreground/80 hover:text-foreground cursor-pointer transition-colors"
+            @click="isSettingsModalOpen = true"
+          >
+            v{{ currentAppVersion }}
+          </span>
+        </UiTooltip>
 
         <!-- Layout Indicator -->
         <span class="text-primary/90 uppercase font-semibold text-[10px]">
@@ -810,13 +833,16 @@ onBeforeUnmount(() => {
     <AppGlobalDialog />
     <QuickFilePickerModal v-model:open="isQuickPickerOpen" />
     <GlobalSearchModal v-model:open="isGlobalSearchOpen" />
-    <ShortcutsCheatsheetModal v-model:open="isShortcutsOpen" />
+    <ShortcutsCheatsheetModal
+      v-model:open="isShortcutsOpen"
+      @open-keybindings="openSettingsToKeybindings"
+    />
     <CommandPalette
       @open-presets="isPresetModalOpen = true"
       @open-settings="isSettingsModalOpen = true"
     />
     <PresetModal v-model:open="isPresetModalOpen" />
-    <SettingsModal v-model:open="isSettingsModalOpen" />
+    <SettingsModal v-model:open="isSettingsModalOpen" :initial-tab="settingsInitialTab" />
     <UpdateNotificationModal v-model:open="isUpdateModalOpen" />
     <GitBranchModal v-model:open="isBranchModalOpen" />
     <GitGraphModal v-model:open="isGitGraphModalOpen" />

@@ -1,6 +1,6 @@
 import { ref, computed } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
-import type { GitGraphNode, GitGraphVisualNode, GitCommitDetail } from '~/types/terminal'
+import type { GitGraphNode, GitGraphVisualNode, GitCommitDetail, GitFileDiffContent, GitCommitDiffFile } from '~/types/terminal'
 import { useWorkspaceStore } from '~/composables/useWorkspaceStore'
 
 const BRANCH_COLORS = [
@@ -161,6 +161,7 @@ export const useGitGraph = () => {
     const root = getRepoRoot()
     if (!root || !hash) return
 
+    clearFileDiff()
     isDetailsLoading.value = true
     try {
       const detail = await invoke<GitCommitDetail>('git_get_commit_detail', {
@@ -172,6 +173,41 @@ export const useGitGraph = () => {
       console.error('Failed to get commit detail:', e)
     } finally {
       isDetailsLoading.value = false
+    }
+  }
+
+  const activeDiffFile = ref<GitCommitDiffFile | null>(null)
+  const fileDiff = ref<GitFileDiffContent | null>(null)
+  const isFileDiffLoading = ref(false)
+  const fileDiffError = ref<string | null>(null)
+
+  const clearFileDiff = () => {
+    activeDiffFile.value = null
+    fileDiff.value = null
+    fileDiffError.value = null
+    isFileDiffLoading.value = false
+  }
+
+  const loadCommitFileDiff = async (file: GitCommitDiffFile) => {
+    const root = getRepoRoot()
+    const commitHash = selectedCommit.value?.hash
+    if (!root || !commitHash) return
+
+    activeDiffFile.value = file
+    fileDiffError.value = null
+    isFileDiffLoading.value = true
+    try {
+      fileDiff.value = await invoke<GitFileDiffContent>('git_get_commit_file_diff', {
+        repoPath: root,
+        commitHash,
+        filePath: file.path,
+        oldPath: file.old_path ?? null
+      })
+    } catch (e: any) {
+      fileDiff.value = null
+      fileDiffError.value = e?.message || String(e)
+    } finally {
+      isFileDiffLoading.value = false
     }
   }
 
@@ -234,6 +270,12 @@ export const useGitGraph = () => {
     isDetailsLoading,
     errorMsg,
     maxLanes,
+    activeDiffFile,
+    fileDiff,
+    isFileDiffLoading,
+    fileDiffError,
+    clearFileDiff,
+    loadCommitFileDiff,
     fetchGraph,
     selectCommit,
     checkoutCommit,

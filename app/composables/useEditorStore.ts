@@ -218,6 +218,8 @@ export const useEditorStore = () => {
     const filename = filePath.split(/[\\/]/).pop() || filePath
     const diffTabId = `diff-${filePath}`
 
+    lastFocusedPane.value = 'editor'
+
     // Cek apakah file sedang dibuka di tab editor reguler
     const openRegular = openFiles.value.find(f => f.path === filePath && !f.isDiff)
     let currentContent = openRegular ? openRegular.content : ''
@@ -268,6 +270,11 @@ export const useEditorStore = () => {
     if (!filePath) return
     const filename = filePath.split(/[\\/]/).pop() || filePath
     const existing = openFiles.value.find((f) => f.path === filePath)
+
+    // Membuka file dari terminal (atau dari mana pun) harus memindahkan fokus
+    // pane ke editor — kalau tidak, shortcut seperti Ctrl+W akan tetap
+    // menyasar terminal padahal yang baru saja diklik adalah file.
+    lastFocusedPane.value = 'editor'
 
     if (viewportMode.value === 'terminal-full') {
       viewportMode.value = 'split'

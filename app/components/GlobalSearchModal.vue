@@ -206,14 +206,15 @@ const scrollToSelected = () => {
           <!-- Search Input Line -->
           <div class="flex items-center gap-2">
             <!-- Toggle Replace Input Button -->
-            <button
-              class="p-1 rounded hover:bg-[#252636] text-muted-foreground hover:text-foreground transition-colors"
-              :title="isReplaceOpen ? 'Tutup Replace' : 'Buka Replace'"
-              @click="isReplaceOpen = !isReplaceOpen"
-            >
-              <ChevronDown v-if="isReplaceOpen" class="w-3.5 h-3.5 text-primary" />
-              <ChevronRight v-else class="w-3.5 h-3.5" />
-            </button>
+            <UiTooltip :text="isReplaceOpen ? 'Tutup Replace' : 'Buka Replace'" side="bottom" class="flex-shrink-0">
+              <button
+                class="p-1 rounded hover:bg-[#252636] text-muted-foreground hover:text-foreground transition-colors"
+                @click="isReplaceOpen = !isReplaceOpen"
+              >
+                <ChevronDown v-if="isReplaceOpen" class="w-3.5 h-3.5 text-primary" />
+                <ChevronRight v-else class="w-3.5 h-3.5" />
+              </button>
+            </UiTooltip>
 
             <div class="flex items-center flex-1 bg-[#0d0e14] border border-border/80 focus-within:border-primary px-2.5 py-1.5 rounded-lg">
               <Search class="w-3.5 h-3.5 text-muted-foreground mr-2 flex-shrink-0" />
@@ -228,17 +229,18 @@ const scrollToSelected = () => {
             </div>
 
             <!-- Match Case Toggle -->
-            <button
-              :class="[
-                'px-2 py-1 rounded-md text-xs flex items-center gap-1 transition-colors flex-shrink-0',
-                matchCase ? 'bg-primary text-primary-foreground font-semibold' : 'text-muted-foreground bg-[#0d0e14] border border-border/60 hover:text-foreground'
-              ]"
-              title="Match Case (Sensitif Huruf Besar/Kecil)"
-              @click="matchCase = !matchCase"
-            >
-              <CaseSensitive class="w-3.5 h-3.5" />
-              <span class="text-[10px]">Aa</span>
-            </button>
+            <UiTooltip text="Match Case (Sensitif Huruf Besar/Kecil)" side="bottom" class="flex-shrink-0">
+              <button
+                :class="[
+                  'px-2 py-1 rounded-md text-xs flex items-center gap-1 transition-colors flex-shrink-0',
+                  matchCase ? 'bg-primary text-primary-foreground font-semibold' : 'text-muted-foreground bg-[#0d0e14] border border-border/60 hover:text-foreground'
+                ]"
+                @click="matchCase = !matchCase"
+              >
+                <CaseSensitive class="w-3.5 h-3.5" />
+                <span class="text-[10px]">Aa</span>
+              </button>
+            </UiTooltip>
 
             <div v-if="isSearching" class="flex items-center pl-1">
               <Loader2 class="w-4 h-4 animate-spin text-primary" />
@@ -265,23 +267,25 @@ const scrollToSelected = () => {
               />
             </div>
 
-            <button
-              :disabled="!searchQuery.trim() || results.length === 0 || isReplacing"
-              class="px-2.5 py-1.5 bg-secondary hover:bg-secondary/80 disabled:opacity-40 text-foreground text-xs rounded-lg font-medium transition-colors flex-shrink-0"
-              title="Ganti pada file yang sedang dipilih"
-              @click="handleReplaceCurrentFile"
-            >
-              Ganti File Ini
-            </button>
+            <UiTooltip text="Ganti pada file yang sedang dipilih" side="bottom" class="flex-shrink-0">
+              <button
+                :disabled="!searchQuery.trim() || results.length === 0 || isReplacing"
+                class="px-2.5 py-1.5 bg-secondary hover:bg-secondary/80 disabled:opacity-40 text-foreground text-xs rounded-lg font-medium transition-colors flex-shrink-0"
+                @click="handleReplaceCurrentFile"
+              >
+                Ganti File Ini
+              </button>
+            </UiTooltip>
 
-            <button
-              :disabled="!searchQuery.trim() || results.length === 0 || isReplacing"
-              class="px-3 py-1.5 bg-primary hover:bg-primary/90 disabled:opacity-40 text-primary-foreground text-xs rounded-lg font-medium transition-colors flex-shrink-0 shadow-sm"
-              title="Ganti di semua file project yang cocok"
-              @click="handleReplaceAll"
-            >
-              {{ isReplacing ? 'Mengganti...' : 'Ganti Semua' }}
-            </button>
+            <UiTooltip text="Ganti di semua file project yang cocok" side="bottom" class="flex-shrink-0">
+              <button
+                :disabled="!searchQuery.trim() || results.length === 0 || isReplacing"
+                class="px-3 py-1.5 bg-primary hover:bg-primary/90 disabled:opacity-40 text-primary-foreground text-xs rounded-lg font-medium transition-colors flex-shrink-0 shadow-sm"
+                @click="handleReplaceAll"
+              >
+                {{ isReplacing ? 'Mengganti...' : 'Ganti Semua' }}
+              </button>
+            </UiTooltip>
           </div>
 
           <!-- Replace Toast Notification -->

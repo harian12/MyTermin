@@ -138,14 +138,15 @@ const handleMerge = async () => {
             </div>
 
             <!-- Swap / Flow Indicator (Compare -> Base) -->
-            <button
-              class="p-1.5 rounded-lg border border-border/60 hover:bg-[#1f202e] text-primary hover:text-primary transition-colors cursor-pointer flex items-center gap-1 text-[11px]"
-              title="Arah merge: Compare mengalir ke Base. Klik untuk tukar posisi."
-              @click="swapBranches"
-            >
-              <ArrowLeft class="w-3.5 h-3.5 text-primary" />
-              <ArrowLeftRight class="w-3 h-3 text-muted-foreground opacity-60 hover:opacity-100" />
-            </button>
+            <UiTooltip text="Arah merge: Compare mengalir ke Base. Klik untuk tukar posisi." side="bottom" class="flex-shrink-0">
+              <button
+                class="p-1.5 rounded-lg border border-border/60 hover:bg-[#1f202e] text-primary hover:text-primary transition-colors cursor-pointer flex items-center gap-1 text-[11px]"
+                @click="swapBranches"
+              >
+                <ArrowLeft class="w-3.5 h-3.5 text-primary" />
+                <ArrowLeftRight class="w-3 h-3 text-muted-foreground opacity-60 hover:opacity-100" />
+              </button>
+            </UiTooltip>
 
             <!-- Compare Branch Selector -->
             <div class="flex items-center gap-1.5 bg-[#0e0f16] px-2.5 py-1 rounded-lg border border-primary/50">
@@ -162,44 +163,51 @@ const handleMerge = async () => {
             </div>
 
             <!-- Reload Compare -->
-            <button
-              class="p-1.5 rounded-lg border border-border/80 hover:bg-[#1f202e] text-muted-foreground hover:text-foreground transition-colors cursor-pointer ml-1"
-              title="Refresh Komparasi"
-              @click="runCompare()"
-            >
-              <RotateCcw :class="['w-4 h-4', isLoading ? 'animate-spin text-primary' : '']" />
-            </button>
+            <UiTooltip text="Refresh Komparasi" side="bottom">
+              <button
+                class="p-1.5 rounded-lg border border-border/80 hover:bg-[#1f202e] text-muted-foreground hover:text-foreground transition-colors cursor-pointer ml-1"
+                @click="runCompare()"
+              >
+                <RotateCcw :class="['w-4 h-4', isLoading ? 'animate-spin text-primary' : '']" />
+              </button>
+            </UiTooltip>
           </div>
 
           <!-- Right: Summary Badges & Merge Action -->
           <div class="flex items-center gap-2">
             <!-- Ahead/Behind Badges -->
             <div v-if="compareData" class="flex items-center gap-1.5 font-mono text-xs">
-              <span
-                class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-semibold"
-                title="Jumlah commit lebih maju dibanding Base"
-              >
-                +{{ compareData.ahead_count }} Ahead
-              </span>
-              <span
-                class="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 font-semibold"
-                title="Jumlah commit tertinggal dibanding Base"
-              >
-                -{{ compareData.behind_count }} Behind
-              </span>
+              <UiTooltip text="Jumlah commit lebih maju dibanding Base" side="bottom">
+                <span
+                  class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-semibold"
+                >
+                  +{{ compareData.ahead_count }} Ahead
+                </span>
+              </UiTooltip>
+              <UiTooltip text="Jumlah commit tertinggal dibanding Base" side="bottom">
+                <span
+                  class="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 font-semibold"
+                >
+                  -{{ compareData.behind_count }} Behind
+                </span>
+              </UiTooltip>
             </div>
 
             <!-- Merge Button -->
-            <button
+            <UiTooltip
               v-if="compareData && compareData.ahead_count > 0"
-              :disabled="isMerging"
-              class="flex items-center gap-1.5 px-3 py-1 bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-medium rounded-lg shadow-sm transition-colors disabled:opacity-40 cursor-pointer"
-              title="Merge compare branch ke branch aktif"
-              @click="handleMerge"
+              text="Merge compare branch ke branch aktif"
+              side="bottom"
             >
-              <GitMerge class="w-3.5 h-3.5" />
-              <span>{{ isMerging ? 'Merging...' : 'Merge Branch' }}</span>
-            </button>
+              <button
+                :disabled="isMerging"
+                class="flex items-center gap-1.5 px-3 py-1 bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-medium rounded-lg shadow-sm transition-colors disabled:opacity-40 cursor-pointer"
+                @click="handleMerge"
+              >
+                <GitMerge class="w-3.5 h-3.5" />
+                <span>{{ isMerging ? 'Merging...' : 'Merge Branch' }}</span>
+              </button>
+            </UiTooltip>
 
             <!-- Close Button -->
             <button
@@ -350,15 +358,19 @@ const handleMerge = async () => {
 
               <!-- Side by Side / Inline Toggle -->
               <div v-if="activeDiffFile" class="flex items-center gap-1">
-                <button
-                  class="p-1 rounded hover:bg-[#1f202e] text-muted-foreground hover:text-foreground text-xs flex items-center gap-1 transition-colors cursor-pointer"
-                  :title="renderSideBySide ? 'Mode: Bersebelahan (Side by Side)' : 'Mode: Sejajar (Inline)'"
-                  @click="renderSideBySide = !renderSideBySide"
+                <UiTooltip
+                  :text="renderSideBySide ? 'Mode: Bersebelahan (Side by Side)' : 'Mode: Sejajar (Inline)'"
+                  side="bottom"
                 >
-                  <Columns2 v-if="renderSideBySide" class="w-3.5 h-3.5 text-primary" />
-                  <Rows2 v-else class="w-3.5 h-3.5 text-primary" />
-                  <span class="text-[10px] hidden sm:inline">{{ renderSideBySide ? 'Side by Side' : 'Inline' }}</span>
-                </button>
+                  <button
+                    class="p-1 rounded hover:bg-[#1f202e] text-muted-foreground hover:text-foreground text-xs flex items-center gap-1 transition-colors cursor-pointer"
+                    @click="renderSideBySide = !renderSideBySide"
+                  >
+                    <Columns2 v-if="renderSideBySide" class="w-3.5 h-3.5 text-primary" />
+                    <Rows2 v-else class="w-3.5 h-3.5 text-primary" />
+                    <span class="text-[10px] hidden sm:inline">{{ renderSideBySide ? 'Side by Side' : 'Inline' }}</span>
+                  </button>
+                </UiTooltip>
               </div>
             </div>
 

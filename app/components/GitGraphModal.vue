@@ -12,6 +12,7 @@ import {
   Check,
   ArrowRight,
   ExternalLink,
+  FileCode,
   Plus,
   Minus,
   Undo2,
@@ -38,6 +39,12 @@ const {
   isDetailsLoading,
   errorMsg,
   maxLanes,
+  activeDiffFile,
+  fileDiff,
+  isFileDiffLoading,
+  fileDiffError,
+  clearFileDiff,
+  loadCommitFileDiff,
   fetchGraph,
   selectCommit,
   checkoutCommit,
@@ -53,8 +60,12 @@ const currentRepoPath = computed(() => {
   return activeWorkstation.value?.folderPath || activeTerminal.value?.cwd || ''
 })
 
+import MonacoDiffEditor from './MonacoDiffEditor.vue'
+
 const copiedHash = ref<string | null>(null)
 const searchQuery = ref('')
+const diffSideBySide = ref(true)
+const diffExpanded = ref(false)
 const isRollingBack = ref(false)
 const showRollbackModal = ref(false)
 const rollbackTarget = ref<string | null>(null)
@@ -66,6 +77,8 @@ watch(
   (open) => {
     if (open) {
       fetchGraph()
+    } else {
+      clearFileDiff()
     }
   }
 )
@@ -212,13 +225,14 @@ const executeResetHard = async () => {
             />
 
             <!-- Refresh Button -->
-            <button
-              class="p-1.5 rounded-lg border border-border/80 hover:bg-[#1f202e] text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-              title="Refresh Graph"
-              @click="fetchGraph()"
-            >
-              <RotateCcw :class="['w-4 h-4', isLoading ? 'animate-spin text-primary' : '']" />
-            </button>
+            <UiTooltip text="Refresh Graph" side="bottom" class="flex-shrink-0">
+              <button
+                class="p-1.5 rounded-lg border border-border/80 hover:bg-[#1f202e] text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                @click="fetchGraph()"
+              >
+                <RotateCcw :class="['w-4 h-4', isLoading ? 'animate-spin text-primary' : '']" />
+              </button>
+            </UiTooltip>
 
             <!-- Close Button -->
             <button
@@ -376,25 +390,34 @@ const executeResetHard = async () => {
               </span>
 
               <div class="flex items-center gap-1.5">
-                <button
-                  v-if="selectedCommit"
-                  class="px-2 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-[10px] font-medium border border-amber-500/40 flex items-center gap-1 transition-colors cursor-pointer"
-                  title="Rollback atau Revert Perubahan Commit Ini"
-                  @click="openRollbackDialog(selectedCommit.hash)"
-                >
-                  <Undo2 class="w-3 h-3" />
-                  <span>Rollback</span>
-                </button>
+                <UiTooltip v-if="selectedCommit" text="Rollback atau Revert Perubahan Commit Ini" side="bottom" class="flex-shrink-0">
+                  <button
+                    class="px-2 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-[10px] font-medium border border-amber-500/40 flex items-center gap-1 transition-colors cursor-pointer"
+                    @click="openRollbackDialog(selectedCommit.hash)"
+                  >
+                    <Undo2 class="w-3 h-3" />
+                    <span>Rollback</span>
+                  </button>
+                </UiTooltip>
 
-                <button
-                  v-if="selectedCommit"
-                  class="px-2 py-0.5 rounded bg-primary/20 hover:bg-primary/30 text-primary text-[10px] font-medium border border-primary/40 flex items-center gap-1 transition-colors cursor-pointer"
-                  title="Checkout Commit Ini"
-                  @click="handleCheckout(selectedCommit.hash)"
-                >
-                  <span>Checkout</span>
-                  <ArrowRight class="w-3 h-3" />
-                </button>
+                <UiTooltip v-if="selectedCommit" text="Checkout Commit Ini" side="bottom" class="flex-shrink-0">
+                  <button
+                    class="px-2 py-0.5 rounded bg-primary/20 hover:bg-primary/30 text-primary text-[10px] font-medium border border-primary/40 flex items-center gap-1 transition-colors cursor-pointer"
+                    @click="handleCheckout(selectedCommit.hash)"
+                  >
+                    <span>Checkout</span>
+                    <ArrowRight class="w-3 h-3" />
+                  </button>
+                </UiTooltip>
+
+                <UiTooltip v-if="activeDiffFile" text="Tutup diff" side="bottom" class="flex-shrink-0">
+                  <button
+                    class="px-2 py-0.5 rounded border border-border/60 bg-[#181924] text-muted-foreground hover:text-foreground text-[10px] font-medium transition-colors cursor-pointer"
+                    @click="clearFileDiff()"
+                  >
+                    <X class="w-3 h-3" />
+                  </button>
+                </UiTooltip>
               </div>
             </div>
 
@@ -424,9 +447,11 @@ const executeResetHard = async () => {
                       <User class="w-3.5 h-3.5 text-muted-foreground" />
                       Author:
                     </span>
-                    <span class="font-medium text-foreground truncate max-w-[180px]" :title="selectedCommit.author_email">
-                      {{ selectedCommit.author }}
-                    </span>
+                    <UiTooltip :text="selectedCommit.author_email" side="bottom" class="flex-shrink-0 min-w-0">
+                      <span class="font-medium text-foreground truncate max-w-[180px] block">
+                        {{ selectedCommit.author }}
+                      </span>
+                    </UiTooltip>
                   </div>
 
                   <!-- Date -->
@@ -435,9 +460,11 @@ const executeResetHard = async () => {
                       <Calendar class="w-3.5 h-3.5 text-muted-foreground" />
                       Tanggal:
                     </span>
-                    <span class="text-muted-foreground truncate max-w-[180px]" :title="selectedCommit.date">
-                      {{ selectedCommit.relative_time }}
-                    </span>
+                    <UiTooltip :text="selectedCommit.date" side="bottom" class="flex-shrink-0 min-w-0">
+                      <span class="text-muted-foreground truncate max-w-[180px] block">
+                        {{ selectedCommit.relative_time }}
+                      </span>
+                    </UiTooltip>
                   </div>
 
                   <!-- Hash & Copy -->
@@ -462,35 +489,45 @@ const executeResetHard = async () => {
 
                   <!-- Changed Files List -->
                   <div class="space-y-1">
-                    <div
+                    <UiTooltip
                       v-for="file in selectedCommit.files"
                       :key="file.path"
-                      class="flex items-center justify-between px-2.5 py-1.5 rounded-md bg-[#14151f] hover:bg-[#181924] border border-border/40 text-xs transition-colors group"
-                      :title="file.path"
+                      :text="file.old_path ? `${file.old_path} -> ${file.path}` : file.path"
+                      side="left"
+                      class="w-full block"
                     >
-                      <div class="flex items-center gap-2 min-w-0 flex-1 pr-2">
-                        <span
-                          :class="[
-                            'w-2 h-2 rounded-full flex-shrink-0',
-                            file.status === 'added' ? 'bg-emerald-400' :
-                            file.status === 'deleted' ? 'bg-rose-400' :
-                            file.status === 'renamed' ? 'bg-amber-400' : 'bg-blue-400'
-                          ]"
-                        />
-                        <span class="truncate font-mono text-[11px] text-foreground/90 group-hover:text-foreground">
-                          {{ file.path }}
-                        </span>
-                      </div>
+                      <button
+                        type="button"
+                        class="w-full flex items-center justify-between px-2.5 py-1.5 rounded-md border text-xs transition-colors text-left cursor-pointer"
+                        :class="activeDiffFile?.path === file.path
+                          ? 'bg-primary/15 border-primary/50'
+                          : 'bg-[#14151f] hover:bg-[#181924] border-border/40'"
+                        @click="loadCommitFileDiff(file)"
+                      >
+                        <div class="flex items-center gap-2 min-w-0 flex-1 pr-2">
+                          <span
+                            :class="[
+                              'w-2 h-2 rounded-full flex-shrink-0',
+                              file.status === 'added' ? 'bg-emerald-400' :
+                              file.status === 'deleted' ? 'bg-rose-400' :
+                              file.status === 'renamed' ? 'bg-amber-400' : 'bg-blue-400'
+                            ]"
+                          />
+                          <span class="truncate font-mono text-[11px] text-foreground/90 group-hover:text-foreground">
+                            {{ file.path }}
+                          </span>
+                        </div>
 
-                      <div class="flex items-center gap-1.5 font-mono text-[10px] flex-shrink-0">
-                        <span v-if="file.insertions > 0" class="text-emerald-400 font-medium">
-                          +{{ file.insertions }}
-                        </span>
-                        <span v-if="file.deletions > 0" class="text-rose-400 font-medium">
-                          -{{ file.deletions }}
-                        </span>
-                      </div>
-                    </div>
+                        <div class="flex items-center gap-1.5 font-mono text-[10px] flex-shrink-0">
+                          <span v-if="file.insertions > 0" class="text-emerald-400 font-medium">
+                            +{{ file.insertions }}
+                          </span>
+                          <span v-if="file.deletions > 0" class="text-rose-400 font-medium">
+                            -{{ file.deletions }}
+                          </span>
+                        </div>
+                      </button>
+                    </UiTooltip>
 
                     <div v-if="selectedCommit.files.length === 0" class="p-3 text-center text-xs text-muted-foreground">
                       Tidak ada perubahan file pada commit ini.
@@ -504,6 +541,86 @@ const executeResetHard = async () => {
                 <span class="text-xs">Pilih commit di sebelah kiri untuk melihat detail</span>
               </div>
             </div>
+          </div>
+        </div>
+
+        <!-- Bottom: Diff Viewer Panel -->
+        <div
+          v-if="activeDiffFile"
+          class="flex-shrink-0 border-t border-border/80 bg-[#0c0d12] flex flex-col"
+          :class="diffExpanded ? 'h-[70%]' : 'h-[38%]'"
+        >
+          <div class="flex items-center justify-between px-4 py-2 border-b border-border/60 bg-[#14151f] flex-shrink-0">
+            <div class="flex items-center gap-2 min-w-0">
+              <FileCode class="w-3.5 h-3.5 text-primary flex-shrink-0" />
+              <span class="text-xs font-semibold text-foreground truncate font-mono">
+                {{ activeDiffFile.old_path ? `${activeDiffFile.old_path} → ` : '' }}{{ activeDiffFile.path }}
+              </span>
+              <span
+                v-if="fileDiff?.is_truncated"
+                class="px-1.5 py-0.5 text-[10px] rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 flex-shrink-0"
+              >
+                File besar, ditampilkan sebagian
+              </span>
+            </div>
+
+            <div class="flex items-center gap-1.5 flex-shrink-0">
+              <UiTooltip :text="diffSideBySide ? 'Tampilan side-by-side' : 'Tampilan unified'" side="bottom" class="flex-shrink-0">
+                <button
+                  class="px-2 py-0.5 rounded border text-[10px] font-medium transition-colors cursor-pointer"
+                  :class="diffSideBySide
+                    ? 'bg-primary/20 text-primary border-primary/40'
+                    : 'bg-[#181924] text-muted-foreground border-border/60 hover:text-foreground'"
+                  @click="diffSideBySide = !diffSideBySide"
+                >
+                  {{ diffSideBySide ? 'Side-by-side' : 'Unified' }}
+                </button>
+              </UiTooltip>
+
+              <UiTooltip :text="diffExpanded ? 'Perkecil panel diff' : 'Perbesar panel diff'" side="bottom" class="flex-shrink-0">
+                <button
+                  class="px-2 py-0.5 rounded border border-border/60 bg-[#181924] text-muted-foreground hover:text-foreground text-[10px] font-medium transition-colors cursor-pointer"
+                  @click="diffExpanded = !diffExpanded"
+                >
+                  {{ diffExpanded ? 'Perkecil' : 'Perbesar' }}
+                </button>
+              </UiTooltip>
+
+              <UiTooltip text="Tutup diff" side="bottom" class="flex-shrink-0">
+                <button
+                  class="p-1 rounded border border-border/60 bg-[#181924] text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                  @click="clearFileDiff()"
+                >
+                  <X class="w-3.5 h-3.5" />
+                </button>
+              </UiTooltip>
+            </div>
+          </div>
+
+          <div class="flex-1 min-h-0 relative">
+            <div v-if="isFileDiffLoading" class="absolute inset-0 flex flex-col items-center justify-center gap-2 text-muted-foreground bg-[#0d0e14]">
+              <RotateCcw class="w-5 h-5 animate-spin text-primary" />
+              <span class="text-xs">Memuat diff file...</span>
+            </div>
+
+            <div v-else-if="fileDiffError" class="absolute inset-0 flex flex-col items-center justify-center gap-2 text-muted-foreground bg-[#0d0e14] px-4 text-center">
+              <AlertTriangle class="w-5 h-5 text-amber-400" />
+              <span class="text-xs">Gagal memuat diff: {{ fileDiffError }}</span>
+            </div>
+
+            <div v-else-if="fileDiff?.is_binary" class="absolute inset-0 flex flex-col items-center justify-center gap-2 text-muted-foreground bg-[#0d0e14]">
+              <AlertTriangle class="w-5 h-5 text-amber-400" />
+              <span class="text-xs">File binary tidak dapat ditampilkan sebagai diff teks.</span>
+            </div>
+
+            <MonacoDiffEditor
+              v-else-if="fileDiff"
+              :original-value="fileDiff.original"
+              :modified-value="fileDiff.modified"
+              :filename="activeDiffFile.path"
+              :render-side-by-side="diffSideBySide"
+              readonly
+            />
           </div>
         </div>
       </div>

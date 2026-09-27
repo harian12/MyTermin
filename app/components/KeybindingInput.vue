@@ -51,35 +51,43 @@ const onKeydown = (e: KeyboardEvent) => {
 
 <template>
   <div class="flex w-full items-center gap-1.5">
-    <div
-      ref="rootEl"
-      tabindex="0"
-      role="button"
-      :title="isRecording ? 'Tekan kombinasi tombol, Esc untuk batal' : 'Klik untuk rekam shortcut'"
-      :class="[
-        'flex h-7 min-w-0 flex-1 items-center justify-between gap-1 rounded border px-2 font-mono text-[11px] transition-colors outline-none focus:ring-1 focus:ring-ring',
-        isRecording
-          ? 'border-primary bg-primary/10 text-foreground'
-          : conflict
-          ? 'border-amber-500/60 bg-amber-500/5 text-foreground'
-          : 'border-border/70 bg-background text-primary'
-      ]"
-      @click="startRecording"
-      @keydown="onKeydown"
-      @blur="cancelRecording"
+    <UiTooltip
+      :text="isRecording ? 'Tekan kombinasi tombol, Esc untuk batal' : 'Klik untuk rekam shortcut'"
+      class="flex-1 min-w-0"
     >
-      <span v-if="isRecording" class="animate-pulse text-foreground">Tekan tombol…</span>
-      <span v-else class="truncate">{{ display }}</span>
-      <Pencil v-if="!isRecording && props.modelValue" class="h-3 w-3 shrink-0 opacity-40" />
-    </div>
+      <div
+        ref="rootEl"
+        tabindex="0"
+        role="button"
+        :class="[
+          'flex h-7 w-full items-center justify-between gap-1 rounded border px-2 font-mono text-[11px] transition-colors outline-none focus:ring-1 focus:ring-ring',
+          isRecording
+            ? 'border-primary bg-primary/10 text-foreground'
+            : conflict
+            ? 'border-amber-500/60 bg-amber-500/5 text-foreground'
+            : 'border-border/70 bg-background text-primary'
+        ]"
+        @click="startRecording"
+        @keydown="onKeydown"
+        @blur="cancelRecording"
+      >
+        <span v-if="isRecording" class="animate-pulse text-foreground">Tekan tombol…</span>
+        <span v-else class="truncate">{{ display }}</span>
+        <Pencil v-if="!isRecording && props.modelValue" class="h-3 w-3 shrink-0 opacity-40" />
+      </div>
+    </UiTooltip>
 
-    <button
-      type="button"
-      class="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-      :title="props.modelValue ? 'Hapus shortcut' : 'Belum ada shortcut'"
-      @click="clear"
+    <UiTooltip
+      :text="props.modelValue ? 'Hapus shortcut' : 'Belum ada shortcut'"
+      class="shrink-0"
     >
-      <X class="h-3 w-3" />
-    </button>
+      <button
+        type="button"
+        class="rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        @click="clear"
+      >
+        <X class="h-3 w-3" />
+      </button>
+    </UiTooltip>
   </div>
 </template>

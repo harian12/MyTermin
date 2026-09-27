@@ -151,17 +151,17 @@ const handleContextMenu = (e: MouseEvent) => {
 <template>
   <div class="select-none text-xs">
     <!-- Row Item -->
-    <div
-      :class="[
-        'flex items-center gap-1.5 py-1 px-1.5 rounded-sm hover:bg-[#1e1f2b] cursor-pointer group transition-colors relative',
-        entry.is_dir ? 'text-foreground font-medium' : 'text-muted-foreground hover:text-foreground',
-        getGitStatusColor(currentGitStatus)
-      ]"
-      :style="{ paddingLeft: `${depth * 14 + 6}px` }"
-      :title="entry.path"
-      @click="toggleExpand"
-      @contextmenu="handleContextMenu"
-    >
+    <UiTooltip :text="entry.path" side="right" class="contents">
+      <div
+        :class="[
+          'flex items-center gap-1.5 py-1 px-1.5 rounded-sm hover:bg-[#1e1f2b] cursor-pointer group transition-colors relative',
+          entry.is_dir ? 'text-foreground font-medium' : 'text-muted-foreground hover:text-foreground',
+          getGitStatusColor(currentGitStatus)
+        ]"
+        :style="{ paddingLeft: `${depth * 14 + 6}px` }"
+        @click="toggleExpand"
+        @contextmenu="handleContextMenu"
+      >
       <!-- Folder Arrow -->
       <span v-if="entry.is_dir" class="w-3.5 h-3.5 flex items-center justify-center flex-shrink-0 text-muted-foreground">
         <ChevronDown v-if="isExpanded" class="w-3 h-3" />
@@ -187,11 +187,16 @@ const handleContextMenu = (e: MouseEvent) => {
       </span>
 
       <!-- Folder Modified Dot Indicator -->
-      <span
+      <UiTooltip
         v-if="entry.is_dir && folderHasGitChanges && !isExpanded"
-        class="w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0"
-        title="Folder memiliki file yang diubah"
-      />
+        text="Folder memiliki file yang diubah"
+        side="right"
+        class="contents"
+      >
+        <span
+          class="w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0"
+        />
+      </UiTooltip>
 
       <!-- Git Status Badge -->
       <span
@@ -207,15 +212,21 @@ const handleContextMenu = (e: MouseEvent) => {
       </span>
 
       <!-- Quick Action: Buka Terminal di Folder ini (Hover) -->
-      <button
+      <UiTooltip
         v-if="entry.is_dir"
-        class="hidden group-hover:flex items-center justify-center p-0.5 hover:bg-primary/20 text-muted-foreground hover:text-primary rounded ml-1 transition-colors"
-        title="Buka Terminal di Direktori Ini"
-        @click.stop="emit('open-terminal-here', entry.path)"
+        text="Buka Terminal di Direktori Ini"
+        side="right"
+        class="contents"
       >
-        <Terminal class="w-3 h-3" />
-      </button>
+        <button
+          class="hidden group-hover:flex items-center justify-center p-0.5 hover:bg-primary/20 text-muted-foreground hover:text-primary rounded ml-1 transition-colors"
+          @click.stop="emit('open-terminal-here', entry.path)"
+        >
+          <Terminal class="w-3 h-3" />
+        </button>
+      </UiTooltip>
     </div>
+    </UiTooltip>
 
     <!-- Children Nodes -->
     <div v-if="entry.is_dir && isExpanded">

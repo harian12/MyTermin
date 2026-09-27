@@ -132,13 +132,14 @@ const handleKillProcess = async (port: number, pid: number, procName: string) =>
             </div>
 
             <!-- Refresh Button -->
-            <button
-              class="p-1.5 rounded-lg border border-border/80 hover:bg-[#1f202e] text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-              title="Refresh Port Aktif"
-              @click="fetchPorts"
-            >
-              <RotateCcw :class="['w-4 h-4', isLoading ? 'animate-spin text-primary' : '']" />
-            </button>
+            <UiTooltip text="Refresh Port Aktif" side="bottom" class="flex-shrink-0">
+              <button
+                class="p-1.5 rounded-lg border border-border/80 hover:bg-[#1f202e] text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                @click="fetchPorts"
+              >
+                <RotateCcw :class="['w-4 h-4', isLoading ? 'animate-spin text-primary' : '']" />
+              </button>
+            </UiTooltip>
 
             <!-- Close Button -->
             <button
@@ -178,13 +179,14 @@ const handleKillProcess = async (port: number, pid: number, procName: string) =>
               <div class="w-24 flex items-center gap-1.5">
                 <span class="font-bold text-sm text-emerald-400 font-mono">{{ item.port }}</span>
                 <!-- Quick Browser Link Button -->
-                <button
-                  class="p-1 rounded hover:bg-white/10 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                  title="Buka http://localhost:${item.port} di browser"
-                  @click="openPortUrl(item.port)"
-                >
-                  <ExternalLink class="w-3 h-3 text-muted-foreground hover:text-primary" />
-                </button>
+                <UiTooltip :text="`Buka http://localhost:${item.port} di browser`" side="left" class="flex-shrink-0">
+                  <button
+                    class="p-1 rounded hover:bg-white/10 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                    @click="openPortUrl(item.port)"
+                  >
+                    <ExternalLink class="w-3 h-3 text-muted-foreground hover:text-primary" />
+                  </button>
+                </UiTooltip>
               </div>
 
               <!-- Protocol -->
@@ -195,9 +197,11 @@ const handleKillProcess = async (port: number, pid: number, procName: string) =>
               <!-- Process Name -->
               <div class="flex-1 min-w-[150px] px-2 flex items-center gap-2 truncate">
                 <Cpu class="w-3.5 h-3.5 text-primary/80 flex-shrink-0" />
-                <span class="font-sans font-medium text-foreground truncate" :title="item.process_name">
-                  {{ item.process_name }}
-                </span>
+                <UiTooltip :text="item.process_name" side="bottom" class="truncate min-w-0">
+                  <span class="font-sans font-medium text-foreground truncate block">
+                    {{ item.process_name }}
+                  </span>
+                </UiTooltip>
               </div>
 
               <!-- PID -->
@@ -206,22 +210,27 @@ const handleKillProcess = async (port: number, pid: number, procName: string) =>
               </div>
 
               <!-- Local Address -->
-              <div class="w-32 px-2 hidden sm:block text-muted-foreground/60 text-[11px] truncate" :title="item.local_address">
-                {{ item.local_address }}
+              <div class="w-32 px-2 hidden sm:block text-muted-foreground/60 text-[11px] truncate">
+                <UiTooltip :text="item.local_address" side="bottom" class="truncate w-full">
+                  <span class="truncate block w-full">
+                    {{ item.local_address }}
+                  </span>
+                </UiTooltip>
               </div>
 
               <!-- Actions: Kill Process -->
               <div class="w-28 text-right flex items-center justify-end gap-1.5">
-                <button
-                  :disabled="killingPid === item.pid"
-                  class="px-2.5 py-1 rounded-md bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 hover:text-rose-200 border border-rose-500/30 text-[10px] font-medium flex items-center gap-1 transition-all cursor-pointer disabled:opacity-40"
-                  title="Hentikan proses beserta seluruh process tree-nya (Kill PID /T)"
-                  @click="handleKillProcess(item.port, item.pid, item.process_name)"
-                >
-                  <RotateCcw v-if="killingPid === item.pid" class="w-3 h-3 animate-spin" />
-                  <Trash2 v-else class="w-3 h-3" />
-                  <span>Kill Tree</span>
-                </button>
+                <UiTooltip text="Hentikan proses beserta seluruh process tree-nya (Kill PID /T)" side="left" class="flex-shrink-0">
+                  <button
+                    :disabled="killingPid === item.pid"
+                    class="px-2.5 py-1 rounded-md bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 hover:text-rose-200 border border-rose-500/30 text-[10px] font-medium flex items-center gap-1 transition-all cursor-pointer disabled:opacity-40"
+                    @click="handleKillProcess(item.port, item.pid, item.process_name)"
+                  >
+                    <RotateCcw v-if="killingPid === item.pid" class="w-3 h-3 animate-spin" />
+                    <Trash2 v-else class="w-3 h-3" />
+                    <span>Kill Tree</span>
+                  </button>
+                </UiTooltip>
               </div>
             </div>
           </div>

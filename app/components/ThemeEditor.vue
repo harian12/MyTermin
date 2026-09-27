@@ -103,16 +103,17 @@ const contrastInfo = computed(() => {
         placeholder="Nama tema"
         @update:model-value="patchName($event as string)"
       />
-      <UiButton
-        variant="ghost"
-        size="sm"
-        class="h-8 shrink-0 gap-1 px-2 text-[11px] text-muted-foreground hover:text-foreground"
-        title="Kembalikan ke Tokyo Night"
-        @click="resetToTokyoNight"
-      >
-        <RotateCcw class="h-3 w-3" />
-        <span>Reset</span>
-      </UiButton>
+      <UiTooltip text="Kembalikan ke Tokyo Night" side="bottom" class="shrink-0">
+        <UiButton
+          variant="ghost"
+          size="sm"
+          class="h-8 shrink-0 gap-1 px-2 text-[11px] text-muted-foreground hover:text-foreground"
+          @click="resetToTokyoNight"
+        >
+          <RotateCcw class="h-3 w-3" />
+          <span>Reset</span>
+        </UiButton>
+      </UiTooltip>
     </div>
 
     <!-- Preview -->

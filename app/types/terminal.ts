@@ -283,6 +283,15 @@ export interface GitCommitDiffFile {
   deletions: number
 }
 
+export interface GitFileDiffContent {
+  path: string
+  old_path?: string
+  original: string
+  modified: string
+  is_binary: boolean
+  is_truncated: boolean
+}
+
 export interface GitCommitDetail {
   hash: string
   short_hash: string

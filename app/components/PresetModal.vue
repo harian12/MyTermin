@@ -342,14 +342,15 @@ const handleDelete = async (e: MouseEvent, presetId: string) => {
               </span>
 
               <div class="flex items-center gap-2">
-                <button
-                  class="text-[11px] text-primary hover:underline flex items-center gap-1 font-medium"
-                  title="Muat ulang dari Workstation yang sedang aktif di aplikasi"
-                  @click="loadActiveWorkstationsIntoCards"
-                >
-                  <RotateCcw class="w-3 h-3" />
-                  <span>Muat Sesi Aktif</span>
-                </button>
+                <UiTooltip text="Muat ulang dari Workstation yang sedang aktif di aplikasi" side="bottom" class="flex-shrink-0">
+                  <button
+                    class="text-[11px] text-primary hover:underline flex items-center gap-1 font-medium"
+                    @click="loadActiveWorkstationsIntoCards"
+                  >
+                    <RotateCcw class="w-3 h-3" />
+                    <span>Muat Sesi Aktif</span>
+                  </button>
+                </UiTooltip>
                 <span class="text-border">|</span>
                 <button class="text-xs text-muted-foreground hover:text-foreground" @click="showCreateForm = false">Batal</button>
               </div>
@@ -429,13 +430,14 @@ const handleDelete = async (e: MouseEvent, presetId: string) => {
                       </select>
 
                       <!-- Delete Workstation Card -->
-                      <button
-                        class="p-1 rounded hover:bg-destructive/20 text-muted-foreground hover:text-destructive"
-                        title="Hapus Workstation Card Ini"
-                        @click="removeWorkstationCard(wIdx)"
-                      >
-                        <Trash2 class="w-3.5 h-3.5" />
-                      </button>
+                      <UiTooltip text="Hapus Workstation Card Ini" side="bottom" class="flex-shrink-0">
+                        <button
+                          class="p-1 rounded hover:bg-destructive/20 text-muted-foreground hover:text-destructive"
+                          @click="removeWorkstationCard(wIdx)"
+                        >
+                          <Trash2 class="w-3.5 h-3.5" />
+                        </button>
+                      </UiTooltip>
                     </div>
                   </div>
 
@@ -448,13 +450,14 @@ const handleDelete = async (e: MouseEvent, presetId: string) => {
                       placeholder="Direktori project (contoh: D:\Projects\Frontend)..."
                       class="flex-1 bg-[#161722] border border-border/60 rounded-lg px-2.5 py-1 text-xs text-foreground font-mono outline-none focus:border-primary"
                     />
-                    <button
-                      class="p-1.5 rounded-lg bg-secondary hover:bg-secondary/80 text-foreground text-xs flex-shrink-0"
-                      title="Pilih Folder"
-                      @click="handlePickFolderForCard(card)"
-                    >
-                      <FolderOpen class="w-3.5 h-3.5" />
-                    </button>
+                    <UiTooltip text="Pilih Folder" side="bottom" class="flex-shrink-0">
+                      <button
+                        class="p-1.5 rounded-lg bg-secondary hover:bg-secondary/80 text-foreground text-xs flex-shrink-0"
+                        @click="handlePickFolderForCard(card)"
+                      >
+                        <FolderOpen class="w-3.5 h-3.5" />
+                      </button>
+                    </UiTooltip>
                   </div>
 
                   <!-- Terminals List inside Card -->
@@ -489,13 +492,14 @@ const handleDelete = async (e: MouseEvent, presetId: string) => {
                           placeholder="Perintah awal (misal: npm run dev, cargo watch, python app.py)..."
                           class="flex-1 bg-[#0d0e14] border border-border/60 rounded px-2 py-0.5 text-[11px] text-foreground font-mono outline-none"
                         />
-                        <button
-                          class="p-1 rounded hover:bg-destructive/20 text-muted-foreground hover:text-destructive flex-shrink-0"
-                          title="Hapus Terminal"
-                          @click="removeTerminalFromCard(card, tIdx)"
-                        >
-                          <Trash2 class="w-3 h-3" />
-                        </button>
+                        <UiTooltip text="Hapus Terminal" side="right" class="flex-shrink-0">
+                          <button
+                            class="p-1 rounded hover:bg-destructive/20 text-muted-foreground hover:text-destructive flex-shrink-0"
+                            @click="removeTerminalFromCard(card, tIdx)"
+                          >
+                            <Trash2 class="w-3 h-3" />
+                          </button>
+                        </UiTooltip>
                       </div>
 
                       <div v-if="card.terminals.length === 0" class="text-[10px] text-muted-foreground/60 italic p-1">
@@ -612,13 +616,14 @@ const handleDelete = async (e: MouseEvent, presetId: string) => {
                         <option value="grid-2x2">Grid 2x2</option>
                       </select>
 
-                      <button
-                        class="p-1 rounded hover:bg-destructive/20 text-muted-foreground hover:text-destructive"
-                        title="Hapus Card"
-                        @click="editForm.workstations.splice(wIdx, 1)"
-                      >
-                        <Trash2 class="w-3.5 h-3.5" />
-                      </button>
+                      <UiTooltip text="Hapus Card" side="bottom" class="flex-shrink-0">
+                        <button
+                          class="p-1 rounded hover:bg-destructive/20 text-muted-foreground hover:text-destructive"
+                          @click="editForm.workstations.splice(wIdx, 1)"
+                        >
+                          <Trash2 class="w-3.5 h-3.5" />
+                        </button>
+                      </UiTooltip>
                     </div>
                   </div>
 
@@ -631,13 +636,14 @@ const handleDelete = async (e: MouseEvent, presetId: string) => {
                       placeholder="Direktori project..."
                       class="flex-1 bg-[#161722] border border-border/60 rounded-lg px-2.5 py-1 text-xs text-foreground font-mono outline-none focus:border-amber-400"
                     />
-                    <button
-                      class="p-1.5 rounded-lg bg-secondary hover:bg-secondary/80 text-foreground text-xs flex-shrink-0"
-                      title="Pilih Folder"
-                      @click="handlePickFolderForCard(card)"
-                    >
-                      <FolderOpen class="w-3.5 h-3.5" />
-                    </button>
+                    <UiTooltip text="Pilih Folder" side="bottom" class="flex-shrink-0">
+                      <button
+                        class="p-1.5 rounded-lg bg-secondary hover:bg-secondary/80 text-foreground text-xs flex-shrink-0"
+                        @click="handlePickFolderForCard(card)"
+                      >
+                        <FolderOpen class="w-3.5 h-3.5" />
+                      </button>
+                    </UiTooltip>
                   </div>
 
                   <!-- Terminals List -->
@@ -672,13 +678,14 @@ const handleDelete = async (e: MouseEvent, presetId: string) => {
                           placeholder="Perintah awal..."
                           class="flex-1 bg-[#0d0e14] border border-border/60 rounded px-2 py-0.5 text-[11px] text-foreground font-mono outline-none"
                         />
-                        <button
-                          class="p-1 rounded hover:bg-destructive/20 text-muted-foreground hover:text-destructive flex-shrink-0"
-                          title="Hapus Terminal"
-                          @click="removeTerminalFromCard(card, tIdx)"
-                        >
-                          <Trash2 class="w-3 h-3" />
-                        </button>
+                        <UiTooltip text="Hapus Terminal" side="right" class="flex-shrink-0">
+                          <button
+                            class="p-1 rounded hover:bg-destructive/20 text-muted-foreground hover:text-destructive flex-shrink-0"
+                            @click="removeTerminalFromCard(card, tIdx)"
+                          >
+                            <Trash2 class="w-3 h-3" />
+                          </button>
+                        </UiTooltip>
                       </div>
                     </div>
                   </div>
@@ -753,20 +760,22 @@ const handleDelete = async (e: MouseEvent, presetId: string) => {
 
                   <!-- Edit / Delete for custom presets -->
                   <div v-if="preset.isCustom" class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
-                      class="p-1 rounded hover:bg-white/10 text-muted-foreground hover:text-foreground"
-                      title="Edit Preset"
-                      @click="handleStartEdit($event, preset)"
-                    >
-                      <Pencil class="w-3 h-3" />
-                    </button>
-                    <button
-                      class="p-1 rounded hover:bg-destructive/20 text-muted-foreground hover:text-destructive"
-                      title="Hapus Preset"
-                      @click="handleDelete($event, preset.id)"
-                    >
-                      <Trash2 class="w-3 h-3" />
-                    </button>
+                    <UiTooltip text="Edit Preset" side="bottom" class="flex-shrink-0">
+                      <button
+                        class="p-1 rounded hover:bg-white/10 text-muted-foreground hover:text-foreground"
+                        @click="handleStartEdit($event, preset)"
+                      >
+                        <Pencil class="w-3 h-3" />
+                      </button>
+                    </UiTooltip>
+                    <UiTooltip text="Hapus Preset" side="bottom" class="flex-shrink-0">
+                      <button
+                        class="p-1 rounded hover:bg-destructive/20 text-muted-foreground hover:text-destructive"
+                        @click="handleDelete($event, preset.id)"
+                      >
+                        <Trash2 class="w-3 h-3" />
+                      </button>
+                    </UiTooltip>
                   </div>
                 </div>
 
@@ -792,14 +801,17 @@ const handleDelete = async (e: MouseEvent, presetId: string) => {
                     {{ preset.layout }}
                   </span>
 
-                  <span
+                  <UiTooltip
                     v-if="preset.folderPath && (!preset.workstations || preset.workstations.length === 0)"
-                    class="px-2 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/20 flex items-center gap-1 truncate max-w-[170px]"
-                    :title="preset.folderPath"
+                    :text="preset.folderPath"
+                    side="bottom"
+                    class="contents"
                   >
-                    <FolderOpen class="w-3 h-3 flex-shrink-0" />
-                    <span class="truncate">{{ preset.folderPath.split(/[\\/]/).pop() }}</span>
-                  </span>
+                    <span class="px-2 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/20 flex items-center gap-1 truncate max-w-[170px]">
+                      <FolderOpen class="w-3 h-3 flex-shrink-0" />
+                      <span class="truncate">{{ preset.folderPath.split(/[\\/]/).pop() }}</span>
+                    </span>
+                  </UiTooltip>
                 </div>
 
                 <!-- Workstation Chips Preview (Compact & Clean) -->
@@ -825,23 +837,29 @@ const handleDelete = async (e: MouseEvent, presetId: string) => {
 
               <!-- Card Action Buttons -->
               <div class="flex items-center gap-2 pt-3.5 mt-2 border-t border-border/30">
-                <button
-                  class="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-semibold transition-colors shadow-sm"
-                  :title="preset.workstations && preset.workstations.length > 1 ? 'Buka semua workstation sebagai tab baru' : 'Buka sebagai tab workstation baru'"
-                  @click="handleSelectPreset(preset, true)"
+                <UiTooltip
+                  :text="preset.workstations && preset.workstations.length > 1 ? 'Buka semua workstation sebagai tab baru' : 'Buka sebagai tab workstation baru'"
+                  side="bottom"
+                  class="contents"
                 >
-                  <FolderPlus class="w-3.5 h-3.5" />
-                  <span>{{ preset.workstations && preset.workstations.length > 1 ? `Buka (${preset.workstations.length} Workstation)` : 'Buka di Workstation Baru' }}</span>
-                </button>
+                  <button
+                    class="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-semibold transition-colors shadow-sm"
+                    @click="handleSelectPreset(preset, true)"
+                  >
+                    <FolderPlus class="w-3.5 h-3.5" />
+                    <span>{{ preset.workstations && preset.workstations.length > 1 ? `Buka (${preset.workstations.length} Workstation)` : 'Buka di Workstation Baru' }}</span>
+                  </button>
+                </UiTooltip>
 
-                <button
-                  class="flex items-center justify-center gap-1 py-1.5 px-2.5 rounded-lg bg-secondary hover:bg-secondary/80 text-foreground text-xs font-medium transition-colors"
-                  title="Terapkan ke workspace saat ini"
-                  @click="handleSelectPreset(preset, false)"
-                >
-                  <Check class="w-3.5 h-3.5 text-muted-foreground" />
-                  <span class="hidden sm:inline">Terapkan</span>
-                </button>
+                <UiTooltip text="Terapkan ke workspace saat ini" side="bottom" class="contents">
+                  <button
+                    class="flex items-center justify-center gap-1 py-1.5 px-2.5 rounded-lg bg-secondary hover:bg-secondary/80 text-foreground text-xs font-medium transition-colors"
+                    @click="handleSelectPreset(preset, false)"
+                  >
+                    <Check class="w-3.5 h-3.5 text-muted-foreground" />
+                    <span class="hidden sm:inline">Terapkan</span>
+                  </button>
+                </UiTooltip>
               </div>
             </div>
           </div>

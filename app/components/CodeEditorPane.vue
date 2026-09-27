@@ -63,6 +63,33 @@ const { gitBranch, revealInExplorer } = useProjectExplorer()
 const isCopied = ref(false)
 const isFormatting = ref(false)
 const renderDiffSideBySide = ref(true)
+const tabStripRef = ref<HTMLElement | null>(null)
+
+// Strip tab hanya bisa digeser horizontal, tapi wheel mouse mengirim deltaY.
+// Tanpa ini wheel vertikal tidak melakukan apa-apa saat kursor di atas tab bar.
+const onTabStripWheel = (e: WheelEvent) => {
+  const strip = tabStripRef.value
+  if (!strip) return
+  if (strip.scrollWidth <= strip.clientWidth) return
+  if (e.deltaY === 0) return
+  e.preventDefault()
+  strip.scrollLeft += e.deltaY
+}
+
+// Tab aktif harus tetap terlihat saat strip tab digeser (bisa banyak tab).
+// scrollIntoView dengan inline:'nearest' hanya menggeser seperlunya.
+watch(activeFileId, async () => {
+  await nextTick()
+  const strip = tabStripRef.value
+  if (!strip) return
+  const active = strip.querySelector<HTMLElement>('[data-editor-tab-active="true"]')
+  if (!active) return
+  const stripRect = strip.getBoundingClientRect()
+  const tabRect = active.getBoundingClientRect()
+  if (tabRect.left < stripRect.left || tabRect.right > stripRect.right) {
+    active.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' })
+  }
+})
 const monacoRef = ref<InstanceType<typeof MonacoEditor> | null>(null)
 const secondaryMonacoRef = ref<InstanceType<typeof MonacoEditor> | null>(null)
 
@@ -226,39 +253,52 @@ const toggleFullscreenEditor = () => {
     @focusin="lastFocusedPane = 'editor'"
   >
     <!-- Top Tabs Bar for Open Files -->
-    <div class="flex items-center justify-between h-9 bg-[#0d0e14] border-b border-border px-1 overflow-x-auto no-scrollbar">
-      <div class="flex items-center gap-1 overflow-x-auto no-scrollbar flex-1 min-w-0">
-        <div
+    <div class="flex items-center justify-between h-9 bg-[#0d0e14] border-b border-border px-1">
+      <div
+        ref="tabStripRef"
+        class="flex items-center gap-1 overflow-x-auto no-scrollbar flex-1 min-w-0"
+        @wheel="onTabStripWheel"
+      >
+        <UiTooltip
           v-for="file in openFiles"
           :key="file.id"
-          :class="[
-            'group flex items-center gap-1.5 px-3 py-1 text-xs rounded-t font-mono cursor-pointer border-t-2 transition-all select-none',
-            activeFileId === file.id
-              ? 'bg-[#181924] text-foreground border-primary font-medium shadow-sm'
-              : 'text-muted-foreground hover:bg-[#14151f] hover:text-foreground border-transparent'
-          ]"
-          :title="file.path"
-          @click="activeFileId = file.id"
-          @contextmenu="handleTabContextMenu($event, file)"
+          :text="file.path"
+          side="bottom"
+          class="contents"
         >
-          <component
-            :is="getFileIcon(file.name).icon"
-            :class="['w-3.5 h-3.5 flex-shrink-0', getFileIcon(file.name).color]"
-          />
-          <span class="truncate max-w-[140px]">{{ file.name }}</span>
-
-          <!-- Dirty State Dot -->
-          <span v-if="file.isDirty" class="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0 animate-pulse" title="Ada perubahan belum disimpan" />
-
-          <!-- Close File Tab -->
-          <button
-            class="p-0.5 rounded hover:bg-white/10 text-muted-foreground hover:text-foreground transition-colors ml-0.5"
-            title="Tutup File"
-            @click.stop="closeFile(file.id)"
+          <div
+            :data-editor-tab-active="activeFileId === file.id ? 'true' : undefined"
+            :class="[
+              'group flex shrink-0 items-center gap-1.5 px-3 py-1 text-xs rounded-t font-mono cursor-pointer border-t-2 transition-all select-none',
+              activeFileId === file.id
+                ? 'bg-[#181924] text-foreground border-primary font-medium shadow-sm'
+                : 'text-muted-foreground hover:bg-[#14151f] hover:text-foreground border-transparent'
+            ]"
+            @click="activeFileId = file.id"
+            @contextmenu="handleTabContextMenu($event, file)"
           >
-            <X class="w-3 h-3" />
-          </button>
-        </div>
+            <component
+              :is="getFileIcon(file.name).icon"
+              :class="['w-3.5 h-3.5 flex-shrink-0', getFileIcon(file.name).color]"
+            />
+            <span class="truncate max-w-[140px]">{{ file.name }}</span>
+
+            <!-- Dirty State Dot -->
+            <UiTooltip v-if="file.isDirty" text="Ada perubahan belum disimpan" side="bottom" class="contents">
+              <span class="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0 animate-pulse" />
+            </UiTooltip>
+
+            <!-- Close File Tab -->
+            <UiTooltip text="Tutup File" side="bottom" class="flex-shrink-0">
+              <button
+                class="p-0.5 rounded hover:bg-white/10 text-muted-foreground hover:text-foreground transition-colors ml-0.5"
+                @click.stop="closeFile(file.id)"
+              >
+                <X class="w-3 h-3" />
+              </button>
+            </UiTooltip>
+          </div>
+        </UiTooltip>
 
         <div v-if="openFiles.length === 0" class="text-[11px] text-muted-foreground/60 px-2 italic font-mono">
           No open files
@@ -268,108 +308,153 @@ const toggleFullscreenEditor = () => {
       <!-- Editor Actions Right -->
       <div v-if="activeFile" class="flex items-center gap-1 pl-2 flex-shrink-0">
         <!-- Diff Toggle (Side-by-Side vs Inline) -->
-        <button
+        <UiTooltip
           v-if="activeFile.isDiff"
-          :class="[
-            'flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium transition-colors',
-            renderDiffSideBySide ? 'bg-primary/20 text-primary' : 'bg-secondary text-foreground'
-          ]"
-          :title="renderDiffSideBySide ? 'Beralih ke Tampilan Diff Inline' : 'Beralih ke Tampilan Diff Berdampingan (Side-by-Side)'"
-          @click="renderDiffSideBySide = !renderDiffSideBySide"
+          :text="renderDiffSideBySide ? 'Beralih ke Tampilan Diff Inline' : 'Beralih ke Tampilan Diff Berdampingan (Side-by-Side)'"
+          side="bottom"
+          class="flex-shrink-0"
         >
-          <GitCompare class="w-3 h-3 text-emerald-400" />
-          <span>{{ renderDiffSideBySide ? 'Side-by-Side' : 'Inline' }}</span>
-        </button>
+          <button
+            :class="[
+              'flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium transition-colors',
+              renderDiffSideBySide ? 'bg-primary/20 text-primary' : 'bg-secondary text-foreground'
+            ]"
+            @click="renderDiffSideBySide = !renderDiffSideBySide"
+          >
+            <GitCompare class="w-3 h-3 text-emerald-400" />
+            <span>{{ renderDiffSideBySide ? 'Side-by-Side' : 'Inline' }}</span>
+          </button>
+        </UiTooltip>
 
         <!-- Toggle Word Wrap Button (Alt+Z) -->
-        <button
+        <UiTooltip
           v-if="!activeFile.isDiff"
-          :class="[
-            'p-1 rounded transition-colors',
-            isWordWrap ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:bg-accent hover:text-foreground'
-          ]"
-          :title="`Word Wrap (${isWordWrap ? 'Aktif' : 'Nonaktif'}) - Alt+Z`"
-          @click="isWordWrap = !isWordWrap"
+          :text="`Word Wrap (${isWordWrap ? 'Aktif' : 'Nonaktif'}) - Alt+Z`"
+          side="bottom"
+          class="flex-shrink-0"
         >
-          <WrapText class="w-3.5 h-3.5" />
-        </button>
+          <button
+            :class="[
+              'p-1 rounded transition-colors',
+              isWordWrap ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+            ]"
+            @click="isWordWrap = !isWordWrap"
+          >
+            <WrapText class="w-3.5 h-3.5" />
+          </button>
+        </UiTooltip>
 
         <!-- Toggle Auto Save Button -->
-        <button
-          :class="[
-            'px-1.5 py-0.5 rounded text-[10px] font-mono transition-colors',
-            isAutoSave ? 'bg-primary text-primary-foreground font-semibold' : 'text-muted-foreground hover:bg-accent hover:text-foreground'
-          ]"
-          :title="`Auto-Save (${isAutoSave ? 'Aktif' : 'Nonaktif'})`"
-          @click="isAutoSave = !isAutoSave"
+        <UiTooltip
+          :text="`Auto-Save (${isAutoSave ? 'Aktif' : 'Nonaktif'})`"
+          side="bottom"
+          class="flex-shrink-0"
         >
-          AutoSave
-        </button>
+          <button
+            :class="[
+              'px-1.5 py-0.5 rounded text-[10px] font-mono transition-colors',
+              isAutoSave ? 'bg-primary text-primary-foreground font-semibold' : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+            ]"
+            @click="isAutoSave = !isAutoSave"
+          >
+            AutoSave
+          </button>
+        </UiTooltip>
 
         <!-- Split Editor Side-by-Side (2 Files) Button -->
-        <button
-          :class="[
-            'p-1 rounded transition-colors',
-            isEditorPaneSplit ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent hover:text-foreground'
-          ]"
-          title="Split Editor Kiri/Kanan (2 File Berdampingan)"
-          @click="toggleEditorPaneSplit"
+        <UiTooltip
+          text="Split Editor Kiri/Kanan (2 File Berdampingan)"
+          side="bottom"
+          class="flex-shrink-0"
         >
-          <Columns2 class="w-3.5 h-3.5" />
-        </button>
+          <button
+            :class="[
+              'p-1 rounded transition-colors',
+              isEditorPaneSplit ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+            ]"
+            @click="toggleEditorPaneSplit"
+          >
+            <Columns2 class="w-3.5 h-3.5" />
+          </button>
+        </UiTooltip>
 
         <!-- Prettier Format Button -->
-        <button
-          class="flex items-center gap-1 px-2 py-0.5 rounded bg-secondary/80 hover:bg-secondary text-foreground text-xs transition-colors font-medium"
-          title="Format Dokumen (Prettier / Shift+Alt+F)"
-          :disabled="isFormatting"
-          @click="handleFormat"
+        <UiTooltip
+          text="Format Dokumen (Prettier / Shift+Alt+F)"
+          side="bottom"
+          class="flex-shrink-0"
         >
-          <Sparkles class="w-3 h-3 text-amber-400" />
-          <span class="hidden sm:inline text-[11px]">Format</span>
-        </button>
+          <button
+            class="flex items-center gap-1 px-2 py-0.5 rounded bg-secondary/80 hover:bg-secondary text-foreground text-xs transition-colors font-medium"
+            :disabled="isFormatting"
+            @click="handleFormat"
+          >
+            <Sparkles class="w-3 h-3 text-amber-400" />
+            <span class="hidden sm:inline text-[11px]">Format</span>
+          </button>
+        </UiTooltip>
 
         <!-- Save Button -->
-        <button
+        <UiTooltip
           v-if="activeFile.isDirty && !isAutoSave"
-          class="flex items-center gap-1 px-2 py-0.5 rounded bg-primary text-primary-foreground text-xs hover:bg-primary/90 transition-all font-medium"
-          title="Simpan File (Ctrl+S)"
-          @click="saveFile()"
+          text="Simpan File (Ctrl+S)"
+          side="bottom"
+          class="flex-shrink-0"
         >
-          <Save class="w-3 h-3" />
-          <span>Save</span>
-        </button>
+          <button
+            class="flex items-center gap-1 px-2 py-0.5 rounded bg-primary text-primary-foreground text-xs hover:bg-primary/90 transition-all font-medium"
+            @click="saveFile()"
+          >
+            <Save class="w-3 h-3" />
+            <span>Save</span>
+          </button>
+        </UiTooltip>
 
-        <button
-          class="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
-          title="Salin Isi File"
-          @click="copyAllCode"
+        <UiTooltip
+          text="Salin Isi File"
+          side="bottom"
+          class="flex-shrink-0"
         >
-          <Check v-if="isCopied" class="w-3.5 h-3.5 text-emerald-400" />
-          <Copy v-else class="w-3.5 h-3.5" />
-        </button>
+          <button
+            class="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+            @click="copyAllCode"
+          >
+            <Check v-if="isCopied" class="w-3.5 h-3.5 text-emerald-400" />
+            <Copy v-else class="w-3.5 h-3.5" />
+          </button>
+        </UiTooltip>
 
         <!-- Maximize / Restore Editor Button -->
-        <button
-          class="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
-          :title="viewportMode === 'editor-full' ? 'Kembalikan Tampilan Split' : 'Fullscreen Editor'"
-          @click="toggleFullscreenEditor"
+        <UiTooltip
+          :text="viewportMode === 'editor-full' ? 'Kembalikan Tampilan Split' : 'Fullscreen Editor'"
+          side="bottom"
+          class="flex-shrink-0"
         >
-          <Minimize2 v-if="viewportMode === 'editor-full'" class="w-3.5 h-3.5" />
-          <Maximize2 v-else class="w-3.5 h-3.5" />
-        </button>
+          <button
+            class="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+            @click="toggleFullscreenEditor"
+          >
+            <Minimize2 v-if="viewportMode === 'editor-full'" class="w-3.5 h-3.5" />
+            <Maximize2 v-else class="w-3.5 h-3.5" />
+          </button>
+        </UiTooltip>
       </div>
 
       <!-- Maximize / Restore Editor Button when no active file -->
       <div v-else class="flex items-center gap-1 pl-2 flex-shrink-0">
-        <button
-          class="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
-          :title="viewportMode === 'editor-full' ? 'Kembalikan Tampilan Split' : 'Fullscreen Editor'"
-          @click="toggleFullscreenEditor"
+        <UiTooltip
+          :text="viewportMode === 'editor-full' ? 'Kembalikan Tampilan Split' : 'Fullscreen Editor'"
+          side="bottom"
+          class="flex-shrink-0"
         >
-          <Minimize2 v-if="viewportMode === 'editor-full'" class="w-3.5 h-3.5" />
-          <Maximize2 v-else class="w-3.5 h-3.5" />
-        </button>
+          <button
+            class="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+            @click="toggleFullscreenEditor"
+          >
+            <Minimize2 v-if="viewportMode === 'editor-full'" class="w-3.5 h-3.5" />
+            <Maximize2 v-else class="w-3.5 h-3.5" />
+          </button>
+        </UiTooltip>
       </div>
     </div>
 
@@ -468,13 +553,14 @@ const toggleFullscreenEditor = () => {
                   {{ f.name }}
                 </option>
               </select>
-              <button
-                class="p-0.5 hover:bg-accent rounded text-muted-foreground hover:text-foreground text-[10px]"
-                title="Tutup Pane Kanan"
-                @click="isEditorPaneSplit = false"
-              >
-                <X class="w-3 h-3" />
-              </button>
+              <UiTooltip text="Tutup Pane Kanan" side="bottom" class="flex-shrink-0">
+                <button
+                  class="p-0.5 hover:bg-accent rounded text-muted-foreground hover:text-foreground text-[10px]"
+                  @click="isEditorPaneSplit = false"
+                >
+                  <X class="w-3 h-3" />
+                </button>
+              </UiTooltip>
             </div>
             <div class="flex-1 w-full h-full overflow-hidden relative">
               <MonacoEditor

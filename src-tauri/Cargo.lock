@@ -2413,7 +2413,7 @@ dependencies = [
 
 [[package]]
 name = "mytermin"
-version = "0.2.10"
+version = "0.2.11"
 dependencies = [
  "arboard",
  "clipboard-win",

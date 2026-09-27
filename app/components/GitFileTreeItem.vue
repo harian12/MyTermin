@@ -165,43 +165,49 @@ const getFileIcon = (filename: string) => {
       <!-- Folder Hover Actions -->
       <div class="hidden group-hover:flex items-center gap-1 flex-shrink-0">
         <!-- Actions for Staged Folder -->
-        <button
-          v-if="mode === 'staged'"
-          class="p-0.5 hover:bg-accent rounded text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-          title="Unstage Seluruh Folder (-)"
-          @click.stop="handleFolderUnstage"
-        >
-          <Minus class="w-3 h-3" />
-        </button>
+        <UiTooltip v-if="mode === 'staged'" text="Unstage Seluruh Folder (-)" side="right" class="contents">
+          <button
+            class="p-0.5 hover:bg-accent rounded text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+            @click.stop="handleFolderUnstage"
+          >
+            <Minus class="w-3 h-3" />
+          </button>
+        </UiTooltip>
 
         <!-- Actions for Unstaged Folder -->
         <template v-else>
-          <button
-            class="p-0.5 hover:bg-accent rounded text-muted-foreground hover:text-primary transition-colors cursor-pointer"
-            title="Stage Seluruh Folder (+)"
-            @click.stop="handleFolderStage"
-          >
-            <Plus class="w-3 h-3" />
-          </button>
-          <button
-            class="p-0.5 hover:bg-destructive/20 rounded text-muted-foreground hover:text-destructive transition-colors cursor-pointer"
-            title="Discard Semua Perubahan di Folder Ini"
-            @click.stop="handleFolderDiscard"
-          >
-            <RotateCcw class="w-3 h-3" />
-          </button>
+          <UiTooltip text="Stage Seluruh Folder (+)" side="right" class="contents">
+            <button
+              class="p-0.5 hover:bg-accent rounded text-muted-foreground hover:text-primary transition-colors cursor-pointer"
+              @click.stop="handleFolderStage"
+            >
+              <Plus class="w-3 h-3" />
+            </button>
+          </UiTooltip>
+          <UiTooltip text="Discard Semua Perubahan di Folder Ini" side="right" class="contents">
+            <button
+              class="p-0.5 hover:bg-destructive/20 rounded text-muted-foreground hover:text-destructive transition-colors cursor-pointer"
+              @click.stop="handleFolderDiscard"
+            >
+              <RotateCcw class="w-3 h-3" />
+            </button>
+          </UiTooltip>
         </template>
       </div>
     </div>
 
     <!-- File Node -->
-    <div
+    <UiTooltip
       v-else
-      class="group flex items-center justify-between py-1 px-1.5 rounded hover:bg-[#181924] cursor-pointer transition-colors"
-      :style="{ paddingLeft: `${depth * 12 + 16}px` }"
-      :title="`Klik untuk Diff: ${node.path}`"
-      @click="emit('open-diff', node.path)"
+      :text="`Klik untuk Diff: ${node.path}`"
+      side="right"
+      class="contents"
     >
+      <div
+        class="group flex items-center justify-between py-1 px-1.5 rounded hover:bg-[#181924] cursor-pointer transition-colors"
+        :style="{ paddingLeft: `${depth * 12 + 16}px` }"
+        @click="emit('open-diff', node.path)"
+      >
       <div class="flex items-center gap-1.5 min-w-0 flex-1">
         <component
           :is="getFileIcon(node.name).icon"
@@ -240,44 +246,46 @@ const getFileIcon = (filename: string) => {
         <!-- Actions (Hidden by default, shown on group-hover) -->
         <div class="hidden group-hover:flex items-center gap-1">
           <!-- Actions for Staged -->
-          <button
-            v-if="node.isStaged"
-            class="p-0.5 hover:bg-accent rounded text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-            title="Unstage File (-)"
-            @click.stop="emit('unstage', node.path)"
-          >
-            <Minus class="w-3 h-3" />
-          </button>
+          <UiTooltip v-if="node.isStaged" text="Unstage File (-)" side="right" class="contents">
+            <button
+              class="p-0.5 hover:bg-accent rounded text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+              @click.stop="emit('unstage', node.path)"
+            >
+              <Minus class="w-3 h-3" />
+            </button>
+          </UiTooltip>
 
           <!-- Actions for Unstaged / Untracked -->
           <template v-else>
-            <button
-              class="p-0.5 hover:bg-accent rounded text-muted-foreground hover:text-primary transition-colors cursor-pointer"
-              title="Stage File (+)"
-              @click.stop="emit('stage', node.path)"
-            >
-              <Plus class="w-3 h-3" />
-            </button>
-            <button
-              v-if="!node.isUntracked"
-              class="p-0.5 hover:bg-destructive/20 rounded text-muted-foreground hover:text-destructive transition-colors cursor-pointer"
-              title="Discard Perubahan"
-              @click.stop="emit('discard', { path: node.path, isUntracked: false })"
-            >
-              <RotateCcw class="w-3 h-3" />
-            </button>
-            <button
-              v-else
-              class="p-0.5 hover:bg-destructive/20 rounded text-muted-foreground hover:text-destructive transition-colors cursor-pointer"
-              title="Hapus File Untracked"
-              @click.stop="emit('discard', { path: node.path, isUntracked: true })"
-            >
-              <Trash2 class="w-3 h-3" />
-            </button>
+            <UiTooltip text="Stage File (+)" side="right" class="contents">
+              <button
+                class="p-0.5 hover:bg-accent rounded text-muted-foreground hover:text-primary transition-colors cursor-pointer"
+                @click.stop="emit('stage', node.path)"
+              >
+                <Plus class="w-3 h-3" />
+              </button>
+            </UiTooltip>
+            <UiTooltip v-if="!node.isUntracked" text="Discard Perubahan" side="right" class="contents">
+              <button
+                class="p-0.5 hover:bg-destructive/20 rounded text-muted-foreground hover:text-destructive transition-colors cursor-pointer"
+                @click.stop="emit('discard', { path: node.path, isUntracked: false })"
+              >
+                <RotateCcw class="w-3 h-3" />
+              </button>
+            </UiTooltip>
+            <UiTooltip v-else text="Hapus File Untracked" side="right" class="contents">
+              <button
+                class="p-0.5 hover:bg-destructive/20 rounded text-muted-foreground hover:text-destructive transition-colors cursor-pointer"
+                @click.stop="emit('discard', { path: node.path, isUntracked: true })"
+              >
+                <Trash2 class="w-3 h-3" />
+              </button>
+            </UiTooltip>
           </template>
         </div>
       </div>
     </div>
+    </UiTooltip>
 
     <!-- Recursive Children -->
     <div v-if="node.isDir && isExpanded && node.children && node.children.length > 0">

@@ -562,61 +562,51 @@ const finishRename = (termId: string) => {
       </div>
 
       <div v-else class="w-full flex justify-center">
-        <FolderKanban class="w-4 h-4 text-primary" :title="activeWorkstation.name" />
+        <UiTooltip :text="activeWorkstation.name" side="right">
+          <FolderKanban class="w-4 h-4 text-primary" />
+        </UiTooltip>
       </div>
 
       <!-- Header Actions -->
       <div v-if="isSidebarOpen" class="flex items-center gap-0.5">
         <template v-if="activeTab === 'explorer' && activeWorkstation.folderPath">
-          <button
-            class="p-1 hover:bg-accent rounded text-muted-foreground hover:text-foreground transition-colors"
-            title="File Baru"
-            @click="handleNewFile()"
-          >
-            <FilePlus class="w-3.5 h-3.5" />
-          </button>
-          <button
-            class="p-1 hover:bg-accent rounded text-muted-foreground hover:text-foreground transition-colors"
-            title="Folder Baru"
-            @click="handleNewFolder()"
-          >
-            <FolderPlus class="w-3.5 h-3.5" />
-          </button>
-          <button
-            class="p-1 hover:bg-accent rounded text-muted-foreground hover:text-foreground transition-colors"
-            title="Refresh Explorer & Git Status"
-            @click="loadProjectFiles"
-          >
-            <RefreshCw :class="['w-3.5 h-3.5', isLoadingRoot && 'animate-spin']" />
-          </button>
+          <UiTooltip text="File Baru" side="bottom" class="flex-shrink-0">
+            <button class="p-1 hover:bg-accent rounded text-muted-foreground hover:text-foreground transition-colors" @click="handleNewFile()">
+              <FilePlus class="w-3.5 h-3.5" />
+            </button>
+          </UiTooltip>
+          <UiTooltip text="Folder Baru" side="bottom" class="flex-shrink-0">
+            <button class="p-1 hover:bg-accent rounded text-muted-foreground hover:text-foreground transition-colors" @click="handleNewFolder()">
+              <FolderPlus class="w-3.5 h-3.5" />
+            </button>
+          </UiTooltip>
+          <UiTooltip text="Refresh Explorer & Git Status" side="bottom" class="flex-shrink-0">
+            <button class="p-1 hover:bg-accent rounded text-muted-foreground hover:text-foreground transition-colors" @click="loadProjectFiles">
+              <RefreshCw :class="['w-3.5 h-3.5', isLoadingRoot && 'animate-spin']" />
+            </button>
+          </UiTooltip>
         </template>
 
         <template v-else-if="activeTab === 'git' && activeWorkstation.folderPath">
-          <button
-            class="p-1 hover:bg-accent rounded text-muted-foreground hover:text-foreground transition-colors"
-            title="Refresh Git Status"
-            @click="refreshGitStatus"
-          >
-            <RefreshCw class="w-3.5 h-3.5" />
-          </button>
+          <UiTooltip text="Refresh Git Status" side="bottom" class="flex-shrink-0">
+            <button class="p-1 hover:bg-accent rounded text-muted-foreground hover:text-foreground transition-colors" @click="refreshGitStatus">
+              <RefreshCw class="w-3.5 h-3.5" />
+            </button>
+          </UiTooltip>
         </template>
 
-        <button
-          class="p-1 hover:bg-accent rounded text-muted-foreground hover:text-foreground transition-colors"
-          title="Toggle Sidebar"
-          @click="toggleSidebar"
-        >
-          <ChevronLeft class="w-3.5 h-3.5" />
-        </button>
+        <UiTooltip text="Toggle Sidebar" side="bottom" class="flex-shrink-0">
+          <button class="p-1 hover:bg-accent rounded text-muted-foreground hover:text-foreground transition-colors" @click="toggleSidebar">
+            <ChevronLeft class="w-3.5 h-3.5" />
+          </button>
+        </UiTooltip>
       </div>
       <div v-else>
-        <button
-          class="p-1 hover:bg-accent rounded text-muted-foreground hover:text-foreground transition-colors"
-          title="Buka Sidebar"
-          @click="toggleSidebar"
-        >
-          <ChevronRight class="w-3.5 h-3.5" />
-        </button>
+        <UiTooltip text="Buka Sidebar" side="right" class="flex-shrink-0">
+          <button class="p-1 hover:bg-accent rounded text-muted-foreground hover:text-foreground transition-colors" @click="toggleSidebar">
+            <ChevronRight class="w-3.5 h-3.5" />
+          </button>
+        </UiTooltip>
       </div>
     </div>
 
@@ -673,25 +663,18 @@ const finishRename = (termId: string) => {
 
     <!-- Mini Mode Icon Bar (Collapsed Sidebar) -->
     <div v-else class="flex flex-col items-center gap-2 py-3">
-      <button
-        :class="[
-          'p-2 rounded-md transition-colors',
-          activeTab === 'explorer' ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:text-foreground'
-        ]"
-        title="File Explorer"
-        @click="activeTab = 'explorer'; toggleSidebar()"
-      >
+      <UiTooltip text="File Explorer" side="right">
+
+        <button :class="[ 'p-2 rounded-md transition-colors', activeTab === 'explorer' ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:text-foreground' ]" @click="activeTab = 'explorer'; toggleSidebar()">
         <FolderOpen class="w-4 h-4" />
       </button>
 
-      <button
-        :class="[
-          'p-2 rounded-md transition-colors relative',
-          activeTab === 'git' ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:text-foreground'
-        ]"
-        title="Source Control (Git)"
-        @click="activeTab = 'git'; toggleSidebar()"
-      >
+      </UiTooltip>
+
+      <UiTooltip text="Source Control (Git)" side="right">
+
+
+        <button :class="[ 'p-2 rounded-md transition-colors relative', activeTab === 'git' ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:text-foreground' ]" @click="activeTab = 'git'; toggleSidebar()">
         <GitBranch class="w-4 h-4" />
         <span
           v-if="changedFilesList.length > 0"
@@ -699,20 +682,22 @@ const finishRename = (termId: string) => {
         />
       </button>
 
-      <button
-        :class="[
-          'p-2 rounded-md transition-colors relative',
-          activeTab === 'terminals' ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:text-foreground'
-        ]"
-        title="Terminals"
-        @click="activeTab = 'terminals'; toggleSidebar()"
-      >
+
+      </UiTooltip>
+
+      <UiTooltip text="Terminals" side="right">
+
+
+        <button :class="[ 'p-2 rounded-md transition-colors relative', activeTab === 'terminals' ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:text-foreground' ]" @click="activeTab = 'terminals'; toggleSidebar()">
         <Terminal class="w-4 h-4" />
         <span
           v-if="Object.keys(backgroundAlerts).length > 0"
           class="absolute top-1 right-1 w-2 h-2 rounded-full bg-amber-400"
         />
       </button>
+
+
+      </UiTooltip>
     </div>
 
     <!-- Tab 1: Project Explorer -->
@@ -722,17 +707,19 @@ const finishRename = (termId: string) => {
         <div v-if="activeWorkstation.folderPath" class="flex items-center justify-between">
           <div class="flex items-center gap-1.5 min-w-0 flex-1">
             <FolderOpen class="w-3.5 h-3.5 text-primary flex-shrink-0" />
-            <span class="text-xs font-semibold text-foreground truncate" :title="activeWorkstation.folderPath">
-              {{ activeWorkstation.name }}
-            </span>
+            <UiTooltip :text="activeWorkstation.folderPath" side="right" class="contents">
+              <span class="text-xs font-semibold text-foreground truncate">
+                {{ activeWorkstation.name }}
+              </span>
+            </UiTooltip>
           </div>
-          <button
-            class="text-[10px] text-muted-foreground hover:text-primary transition-colors flex items-center gap-0.5 ml-1 flex-shrink-0 font-medium"
-            title="Ganti Folder Project"
-            @click="handleOpenFolder"
-          >
+          <UiTooltip text="Ganti Folder Project" side="bottom">
+
+            <button class="text-[10px] text-muted-foreground hover:text-primary transition-colors flex items-center gap-0.5 ml-1 flex-shrink-0 font-medium" @click="handleOpenFolder">
             Change
           </button>
+
+          </UiTooltip>
         </div>
 
         <div v-else class="py-2 text-center">
@@ -788,17 +775,19 @@ const finishRename = (termId: string) => {
               >
                 <div class="min-w-0 flex-1 pr-1">
                   <div class="text-xs font-medium text-foreground truncate">{{ rec.name }}</div>
-                  <div class="text-[10px] text-muted-foreground/60 truncate font-mono" :title="rec.path">
-                    {{ rec.path }}
-                  </div>
+                  <UiTooltip :text="rec.path" side="right" class="contents">
+                    <div class="text-[10px] text-muted-foreground/60 truncate font-mono">
+                      {{ rec.path }}
+                    </div>
+                  </UiTooltip>
                 </div>
-                <button
-                  class="p-1 rounded hover:bg-destructive/20 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
-                  title="Hapus dari Riwayat"
-                  @click.stop="removeRecentProject(rec.path)"
-                >
+                <UiTooltip text="Hapus dari Riwayat" side="left">
+
+                  <button class="p-1 rounded hover:bg-destructive/20 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity" @click.stop="removeRecentProject(rec.path)">
                   <X class="w-3 h-3" />
                 </button>
+
+                </UiTooltip>
               </div>
             </div>
           </div>
@@ -830,89 +819,84 @@ const finishRename = (termId: string) => {
         <!-- Branch & Sync Header Toolbar -->
         <div class="flex items-center justify-between p-2 rounded bg-[#161722] border border-border/50 text-xs font-mono flex-shrink-0">
           <!-- Branch Switcher Trigger -->
-          <button
-            class="flex items-center gap-1.5 text-primary hover:text-primary/80 transition-colors min-w-0 font-medium truncate"
-            title="Klik untuk beralih atau membuat branch"
-            @click="openBranchModal"
-          >
+          <UiTooltip text="Klik untuk beralih atau membuat branch" side="bottom">
+
+            <button class="flex items-center gap-1.5 text-primary hover:text-primary/80 transition-colors min-w-0 font-medium truncate" @click="openBranchModal">
             <GitBranch class="w-3.5 h-3.5 flex-shrink-0" />
             <span class="truncate font-semibold">{{ gitBranch || 'Branch' }}</span>
-            <span
-              v-if="aheadBehind?.has_upstream"
-              class="flex shrink-0 items-center gap-1 text-[10px]"
-              :title="`vs ${aheadBehind.upstream}: ${aheadBehind.ahead} ahead, ${aheadBehind.behind} behind`"
-            >
-              <span v-if="aheadBehind.ahead > 0" class="text-emerald-400">↑{{ aheadBehind.ahead }}</span>
-              <span v-if="aheadBehind.behind > 0" class="text-amber-400">↓{{ aheadBehind.behind }}</span>
-            </span>
+            <UiTooltip v-if="aheadBehind?.has_upstream" :text="`vs ${aheadBehind.upstream}: ${aheadBehind.ahead} ahead, ${aheadBehind.behind} behind`" side="bottom" class="contents">
+              <span class="flex shrink-0 items-center gap-1 text-[10px]">
+                <span v-if="aheadBehind.ahead > 0" class="text-emerald-400">↑{{ aheadBehind.ahead }}</span>
+                <span v-if="aheadBehind.behind > 0" class="text-amber-400">↓{{ aheadBehind.behind }}</span>
+              </span>
+            </UiTooltip>
             <ChevronDown class="w-3 h-3 flex-shrink-0 opacity-60" />
           </button>
+
+          </UiTooltip>
 
           <!-- Push, Pull, Refresh Actions -->
           <div class="flex items-center gap-1 flex-shrink-0">
             <!-- Git Graph Button -->
-            <button
-              class="p-1 rounded hover:bg-accent text-muted-foreground hover:text-primary transition-colors cursor-pointer"
-              title="Buka Visual Git Commit Graph"
-              @click="showGitGraphModal = true"
-            >
+            <UiTooltip text="Buka Visual Git Commit Graph" side="bottom">
+
+              <button class="p-1 rounded hover:bg-accent text-muted-foreground hover:text-primary transition-colors cursor-pointer" @click="showGitGraphModal = true">
               <GitCommit class="w-3.5 h-3.5 text-primary" />
             </button>
+
+            </UiTooltip>
             <!-- Branch Compare Button -->
-            <button
-              class="p-1 rounded hover:bg-accent text-muted-foreground hover:text-primary transition-colors cursor-pointer"
-              title="Buka Branch Compare & Diff"
-              @click="showBranchCompareModal = true"
-            >
+            <UiTooltip text="Buka Branch Compare & Diff" side="bottom">
+
+              <button class="p-1 rounded hover:bg-accent text-muted-foreground hover:text-primary transition-colors cursor-pointer" @click="showBranchCompareModal = true">
               <GitCompare class="w-3.5 h-3.5 text-indigo-400" />
             </button>
+
+            </UiTooltip>
             <!-- Toggle Tree vs List View -->
-            <button
-              class="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
-              :title="gitViewMode === 'tree' ? 'Ganti ke Tampilan Daftar (List View)' : 'Ganti ke Tampilan Pohon Folder (Tree View)'"
-              @click="gitViewMode = gitViewMode === 'tree' ? 'list' : 'tree'"
-            >
+            <UiTooltip :text="gitViewMode === 'tree' ? 'Ganti ke Tampilan Daftar (List View)' : 'Ganti ke Tampilan Pohon Folder (Tree View)'" side="bottom">
+
+              <button class="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors" @click="gitViewMode = gitViewMode === 'tree' ? 'list' : 'tree'">
               <Network v-if="gitViewMode === 'tree'" class="w-3.5 h-3.5 text-primary" />
               <List v-else class="w-3.5 h-3.5" />
             </button>
-            <button
-              class="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
-              :disabled="isFetchingGit"
-              :title="isFetchingGit ? 'Fetching...' : 'Fetch dari remote (git fetch --all --prune)'"
-              @click="handleFetch"
-            >
+
+            </UiTooltip>
+            <UiTooltip :text="isFetchingGit ? 'Fetching...' : 'Fetch dari remote (git fetch --all --prune)'" side="bottom">
+
+              <button class="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors" :disabled="isFetchingGit" @click="handleFetch">
               <CloudDownload :class="['w-3.5 h-3.5', isFetchingGit && 'animate-bounce text-primary']" />
             </button>
-            <button
-              class="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
-              title="Kelola Stash & Tag"
-              @click="showStashModal = true"
-            >
+
+            </UiTooltip>
+            <UiTooltip text="Kelola Stash & Tag" side="bottom">
+
+              <button class="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors" @click="showStashModal = true">
               <Archive class="w-3.5 h-3.5 text-amber-400" />
             </button>
-            <button
-              class="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
-              :disabled="isPulling"
-              title="Pull Perubahan Remote (git pull)"
-              @click="handlePull"
-            >
+
+            </UiTooltip>
+            <UiTooltip text="Pull Perubahan Remote (git pull)" side="bottom">
+
+              <button class="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors" :disabled="isPulling" @click="handlePull">
               <DownloadCloud :class="['w-3.5 h-3.5', isPulling && 'animate-bounce text-primary']" />
             </button>
-            <button
-              class="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
-              :disabled="isPushing"
-              title="Push Commit ke Remote (git push)"
-              @click="handlePush"
-            >
+
+            </UiTooltip>
+            <UiTooltip text="Push Commit ke Remote (git push)" side="bottom">
+
+              <button class="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors" :disabled="isPushing" @click="handlePush">
               <UploadCloud :class="['w-3.5 h-3.5', isPushing && 'animate-bounce text-primary']" />
             </button>
-            <button
-              class="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
-              title="Refresh Git Status"
-              @click="refreshGitStatus"
-            >
+
+            </UiTooltip>
+            <UiTooltip text="Refresh Git Status" side="bottom">
+
+              <button class="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors" @click="refreshGitStatus">
               <RefreshCw class="w-3 h-3" />
             </button>
+
+            </UiTooltip>
           </div>
         </div>
 
@@ -935,14 +919,13 @@ const finishRename = (termId: string) => {
               <GitCommit class="w-3.5 h-3.5" />
               <span>{{ isCommitting ? 'Menyimpan...' : 'Commit Perubahan' }}</span>
             </button>
-            <button
-              class="shrink-0 rounded border border-border/60 px-2 py-1.5 text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-40"
-              :disabled="isAmending"
-              title="Amend commit terakhir dengan pesan yang sama"
-              @click="handleAmend"
-            >
+            <UiTooltip text="Amend commit terakhir dengan pesan yang sama" side="bottom">
+
+              <button class="shrink-0 rounded border border-border/60 px-2 py-1.5 text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-40" :disabled="isAmending" @click="handleAmend">
               Amend
             </button>
+
+            </UiTooltip>
           </div>
 
           <div v-if="commitResultMsg" class="text-[11px] text-emerald-400 text-center font-mono py-0.5">
@@ -954,14 +937,14 @@ const finishRename = (termId: string) => {
         <div v-if="gitOverview.staged.length > 0" class="space-y-1">
           <div class="flex items-center justify-between text-[10px] font-bold uppercase text-muted-foreground tracking-wider">
             <span>Staged Changes ({{ gitOverview.staged.length }})</span>
-            <button
-              class="hover:text-foreground text-[10px] flex items-center gap-0.5 p-0.5"
-              title="Unstage Semua"
-              @click="unstageAll"
-            >
+            <UiTooltip text="Unstage Semua" side="left">
+
+              <button class="hover:text-foreground text-[10px] flex items-center gap-0.5 p-0.5" @click="unstageAll">
               <Minus class="w-3 h-3" />
               <span>Unstage All</span>
             </button>
+
+            </UiTooltip>
           </div>
 
           <!-- Tree View -->
@@ -979,34 +962,39 @@ const finishRename = (termId: string) => {
 
           <!-- List View -->
           <div v-else class="space-y-0.5 font-mono">
-            <div
+            <UiTooltip
               v-for="item in gitOverview.staged"
               :key="`staged-${item.path}`"
-              class="group flex items-center justify-between p-1 rounded hover:bg-[#181924] cursor-pointer text-xs transition-colors"
-              :title="`Klik untuk melihat Diff: ${item.path}`"
-              @click="handleOpenDiff(item.path)"
+              :text="`Klik untuk melihat Diff: ${item.path}`"
+              side="right"
+              class="contents"
             >
-              <div class="flex items-center gap-1.5 min-w-0 flex-1">
-                <component :is="getFileIcon(item.name).icon" :class="['w-3.5 h-3.5 flex-shrink-0', getFileIcon(item.name).color]" />
-                <span class="truncate text-foreground text-[11px]">{{ item.name }}</span>
-                <span class="truncate text-muted-foreground/60 text-[9px] font-mono">{{ item.path.includes('/') ? item.path.substring(0, item.path.lastIndexOf('/')) : '' }}</span>
-              </div>
+              <div
+                class="group flex items-center justify-between p-1 rounded hover:bg-[#181924] cursor-pointer text-xs transition-colors"
+                @click="handleOpenDiff(item.path)"
+              >
+                <div class="flex items-center gap-1.5 min-w-0 flex-1">
+                  <component :is="getFileIcon(item.name).icon" :class="['w-3.5 h-3.5 flex-shrink-0', getFileIcon(item.name).color]" />
+                  <span class="truncate text-foreground text-[11px]">{{ item.name }}</span>
+                  <span class="truncate text-muted-foreground/60 text-[9px] font-mono">{{ item.path.includes('/') ? item.path.substring(0, item.path.lastIndexOf('/')) : '' }}</span>
+                </div>
 
-              <div class="relative flex items-center justify-end min-w-[24px] flex-shrink-0">
-                <span class="text-[9px] font-bold px-1 rounded bg-green-500/20 text-green-400 group-hover:hidden">
-                  {{ item.status }}
-                </span>
-                <div class="hidden group-hover:flex items-center gap-1">
-                  <button
-                    class="p-0.5 hover:bg-accent rounded text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                    title="Unstage File"
-                    @click.stop="unstageFile(item.path)"
-                  >
-                    <Minus class="w-3 h-3" />
-                  </button>
+                <div class="relative flex items-center justify-end min-w-[24px] flex-shrink-0">
+                  <span class="text-[9px] font-bold px-1 rounded bg-green-500/20 text-green-400 group-hover:hidden">
+                    {{ item.status }}
+                  </span>
+                  <div class="hidden group-hover:flex items-center gap-1">
+                    <UiTooltip text="Unstage File" side="left">
+
+                      <button class="p-0.5 hover:bg-accent rounded text-muted-foreground hover:text-foreground transition-colors cursor-pointer" @click.stop="unstageFile(item.path)">
+                      <Minus class="w-3 h-3" />
+                    </button>
+
+                    </UiTooltip>
+                  </div>
                 </div>
               </div>
-            </div>
+            </UiTooltip>
           </div>
         </div>
 
@@ -1014,15 +1002,15 @@ const finishRename = (termId: string) => {
         <div class="flex-1 flex flex-col space-y-1 pt-1 min-h-0">
           <div class="flex items-center justify-between text-[10px] font-bold uppercase text-muted-foreground tracking-wider flex-shrink-0">
             <span>Changes ({{ gitOverview.unstaged.length + gitOverview.untracked.length }})</span>
-            <button
-              v-if="gitOverview.unstaged.length + gitOverview.untracked.length > 0"
-              class="hover:text-foreground text-[10px] flex items-center gap-0.5 p-0.5"
-              title="Stage Semua"
-              @click="stageAll"
-            >
-              <Plus class="w-3 h-3" />
-              <span>Stage All</span>
-            </button>
+            <UiTooltip v-if="gitOverview.unstaged.length + gitOverview.untracked.length > 0" text="Stage Semua" side="left">
+              <button
+                class="hover:text-foreground text-[10px] flex items-center gap-0.5 p-0.5"
+                @click="stageAll"
+              >
+                <Plus class="w-3 h-3" />
+                <span>Stage All</span>
+              </button>
+            </UiTooltip>
           </div>
 
           <div v-if="gitOverview.unstaged.length === 0 && gitOverview.untracked.length === 0 && gitOverview.staged.length === 0" class="p-4 text-center text-xs text-muted-foreground font-mono">
@@ -1048,78 +1036,88 @@ const finishRename = (termId: string) => {
             <!-- List View -->
             <template v-else>
               <!-- Unstaged Tracked Changes -->
-              <div
+              <UiTooltip
                 v-for="item in gitOverview.unstaged"
                 :key="`unstaged-${item.path}`"
-                class="group flex items-center justify-between p-1 rounded hover:bg-[#181924] cursor-pointer text-xs transition-colors"
-                :title="`Klik untuk melihat Diff: ${item.path}`"
-                @click="handleOpenDiff(item.path)"
+                :text="`Klik untuk melihat Diff: ${item.path}`"
+                side="right"
+                class="contents"
               >
-                <div class="flex items-center gap-1.5 min-w-0 flex-1">
-                  <component :is="getFileIcon(item.name).icon" :class="['w-3.5 h-3.5 flex-shrink-0', getFileIcon(item.name).color]" />
-                  <span class="truncate text-foreground text-[11px]">{{ item.name }}</span>
-                  <span class="truncate text-muted-foreground/60 text-[9px] font-mono">{{ item.path.includes('/') ? item.path.substring(0, item.path.lastIndexOf('/')) : '' }}</span>
-                </div>
+                <div
+                  class="group flex items-center justify-between p-1 rounded hover:bg-[#181924] cursor-pointer text-xs transition-colors"
+                  @click="handleOpenDiff(item.path)"
+                >
+                  <div class="flex items-center gap-1.5 min-w-0 flex-1">
+                    <component :is="getFileIcon(item.name).icon" :class="['w-3.5 h-3.5 flex-shrink-0', getFileIcon(item.name).color]" />
+                    <span class="truncate text-foreground text-[11px]">{{ item.name }}</span>
+                    <span class="truncate text-muted-foreground/60 text-[9px] font-mono">{{ item.path.includes('/') ? item.path.substring(0, item.path.lastIndexOf('/')) : '' }}</span>
+                  </div>
 
-                <div class="relative flex items-center justify-end min-w-[24px] flex-shrink-0">
-                  <span class="text-[9px] font-bold px-1 rounded bg-amber-400/20 text-amber-400 group-hover:hidden">
-                    {{ item.status }}
-                  </span>
-                  <div class="hidden group-hover:flex items-center gap-1">
-                    <button
-                      class="p-0.5 hover:bg-accent rounded text-muted-foreground hover:text-primary transition-colors cursor-pointer"
-                      title="Stage File (+)"
-                      @click.stop="stageFile(item.path)"
-                    >
-                      <Plus class="w-3 h-3" />
-                    </button>
-                    <button
-                      class="p-0.5 hover:bg-destructive/20 rounded text-muted-foreground hover:text-destructive transition-colors cursor-pointer"
-                      title="Discard Perubahan"
-                      @click.stop="discardFile(item.path, false)"
-                    >
-                      <RotateCcw class="w-3 h-3" />
-                    </button>
+                  <div class="relative flex items-center justify-end min-w-[24px] flex-shrink-0">
+                    <span class="text-[9px] font-bold px-1 rounded bg-amber-400/20 text-amber-400 group-hover:hidden">
+                      {{ item.status }}
+                    </span>
+                    <div class="hidden group-hover:flex items-center gap-1">
+                      <UiTooltip text="Stage File (+)" side="left">
+
+                        <button class="p-0.5 hover:bg-accent rounded text-muted-foreground hover:text-primary transition-colors cursor-pointer" @click.stop="stageFile(item.path)">
+                        <Plus class="w-3 h-3" />
+                      </button>
+
+                      </UiTooltip>
+                      <UiTooltip text="Discard Perubahan" side="left">
+
+                        <button class="p-0.5 hover:bg-destructive/20 rounded text-muted-foreground hover:text-destructive transition-colors cursor-pointer" @click.stop="discardFile(item.path, false)">
+                        <RotateCcw class="w-3 h-3" />
+                      </button>
+
+                      </UiTooltip>
+                    </div>
                   </div>
                 </div>
-              </div>
+              </UiTooltip>
 
               <!-- Untracked Files -->
-              <div
+              <UiTooltip
                 v-for="item in gitOverview.untracked"
                 :key="`untracked-${item.path}`"
-                class="group flex items-center justify-between p-1 rounded hover:bg-[#181924] cursor-pointer text-xs transition-colors"
-                :title="`Untracked: ${item.path}`"
-                @click="handleOpenDiff(item.path)"
+                :text="`Untracked: ${item.path}`"
+                side="right"
+                class="contents"
               >
-                <div class="flex items-center gap-1.5 min-w-0 flex-1">
-                  <component :is="getFileIcon(item.name).icon" :class="['w-3.5 h-3.5 flex-shrink-0', getFileIcon(item.name).color]" />
-                  <span class="truncate text-emerald-400 text-[11px]">{{ item.name }}</span>
-                  <span class="truncate text-muted-foreground/60 text-[9px] font-mono">{{ item.path.includes('/') ? item.path.substring(0, item.path.lastIndexOf('/')) : '' }}</span>
-                </div>
+                <div
+                  class="group flex items-center justify-between p-1 rounded hover:bg-[#181924] cursor-pointer text-xs transition-colors"
+                  @click="handleOpenDiff(item.path)"
+                >
+                  <div class="flex items-center gap-1.5 min-w-0 flex-1">
+                    <component :is="getFileIcon(item.name).icon" :class="['w-3.5 h-3.5 flex-shrink-0', getFileIcon(item.name).color]" />
+                    <span class="truncate text-emerald-400 text-[11px]">{{ item.name }}</span>
+                    <span class="truncate text-muted-foreground/60 text-[9px] font-mono">{{ item.path.includes('/') ? item.path.substring(0, item.path.lastIndexOf('/')) : '' }}</span>
+                  </div>
 
-                <div class="relative flex items-center justify-end min-w-[24px] flex-shrink-0">
-                  <span class="text-[9px] font-bold px-1 rounded bg-emerald-400/20 text-emerald-400 group-hover:hidden">
-                    U
-                  </span>
-                  <div class="hidden group-hover:flex items-center gap-1">
-                    <button
-                      class="p-0.5 hover:bg-accent rounded text-muted-foreground hover:text-primary transition-colors cursor-pointer"
-                      title="Stage File (+)"
-                      @click.stop="stageFile(item.path)"
-                    >
-                      <Plus class="w-3 h-3" />
-                    </button>
-                    <button
-                      class="p-0.5 hover:bg-destructive/20 rounded text-muted-foreground hover:text-destructive transition-colors cursor-pointer"
-                      title="Hapus File Untracked"
-                      @click.stop="discardFile(item.path, true)"
-                    >
-                      <Trash2 class="w-3 h-3" />
-                    </button>
+                  <div class="relative flex items-center justify-end min-w-[24px] flex-shrink-0">
+                    <span class="text-[9px] font-bold px-1 rounded bg-emerald-400/20 text-emerald-400 group-hover:hidden">
+                      U
+                    </span>
+                    <div class="hidden group-hover:flex items-center gap-1">
+                      <UiTooltip text="Stage File (+)" side="left">
+
+                        <button class="p-0.5 hover:bg-accent rounded text-muted-foreground hover:text-primary transition-colors cursor-pointer" @click.stop="stageFile(item.path)">
+                        <Plus class="w-3 h-3" />
+                      </button>
+
+                      </UiTooltip>
+                      <UiTooltip text="Hapus File Untracked" side="left">
+
+                        <button class="p-0.5 hover:bg-destructive/20 rounded text-muted-foreground hover:text-destructive transition-colors cursor-pointer" @click.stop="discardFile(item.path, true)">
+                        <Trash2 class="w-3 h-3" />
+                      </button>
+
+                      </UiTooltip>
+                    </div>
                   </div>
                 </div>
-              </div>
+              </UiTooltip>
             </template>
           </div>
         </div>
@@ -1164,46 +1162,34 @@ const finishRename = (termId: string) => {
       <div>
         <span class="text-[10px] font-bold uppercase text-muted-foreground mb-1.5 block">Layout Grid</span>
         <div class="grid grid-cols-4 gap-1">
-          <button
-            :class="[
-              'p-1.5 rounded flex items-center justify-center transition-colors',
-              currentLayout === 'single' ? 'bg-primary text-primary-foreground' : 'bg-muted/50 hover:bg-muted text-muted-foreground'
-            ]"
-            title="Single Terminal"
-            @click="setLayout('single')"
-          >
+          <UiTooltip text="Single Terminal" side="bottom">
+
+            <button :class="[ 'p-1.5 rounded flex items-center justify-center transition-colors', currentLayout === 'single' ? 'bg-primary text-primary-foreground' : 'bg-muted/50 hover:bg-muted text-muted-foreground' ]" @click="setLayout('single')">
             <Square class="w-3.5 h-3.5" />
           </button>
-          <button
-            :class="[
-              'p-1.5 rounded flex items-center justify-center transition-colors',
-              currentLayout === 'split-h' ? 'bg-primary text-primary-foreground' : 'bg-muted/50 hover:bg-muted text-muted-foreground'
-            ]"
-            title="Split Horizontal (2 Kolom)"
-            @click="setLayout('split-h')"
-          >
+
+          </UiTooltip>
+          <UiTooltip text="Split Horizontal (2 Kolom)" side="bottom">
+
+            <button :class="[ 'p-1.5 rounded flex items-center justify-center transition-colors', currentLayout === 'split-h' ? 'bg-primary text-primary-foreground' : 'bg-muted/50 hover:bg-muted text-muted-foreground' ]" @click="setLayout('split-h')">
             <Columns2 class="w-3.5 h-3.5" />
           </button>
-          <button
-            :class="[
-              'p-1.5 rounded flex items-center justify-center transition-colors',
-              currentLayout === 'split-v' ? 'bg-primary text-primary-foreground' : 'bg-muted/50 hover:bg-muted text-muted-foreground'
-            ]"
-            title="Split Vertikal (2 Baris)"
-            @click="setLayout('split-v')"
-          >
+
+          </UiTooltip>
+          <UiTooltip text="Split Vertikal (2 Baris)" side="bottom">
+
+            <button :class="[ 'p-1.5 rounded flex items-center justify-center transition-colors', currentLayout === 'split-v' ? 'bg-primary text-primary-foreground' : 'bg-muted/50 hover:bg-muted text-muted-foreground' ]" @click="setLayout('split-v')">
             <Rows2 class="w-3.5 h-3.5" />
           </button>
-          <button
-            :class="[
-              'p-1.5 rounded flex items-center justify-center transition-colors',
-              currentLayout === 'grid-2x2' ? 'bg-primary text-primary-foreground' : 'bg-muted/50 hover:bg-muted text-muted-foreground'
-            ]"
-            title="Grid 2x2"
-            @click="setLayout('grid-2x2')"
-          >
+
+          </UiTooltip>
+          <UiTooltip text="Grid 2x2" side="bottom">
+
+            <button :class="[ 'p-1.5 rounded flex items-center justify-center transition-colors', currentLayout === 'grid-2x2' ? 'bg-primary text-primary-foreground' : 'bg-muted/50 hover:bg-muted text-muted-foreground' ]" @click="setLayout('grid-2x2')">
             <GridIcon class="w-3.5 h-3.5" />
           </button>
+
+          </UiTooltip>
         </div>
       </div>
 
@@ -1248,21 +1234,21 @@ const finishRename = (termId: string) => {
             </div>
 
             <div class="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-              <button
-                class="p-0.5 hover:bg-accent rounded text-muted-foreground hover:text-foreground"
-                title="Ganti Nama"
-                @click.stop="startRename(term.id, term.title)"
-              >
+              <UiTooltip text="Ganti Nama" side="left">
+
+                <button class="p-0.5 hover:bg-accent rounded text-muted-foreground hover:text-foreground" @click.stop="startRename(term.id, term.title)">
                 <Pencil class="w-3 h-3" />
               </button>
-              <button
-                v-if="terminals.length > 1"
-                class="p-0.5 hover:bg-destructive/20 rounded text-muted-foreground hover:text-destructive"
-                title="Tutup Pane"
-                @click.stop="removeTerminal(term.id)"
-              >
-                <Trash2 class="w-3 h-3" />
-              </button>
+
+              </UiTooltip>
+              <UiTooltip v-if="terminals.length > 1" text="Tutup Pane" side="left">
+                <button
+                  class="p-0.5 hover:bg-destructive/20 rounded text-muted-foreground hover:text-destructive"
+                  @click.stop="removeTerminal(term.id)"
+                >
+                  <Trash2 class="w-3 h-3" />
+                </button>
+              </UiTooltip>
             </div>
           </div>
         </div>

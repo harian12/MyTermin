@@ -28,8 +28,11 @@ import { DEFAULT_KEYBINDINGS, type KeybindingConfig, type ShellOption, type Cust
 import { requestDesktopNotification } from '~/composables/useSettingsStore'
 import { useUpdater } from '~/composables/useUpdater'
 
+type TabKey = 'appearance' | 'session' | 'shortcuts' | 'cli' | 'diagnostics'
+
 interface Props {
   open: boolean
+  initialTab?: TabKey
 }
 
 const props = defineProps<Props>()
@@ -61,8 +64,6 @@ const {
 const shells = ref<ShellOption[]>([])
 const themeKeys = [...Object.keys(TERMINAL_THEMES), ...(settings.value.customTheme ? ['custom'] : [])]
 
-type TabKey = 'appearance' | 'session' | 'shortcuts' | 'cli' | 'diagnostics'
-
 const tabs: { key: TabKey; label: string; icon: typeof Palette }[] = [
   { key: 'appearance', label: 'Tampilan', icon: Palette },
   { key: 'session', label: 'Sesi & Env', icon: SlidersHorizontal },
@@ -71,7 +72,7 @@ const tabs: { key: TabKey; label: string; icon: typeof Palette }[] = [
   { key: 'diagnostics', label: 'Diagnostik', icon: Stethoscope }
 ]
 
-const activeTab = ref<TabKey>('appearance')
+const activeTab = ref<TabKey>(props.initialTab || 'appearance')
 
 // Setara env yang belum tercakup .gitignore — peringatan, bukan pemblokiran.
 const exposedSecrets = ref<string[]>([])
@@ -80,6 +81,7 @@ watch(
   () => props.open,
   async (open) => {
     if (!open) return
+    if (props.initialTab) activeTab.value = props.initialTab
     if (activeWorkstation.value?.folderPath && settings.value.useProjectConfig !== false) {
       await loadConfig(activeWorkstation.value.folderPath)
       exposedSecrets.value = await checkEnvSecretExposure(activeWorkstation.value.folderPath)
@@ -521,14 +523,15 @@ onMounted(async () => {
                 :model-value="rule.enabled"
                 @update:model-value="updateNotificationRule(rule.id, { enabled: $event })"
               />
-              <button
-                type="button"
-                class="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                title="Hapus rule"
-                @click="removeNotificationRule(rule.id)"
-              >
-                <Trash2 class="h-3.5 w-3.5" />
-              </button>
+              <UiTooltip text="Hapus rule" side="left" class="flex shrink-0">
+                <button
+                  type="button"
+                  class="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                  @click="removeNotificationRule(rule.id)"
+                >
+                  <Trash2 class="h-3.5 w-3.5" />
+                </button>
+              </UiTooltip>
             </div>
 
             <div class="mt-2 flex items-center gap-2">
@@ -556,14 +559,15 @@ onMounted(async () => {
               </span>
 
               <label class="flex shrink-0 items-center gap-1 text-[10px] text-muted-foreground">
-                <input
-                  type="number"
-                  min="0"
-                  class="h-7 w-14 rounded-md border border-input bg-transparent px-1.5 text-right text-[11px] outline-none focus:ring-1 focus:ring-ring"
-                  :value="rule.cooldownSec"
-                  title="Cooldown detik agar tidak spam"
-                  @change="updateNotificationRule(rule.id, { cooldownSec: Number(($event.target as HTMLInputElement).value) || 0 })"
-                >
+                <UiTooltip text="Cooldown detik agar tidak spam" side="bottom" class="flex shrink-0">
+                  <input
+                    type="number"
+                    min="0"
+                    class="h-7 w-14 rounded-md border border-input bg-transparent px-1.5 text-right text-[11px] outline-none focus:ring-1 focus:ring-ring"
+                    :value="rule.cooldownSec"
+                    @change="updateNotificationRule(rule.id, { cooldownSec: Number(($event.target as HTMLInputElement).value) || 0 })"
+                  >
+                </UiTooltip>
                 <span>s cooldown</span>
               </label>
             </div>
@@ -591,16 +595,16 @@ onMounted(async () => {
             :hint="configPath || (activeWorkstation?.folderPath ? 'Belum ada — simpan untuk membuat file' : 'Buka folder project dulu')"
           >
             <div class="flex w-full items-center justify-end gap-1.5">
-              <UiButton
-                v-if="activeWorkstation?.folderPath"
-                variant="ghost"
-                size="sm"
-                class="h-7 shrink-0 gap-1 px-2 text-[11px] text-muted-foreground hover:text-foreground"
-                title="Baca ulang dari disk"
-                @click="loadConfig(activeWorkstation.folderPath)"
-              >
-                <RotateCcw class="h-3 w-3" />
-              </UiButton>
+              <UiTooltip v-if="activeWorkstation?.folderPath" text="Baca ulang dari disk" side="bottom" class="flex shrink-0">
+                <UiButton
+                  variant="ghost"
+                  size="sm"
+                  class="h-7 shrink-0 gap-1 px-2 text-[11px] text-muted-foreground hover:text-foreground"
+                  @click="loadConfig(activeWorkstation.folderPath)"
+                >
+                  <RotateCcw class="h-3 w-3" />
+                </UiButton>
+              </UiTooltip>
               <UiButton
                 variant="outline"
                 size="sm"
@@ -617,14 +621,15 @@ onMounted(async () => {
             <div class="flex items-center justify-between pb-1.5">
               <p class="text-[11px] font-medium text-foreground/90">Environment Variables</p>
               <div class="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  class="rounded px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                  title="Isi dari file .env project"
-                  @click="handleImportEnvFile"
-                >
-                  Isi dari .env
-                </button>
+                <UiTooltip text="Isi dari file .env project" side="bottom" class="flex shrink-0">
+                  <button
+                    type="button"
+                    class="rounded px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    @click="handleImportEnvFile"
+                  >
+                    Isi dari .env
+                  </button>
+                </UiTooltip>
                 <button
                   type="button"
                   class="rounded px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
@@ -693,21 +698,22 @@ onMounted(async () => {
       <!-- Pintasan -->
       <div v-else-if="activeTab === 'shortcuts'" class="space-y-3">
         <UiSettingsGroup
-          title="Keyboard Shortcuts"
+          title="Pintasan Keyboard"
           description="Klik kolom shortcut lalu tekan kombinasi tombol yang diinginkan (Esc untuk batal)"
         >
           <template #icon><Keyboard class="h-3.5 w-3.5 text-violet-400" /></template>
           <template #action>
-            <UiButton
-              variant="ghost"
-              size="sm"
-              class="h-7 gap-1 px-2 text-[11px] text-muted-foreground hover:text-foreground"
-              title="Reset ke default shortcuts"
-              @click="resetKeybindings"
-            >
-              <RotateCcw class="h-3 w-3" />
-              <span>Reset</span>
-            </UiButton>
+            <UiTooltip text="Reset ke default shortcuts" side="bottom" class="flex">
+              <UiButton
+                variant="ghost"
+                size="sm"
+                class="h-7 gap-1 px-2 text-[11px] text-muted-foreground hover:text-foreground"
+                @click="resetKeybindings"
+              >
+                <RotateCcw class="h-3 w-3" />
+                <span>Reset</span>
+              </UiButton>
+            </UiTooltip>
           </template>
 
           <div
@@ -764,16 +770,17 @@ onMounted(async () => {
         >
           <template #icon><TerminalIcon class="h-3.5 w-3.5 text-emerald-400" /></template>
           <template #action>
-            <UiButton
-              variant="ghost"
-              size="sm"
-              class="h-7 gap-1 px-2 text-[11px] text-muted-foreground hover:text-foreground"
-              title="Reset to default snippets"
-              @click="resetQuickCommands"
-            >
-              <RotateCcw class="h-3 w-3" />
-              <span>Reset</span>
-            </UiButton>
+            <UiTooltip text="Reset to default snippets" side="bottom" class="flex">
+              <UiButton
+                variant="ghost"
+                size="sm"
+                class="h-7 gap-1 px-2 text-[11px] text-muted-foreground hover:text-foreground"
+                @click="resetQuickCommands"
+              >
+                <RotateCcw class="h-3 w-3" />
+                <span>Reset</span>
+              </UiButton>
+            </UiTooltip>
           </template>
 
           <div class="space-y-1.5 p-2.5">
@@ -793,14 +800,15 @@ onMounted(async () => {
               <span class="min-w-0 flex-1 truncate rounded border border-border/30 bg-muted/40 px-1.5 py-0.5 font-mono text-[11px] text-emerald-400">
                 {{ cmd.command }}
               </span>
-              <button
-                type="button"
-                class="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                title="Hapus snippet"
-                @click="removeQuickCommand(cmd.id)"
-              >
-                <Trash2 class="h-3.5 w-3.5" />
-              </button>
+              <UiTooltip text="Hapus snippet" side="left" class="flex shrink-0">
+                <button
+                  type="button"
+                  class="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                  @click="removeQuickCommand(cmd.id)"
+                >
+                  <Trash2 class="h-3.5 w-3.5" />
+                </button>
+              </UiTooltip>
             </div>
 
             <div class="flex items-center gap-2 pt-1">

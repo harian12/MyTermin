@@ -442,6 +442,16 @@ struct GitCommitDetail {
 }
 
 #[derive(serde::Serialize, Clone, Debug)]
+struct GitFileDiffContent {
+    path: String,
+    old_path: Option<String>,
+    original: String,
+    modified: String,
+    is_binary: bool,
+    is_truncated: bool,
+}
+
+#[derive(serde::Serialize, Clone, Debug)]
 struct GitBranchCompareResult {
     base_branch: String,
     compare_branch: String,
@@ -1046,6 +1056,111 @@ fn git_revert_commit(repo_path: String, commit_hash: String) -> Result<String, S
         return Err(if err.is_empty() { String::from_utf8_lossy(&output.stdout).to_string() } else { err });
     }
     Ok(String::from_utf8_lossy(&output.stdout).to_string())
+}
+
+#[tauri::command]
+fn git_get_commit_file_diff(
+    repo_path: String,
+    commit_hash: String,
+    file_path: String,
+    old_path: Option<String>,
+) -> Result<GitFileDiffContent, String> {
+    let root = Path::new(&repo_path);
+    if !root.exists() {
+        return Err("Path repo tidak ditemukan".into());
+    }
+
+    const MAX_BYTES: usize = 2 * 1024 * 1024;
+
+    // Parent pertama commit (merge commit -> main line). Root commit -> None.
+    let parent = {
+        let mut cmd = std::process::Command::new("git");
+        cmd.arg("rev-parse")
+            .arg("--verify")
+            .arg("--quiet")
+            .arg(format!("{}^", commit_hash))
+            .current_dir(root);
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            cmd.creation_flags(0x08000000);
+        }
+        match cmd.output() {
+            Ok(out) if out.status.success() => {
+                let hash = String::from_utf8_lossy(&out.stdout).trim().to_string();
+                if hash.is_empty() { None } else { Some(hash) }
+            }
+            _ => None,
+        }
+    };
+
+    let normalize = |p: &str| p.replace('\\', "/");
+
+    let blob_at = |rev: &str, path: &str| -> Option<Vec<u8>> {
+        let mut cmd = std::process::Command::new("git");
+        cmd.arg("show")
+            .arg(format!("{}:{}", rev, normalize(path)))
+            .current_dir(root);
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            cmd.creation_flags(0x08000000);
+        }
+        match cmd.output() {
+            Ok(out) if out.status.success() => Some(out.stdout),
+            _ => None,
+        }
+    };
+
+    // Path pada parent: untuk rename pakai old_path, selain itu path yang sama.
+    let parent_path = old_path.clone().unwrap_or_else(|| file_path.clone());
+    let original_bytes = match &parent {
+        Some(rev) => blob_at(rev, &parent_path),
+        None => None,
+    };
+    let modified_bytes = blob_at(&commit_hash, &file_path);
+
+    // File binary tidak bisa ditampilkan sebagai diff teks.
+    let is_binary = |bytes: &Option<Vec<u8>>| {
+        bytes
+            .as_ref()
+            .map(|b| b.iter().take(8000).any(|&byte| byte == 0))
+            .unwrap_or(false)
+    };
+
+    if is_binary(&original_bytes) || is_binary(&modified_bytes) {
+        return Ok(GitFileDiffContent {
+            path: file_path,
+            old_path,
+            original: String::new(),
+            modified: String::new(),
+            is_binary: true,
+            is_truncated: false,
+        });
+    }
+
+    let decode = |bytes: Option<Vec<u8>>| -> (String, bool) {
+        match bytes {
+            Some(raw) => {
+                let truncated = raw.len() > MAX_BYTES;
+                let slice = if truncated { &raw[..MAX_BYTES] } else { &raw[..] };
+                (String::from_utf8_lossy(slice).to_string(), truncated)
+            }
+            None => (String::new(), false),
+        }
+    };
+
+    let (original, original_truncated) = decode(original_bytes);
+    let (modified, modified_truncated) = decode(modified_bytes);
+
+    Ok(GitFileDiffContent {
+        path: file_path,
+        old_path,
+        original,
+        modified,
+        is_binary: false,
+        is_truncated: original_truncated || modified_truncated,
+    })
 }
 
 #[tauri::command]
@@ -2264,6 +2379,7 @@ fn main() {
             git_checkout_commit,
             git_revert_commit,
             git_reset_to_commit,
+            git_get_commit_file_diff,
             git_compare_branches,
             git_get_file_at_ref,
             git_merge_branch,

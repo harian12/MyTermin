@@ -110,37 +110,41 @@ const handleCreateTag = async () => {
                 </p>
               </div>
               <div class="flex shrink-0 items-center gap-0.5">
-                <button
-                  class="rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                  title="Lihat patch"
-                  @click="handlePreview(entry.selector)"
-                >
-                  <Eye class="h-3.5 w-3.5" />
-                </button>
-                <button
-                  class="rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                  title="Apply (pertahankan stash)"
-                  :disabled="isBusy"
-                  @click="stashApply(entry.selector, false)"
-                >
-                  <ArrowDownToLine class="h-3.5 w-3.5" />
-                </button>
-                <button
-                  class="rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                  title="Pop (hapus setelah apply)"
-                  :disabled="isBusy"
-                  @click="stashApply(entry.selector, true)"
-                >
-                  <Upload class="h-3.5 w-3.5" />
-                </button>
-                <button
-                  class="rounded p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                  title="Hapus stash"
-                  :disabled="isBusy"
-                  @click="stashDrop(entry.selector)"
-                >
-                  <Trash2 class="h-3.5 w-3.5" />
-                </button>
+                <UiTooltip text="Lihat patch" side="bottom" class="flex-shrink-0">
+                  <button
+                    class="rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    @click="handlePreview(entry.selector)"
+                  >
+                    <Eye class="h-3.5 w-3.5" />
+                  </button>
+                </UiTooltip>
+                <UiTooltip text="Apply (pertahankan stash)" side="bottom" class="flex-shrink-0">
+                  <button
+                    class="rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    :disabled="isBusy"
+                    @click="stashApply(entry.selector, false)"
+                  >
+                    <ArrowDownToLine class="h-3.5 w-3.5" />
+                  </button>
+                </UiTooltip>
+                <UiTooltip text="Pop (hapus setelah apply)" side="bottom" class="flex-shrink-0">
+                  <button
+                    class="rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    :disabled="isBusy"
+                    @click="stashApply(entry.selector, true)"
+                  >
+                    <Upload class="h-3.5 w-3.5" />
+                  </button>
+                </UiTooltip>
+                <UiTooltip text="Hapus stash" side="bottom" class="flex-shrink-0">
+                  <button
+                    class="rounded p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                    :disabled="isBusy"
+                    @click="stashDrop(entry.selector)"
+                  >
+                    <Trash2 class="h-3.5 w-3.5" />
+                  </button>
+                </UiTooltip>
               </div>
             </div>
 

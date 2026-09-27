@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch, nextTick } from 'vue'
-import { Keyboard, Search, X } from 'lucide-vue-next'
+import { Keyboard, Search, Settings, X } from 'lucide-vue-next'
 import { useSettingsStore } from '~/composables/useSettingsStore'
 
 const props = defineProps<{
@@ -9,6 +9,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'update:open', val: boolean): void
+  (e: 'open-keybindings'): void
 }>()
 
 const { settings } = useSettingsStore()
@@ -29,6 +30,7 @@ watch(
 interface ShortcutItem {
   keys: string[]
   label: string
+  customizable?: boolean
 }
 
 interface ShortcutGroup {
@@ -45,12 +47,12 @@ const groups = computed<ShortcutGroup[]>(() => [
   {
     title: 'Global',
     items: [
-      { keys: [kb('commandPalette', 'Ctrl+K')], label: 'Command Palette' },
+      { keys: [kb('commandPalette', 'Ctrl+K')], label: 'Command Palette', customizable: true },
       { keys: ['Ctrl+P'], label: 'Quick Open File' },
       { keys: ['Ctrl+Shift+F'], label: 'Cari & Ganti di Semua File' },
-      { keys: [kb('unifiedSearch', 'Ctrl+Shift+U')], label: 'Unified Search (Terminal + File)' },
+      { keys: [kb('unifiedSearch', 'Ctrl+Shift+U')], label: 'Unified Search (Terminal + File)', customizable: true },
       { keys: ['Ctrl+Shift+N'], label: 'Buka Jendela Baru (Blank Workspace)' },
-      { keys: [kb('toggleSidebar', 'Ctrl+B')], label: 'Toggle Sidebar' },
+      { keys: [kb('toggleSidebar', 'Ctrl+B')], label: 'Toggle Sidebar', customizable: true },
       { keys: ['F1', 'Ctrl+/'], label: 'Buka Cheatsheet Shortcut Ini' },
       { keys: ['Ctrl+Shift+P'], label: 'Buka Presets Workspace' }
     ]
@@ -60,7 +62,7 @@ const groups = computed<ShortcutGroup[]>(() => [
     items: [
       { keys: ['Ctrl+S'], label: 'Simpan File' },
       { keys: ['Ctrl+Shift+S'], label: 'Simpan Semua File' },
-      { keys: [kb('reopenClosedTab', 'Ctrl+Shift+T')], label: 'Buka Kembali Tab yang Ditutup' },
+      { keys: [kb('reopenClosedTab', 'Ctrl+Shift+T')], label: 'Buka Kembali Tab yang Ditutup', customizable: true },
       { keys: ['Shift+Alt+F'], label: 'Format Dokumen (Prettier)' },
       { keys: ['Alt+Z'], label: 'Toggle Word Wrap' },
       { keys: ['Ctrl+F'], label: 'Cari di File' },
@@ -71,10 +73,10 @@ const groups = computed<ShortcutGroup[]>(() => [
   {
     title: 'Terminal',
     items: [
-      { keys: [kb('newTab', 'Ctrl+T')], label: 'Terminal Baru' },
-      { keys: [kb('closeTab', 'Ctrl+W')], label: 'Tutup Terminal' },
-      { keys: [kb('duplicateTab', 'Ctrl+Shift+D')], label: 'Duplikat Terminal' },
-      { keys: [kb('searchBuffer', 'Ctrl+F')], label: 'Cari di Buffer Terminal' },
+      { keys: [kb('newTab', 'Ctrl+T')], label: 'Terminal Baru', customizable: true },
+      { keys: [kb('closeTab', 'Ctrl+W')], label: 'Tutup Terminal', customizable: true },
+      { keys: [kb('duplicateTab', 'Ctrl+Shift+D')], label: 'Duplikat Terminal', customizable: true },
+      { keys: [kb('searchBuffer', 'Ctrl+F')], label: 'Cari di Buffer Terminal', customizable: true },
       { keys: ['Ctrl+C'], label: 'Copy seleksi (atau SIGINT)' },
       { keys: ['Ctrl+V'], label: 'Paste teks / gambar / path file' },
       { keys: ['Ctrl+='], label: 'Perbesar Font Terminal' },
@@ -88,10 +90,10 @@ const groups = computed<ShortcutGroup[]>(() => [
     items: [
       { keys: ['Ctrl+Tab'], label: 'Terminal Berikutnya' },
       { keys: ['Ctrl+Shift+Tab'], label: 'Workstation Berikutnya' },
-      { keys: [kb('splitHorizontal', 'Ctrl+Shift+E')], label: 'Layout Split Horizontal' },
-      { keys: [kb('splitVertical', 'Ctrl+Shift+O')], label: 'Layout Split Vertikal' },
-      { keys: [kb('grid2x2', 'Ctrl+Shift+G')], label: 'Layout Grid 2x2' },
-      { keys: [kb('singleView', 'Ctrl+Shift+L')], label: 'Layout Terminal Tunggal' },
+      { keys: [kb('splitHorizontal', 'Ctrl+Shift+E')], label: 'Layout Split Horizontal', customizable: true },
+      { keys: [kb('splitVertical', 'Ctrl+Shift+O')], label: 'Layout Split Vertikal', customizable: true },
+      { keys: [kb('grid2x2', 'Ctrl+Shift+G')], label: 'Layout Grid 2x2', customizable: true },
+      { keys: [kb('singleView', 'Ctrl+Shift+L')], label: 'Layout Terminal Tunggal', customizable: true },
       { keys: ['Ctrl+Shift+←/→'], label: 'Geser Urutan Tab Terminal' },
       { keys: ['Ctrl+Shift+W'], label: 'Tutup Workstation Aktif' }
     ]
@@ -99,9 +101,9 @@ const groups = computed<ShortcutGroup[]>(() => [
   {
     title: 'Tools',
     items: [
-      { keys: [kb('taskPanel', 'Ctrl+Shift+M')], label: 'Buka/Tutup Panel Tasks' },
-      { keys: [kb('runTask', 'Ctrl+Shift+B')], label: 'Jalankan Task Utama' },
-      { keys: [kb('aiPanel', 'Ctrl+Shift+I')], label: 'Buka AI CLI Runner' }
+      { keys: [kb('taskPanel', 'Ctrl+Shift+M')], label: 'Buka/Tutup Panel Tasks', customizable: true },
+      { keys: [kb('runTask', 'Ctrl+Shift+B')], label: 'Jalankan Task Utama', customizable: true },
+      { keys: [kb('aiPanel', 'Ctrl+Shift+I')], label: 'Buka AI CLI Runner', customizable: true }
     ]
   }
 ])
@@ -143,7 +145,9 @@ const totalCount = computed(() =>
             </div>
             <div>
               <h3 class="text-sm font-bold text-foreground">Keyboard Shortcuts</h3>
-              <p class="text-[11px] text-muted-foreground">Daftar pintasan keyboard MyTermin (default, dapat diubah di Settings).</p>
+              <p class="text-[11px] text-muted-foreground">
+                Daftar pintasan keyboard MyTermin. Yang bertanda dapat diubah di Settings → Pintasan.
+              </p>
             </div>
           </div>
           <button
@@ -179,7 +183,19 @@ const totalCount = computed(() =>
                 class="flex items-center justify-between gap-3 px-2.5 py-1.5 rounded-lg hover:bg-[#181924] transition-colors"
               >
                 <span class="text-xs text-foreground/90 min-w-0 truncate">{{ item.label }}</span>
-                <div class="flex items-center gap-1 flex-shrink-0">
+                <div class="flex items-center gap-1.5 flex-shrink-0">
+                  <UiTooltip
+                    v-if="item.customizable"
+                    text="Dapat diubah di Settings → Pintasan"
+                    side="left"
+                    class="flex-shrink-0"
+                  >
+                    <span
+                      class="px-1 py-0.5 rounded text-[9px] font-medium bg-primary/15 text-primary border border-primary/30"
+                    >
+                      dapat diubah
+                    </span>
+                  </UiTooltip>
                   <kbd
                     v-for="k in item.keys"
                     :key="k"
@@ -200,7 +216,13 @@ const totalCount = computed(() =>
         <!-- Footer -->
         <div class="flex items-center justify-between px-5 py-2.5 bg-[#0e0f14] border-t border-border/50 text-[11px] text-muted-foreground font-mono">
           <span>{{ totalCount }} pintasan</span>
-          <span>Ubah di <kbd class="bg-muted px-1.5 py-0.5 rounded text-[10px]">Settings → Keybindings</kbd></span>
+          <button
+            class="flex items-center gap-1.5 px-2 py-1 rounded-md border border-border/60 bg-[#181924] text-foreground transition-colors hover:bg-primary/15 hover:border-primary/40 cursor-pointer"
+            @click="emit('open-keybindings')"
+          >
+            <Settings class="w-3 h-3 text-primary" />
+            <span>Ubah di Settings → Pintasan</span>
+          </button>
         </div>
       </div>
     </div>

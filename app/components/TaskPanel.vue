@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Play, RefreshCw, ListTodo, CircleDot, AlertCircle } from 'lucide-vue-next'
+import { Play, RefreshCw, ListTodo, CircleDot, AlertCircle, X } from 'lucide-vue-next'
 import type { TaskDefinition } from '~/types/terminal'
 
 interface Props {
@@ -66,20 +66,22 @@ const run = async (task: TaskDefinition) => {
         </span>
       </div>
       <div class="flex items-center gap-0.5">
-        <button
-          class="rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          title="Refresh task"
-          @click="refresh"
-        >
-          <RefreshCw class="h-3 w-3" :class="{ 'animate-spin': isLoading }" />
-        </button>
-        <button
-          class="rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          title="Tutup panel (Ctrl+Shift+M)"
-          @click="emit('update:open', false)"
-        >
-          ×
-        </button>
+        <UiTooltip text="Refresh task" side="left" class="flex-shrink-0">
+          <button
+            class="rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            @click="refresh"
+          >
+            <RefreshCw class="h-3 w-3" :class="{ 'animate-spin': isLoading }" />
+          </button>
+        </UiTooltip>
+        <UiTooltip text="Tutup panel (Ctrl+Shift+M)" side="left" class="flex-shrink-0">
+          <button
+            class="rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            @click="emit('update:open', false)"
+          >
+            <X class="h-3 w-3" />
+          </button>
+        </UiTooltip>
       </div>
     </div>
 
@@ -108,22 +110,30 @@ const run = async (task: TaskDefinition) => {
             {{ source }}
           </p>
           <div class="space-y-0.5">
-            <button
+            <UiTooltip
               v-for="task in items"
               :key="`${source}-${task.label}`"
-              :disabled="busyLabel !== null"
-              class="group flex w-full items-center gap-2 rounded px-1.5 py-1.5 text-left text-[11px] transition-colors hover:bg-muted disabled:opacity-50"
-              :title="`${task.command}${task.is_watch ? ' (task berjalan terus)' : ''}`"
-              @click="run(task)"
+              :text="`${task.command}${task.is_watch ? ' (task berjalan terus)' : ''}`"
+              side="left"
+              class="contents"
             >
-              <Play class="h-3 w-3 shrink-0 text-emerald-400 opacity-70 group-hover:opacity-100" />
-              <span class="min-w-0 flex-1 truncate text-foreground/90">{{ task.label }}</span>
-              <CircleDot
-                v-if="task.is_watch"
-                class="h-2.5 w-2.5 shrink-0 text-amber-400"
-                title="Task berjalan terus (watch/dev)"
-              />
-            </button>
+              <button
+                :disabled="busyLabel !== null"
+                class="group flex w-full items-center gap-2 rounded px-1.5 py-1.5 text-left text-[11px] transition-colors hover:bg-muted disabled:opacity-50"
+                @click="run(task)"
+              >
+                <Play class="h-3 w-3 shrink-0 text-emerald-400 opacity-70 group-hover:opacity-100" />
+                <span class="min-w-0 flex-1 truncate text-foreground/90">{{ task.label }}</span>
+                <UiTooltip
+                  v-if="task.is_watch"
+                  text="Task berjalan terus (watch/dev)"
+                  side="left"
+                  class="flex shrink-0 items-center justify-center"
+                >
+                  <CircleDot class="h-2.5 w-2.5 text-amber-400" />
+                </UiTooltip>
+              </button>
+            </UiTooltip>
           </div>
         </div>
       </div>
