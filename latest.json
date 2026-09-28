@@ -1,15 +1,15 @@
 {
-  "version": "0.2.12",
-  "notes": "Release v0.2.12 - Branding baru. Logo MyTermin diganti total dengan mark \"Prompt Monogram\": glyph M yang sekaligus dibaca sebagai huruf M dan chevron prompt terminal, digabung dengan garis hijau emerald sebagai blinking cursor. Latar squircle gelap dengan glow biru lembut dan gradasi biru-ke-cyan yang mengikuti warna primary aplikasi. Semua ikon di-regenerate dari sumber baru: installer NSIS dan MSI, ikon taskbar Windows, favicon browser, Windows Store, serta varian iOS dan Android. Logo baru dipakai juga di dalam aplikasi lewat AppLogo.vue.",
-  "pub_date": "2026-09-27T10:05:32.144Z",
+  "version": "0.2.13",
+  "notes": "Release v0.2.13 - Perbaikan layout toolbar Git di sidebar workstation: tombol aksi dipindahkan ke bawah nama branch sehingga tidak meluap dari card saat nama branch panjang. Perbaikan UiTooltip: penambahan word break dan auto-clamping viewport agar path file panjang tidak tembus keluar bubble tooltip.",
+  "pub_date": "2026-09-28T05:56:38.614Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcjU5M1ZFMWtCZWJ4K3BGZ2V1QlgxZWdaMVdaUGpoTlQ5YnNoT2d2UDhBaE1kK3Q4VHk4ZW85MWRkRnE5WnZTSzRuYk5IWjVUcm5nMGczbkhLU2NyZTM5NXYvL0JVK3dVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkwNTAzNTI2CWZpbGU6TXlUZXJtaW5fMC4yLjEyX3g2NC1zZXR1cC5leGUKNjcyMUhTcGlCWmo4MEhYZUVEcm13TE9GRm5WVzFCaVJGYU5UWFRBWk5CdFVLdEZTdnIzdWRVWmorVTFJY1dyTUVlSnhqU1RyWXhybGErSTRmek9KQkE9PQo=",
-      "url": "https://github.com/harian12/MyTermin/releases/download/v0.2.12/MyTermin_0.2.12_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcjU5M1ZFMWtCZVZVOG5haU9yYndEdGdhYUErQUQzb2JLbERXbGduSE45UWVqczZ0WERHTmJNWGFNZnRGa0ZySzEyZllPZno5ZzhRT2YyZVJHc3lNd3MxNkx0TENaM1FzPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkwNTc0OTg3CWZpbGU6TXlUZXJtaW5fMC4yLjEzX3g2NC1zZXR1cC5leGUKR1RMOGZCUHJSbnVKVzNaZklTTnBJWEt5dXBSQzFBTTJ2QkNicTVnSXV2cTUwUU02bzdyYndOOVVTQy9sZjRPeFRDTDFOT1NYL0hjSC9USERKeVVhQlE9PQo=",
+      "url": "https://github.com/harian12/MyTermin/releases/download/v0.2.13/MyTermin_0.2.13_x64-setup.exe"
     },
     "windows-x86_64-nsis": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcjU5M1ZFMWtCZWJ4K3BGZ2V1QlgxZWdaMVdaUGpoTlQ5YnNoT2d2UDhBaE1kK3Q4VHk4ZW85MWRkRnE5WnZTSzRuYk5IWjVUcm5nMGczbkhLU2NyZTM5NXYvL0JVK3dVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkwNTAzNTI2CWZpbGU6TXlUZXJtaW5fMC4yLjEyX3g2NC1zZXR1cC5leGUKNjcyMUhTcGlCWmo4MEhYZUVEcm13TE9GRm5WVzFCaVJGYU5UWFRBWk5CdFVLdEZTdnIzdWRVWmorVTFJY1dyTUVlSnhqU1RyWXhybGErSTRmek9KQkE9PQo=",
-      "url": "https://github.com/harian12/MyTermin/releases/download/v0.2.12/MyTermin_0.2.12_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcjU5M1ZFMWtCZVZVOG5haU9yYndEdGdhYUErQUQzb2JLbERXbGduSE45UWVqczZ0WERHTmJNWGFNZnRGa0ZySzEyZllPZno5ZzhRT2YyZVJHc3lNd3MxNkx0TENaM1FzPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkwNTc0OTg3CWZpbGU6TXlUZXJtaW5fMC4yLjEzX3g2NC1zZXR1cC5leGUKR1RMOGZCUHJSbnVKVzNaZklTTnBJWEt5dXBSQzFBTTJ2QkNicTVnSXV2cTUwUU02bzdyYndOOVVTQy9sZjRPeFRDTDFOT1NYL0hjSC9USERKeVVhQlE9PQo=",
+      "url": "https://github.com/harian12/MyTermin/releases/download/v0.2.13/MyTermin_0.2.13_x64-setup.exe"
     }
   }
 }

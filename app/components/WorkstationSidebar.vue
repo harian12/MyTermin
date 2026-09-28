@@ -817,85 +817,76 @@ const finishRename = (termId: string) => {
 
       <template v-else>
         <!-- Branch & Sync Header Toolbar -->
-        <div class="flex items-center justify-between p-2 rounded bg-[#161722] border border-border/50 text-xs font-mono flex-shrink-0">
+        <div class="flex flex-col gap-1.5 p-2 rounded bg-[#161722] border border-border/50 text-xs font-mono flex-shrink-0">
           <!-- Branch Switcher Trigger -->
-          <UiTooltip text="Klik untuk beralih atau membuat branch" side="bottom">
-
-            <button class="flex items-center gap-1.5 text-primary hover:text-primary/80 transition-colors min-w-0 font-medium truncate" @click="openBranchModal">
-            <GitBranch class="w-3.5 h-3.5 flex-shrink-0" />
-            <span class="truncate font-semibold">{{ gitBranch || 'Branch' }}</span>
-            <UiTooltip v-if="aheadBehind?.has_upstream" :text="`vs ${aheadBehind.upstream}: ${aheadBehind.ahead} ahead, ${aheadBehind.behind} behind`" side="bottom" class="contents">
-              <span class="flex shrink-0 items-center gap-1 text-[10px]">
-                <span v-if="aheadBehind.ahead > 0" class="text-emerald-400">↑{{ aheadBehind.ahead }}</span>
-                <span v-if="aheadBehind.behind > 0" class="text-amber-400">↓{{ aheadBehind.behind }}</span>
-              </span>
-            </UiTooltip>
-            <ChevronDown class="w-3 h-3 flex-shrink-0 opacity-60" />
-          </button>
-
+          <UiTooltip text="Klik untuk beralih atau membuat branch" side="bottom" class="w-full">
+            <button class="flex items-center justify-between w-full text-primary hover:text-primary/80 transition-colors min-w-0 font-medium py-0.5" @click="openBranchModal">
+              <div class="flex items-center gap-1.5 min-w-0 truncate">
+                <GitBranch class="w-3.5 h-3.5 flex-shrink-0" />
+                <span class="truncate font-semibold">{{ gitBranch || 'Branch' }}</span>
+                <UiTooltip v-if="aheadBehind?.has_upstream" :text="`vs ${aheadBehind.upstream}: ${aheadBehind.ahead} ahead, ${aheadBehind.behind} behind`" side="bottom" class="contents">
+                  <span class="flex shrink-0 items-center gap-1 text-[10px]">
+                    <span v-if="aheadBehind.ahead > 0" class="text-emerald-400">↑{{ aheadBehind.ahead }}</span>
+                    <span v-if="aheadBehind.behind > 0" class="text-amber-400">↓{{ aheadBehind.behind }}</span>
+                  </span>
+                </UiTooltip>
+              </div>
+              <ChevronDown class="w-3 h-3 flex-shrink-0 opacity-60 ml-1" />
+            </button>
           </UiTooltip>
 
           <!-- Push, Pull, Refresh Actions -->
-          <div class="flex items-center gap-1 flex-shrink-0">
+          <div class="flex items-center justify-between pt-1.5 border-t border-border/40">
             <!-- Git Graph Button -->
             <UiTooltip text="Buka Visual Git Commit Graph" side="bottom">
-
               <button class="p-1 rounded hover:bg-accent text-muted-foreground hover:text-primary transition-colors cursor-pointer" @click="showGitGraphModal = true">
-              <GitCommit class="w-3.5 h-3.5 text-primary" />
-            </button>
-
+                <GitCommit class="w-3.5 h-3.5 text-primary" />
+              </button>
             </UiTooltip>
+
             <!-- Branch Compare Button -->
             <UiTooltip text="Buka Branch Compare & Diff" side="bottom">
-
               <button class="p-1 rounded hover:bg-accent text-muted-foreground hover:text-primary transition-colors cursor-pointer" @click="showBranchCompareModal = true">
-              <GitCompare class="w-3.5 h-3.5 text-indigo-400" />
-            </button>
-
+                <GitCompare class="w-3.5 h-3.5 text-indigo-400" />
+              </button>
             </UiTooltip>
+
             <!-- Toggle Tree vs List View -->
             <UiTooltip :text="gitViewMode === 'tree' ? 'Ganti ke Tampilan Daftar (List View)' : 'Ganti ke Tampilan Pohon Folder (Tree View)'" side="bottom">
-
               <button class="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors" @click="gitViewMode = gitViewMode === 'tree' ? 'list' : 'tree'">
-              <Network v-if="gitViewMode === 'tree'" class="w-3.5 h-3.5 text-primary" />
-              <List v-else class="w-3.5 h-3.5" />
-            </button>
-
+                <Network v-if="gitViewMode === 'tree'" class="w-3.5 h-3.5 text-primary" />
+                <List v-else class="w-3.5 h-3.5" />
+              </button>
             </UiTooltip>
+
             <UiTooltip :text="isFetchingGit ? 'Fetching...' : 'Fetch dari remote (git fetch --all --prune)'" side="bottom">
-
               <button class="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors" :disabled="isFetchingGit" @click="handleFetch">
-              <CloudDownload :class="['w-3.5 h-3.5', isFetchingGit && 'animate-bounce text-primary']" />
-            </button>
-
+                <CloudDownload :class="['w-3.5 h-3.5', isFetchingGit && 'animate-bounce text-primary']" />
+              </button>
             </UiTooltip>
+
             <UiTooltip text="Kelola Stash & Tag" side="bottom">
-
               <button class="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors" @click="showStashModal = true">
-              <Archive class="w-3.5 h-3.5 text-amber-400" />
-            </button>
-
+                <Archive class="w-3.5 h-3.5 text-amber-400" />
+              </button>
             </UiTooltip>
+
             <UiTooltip text="Pull Perubahan Remote (git pull)" side="bottom">
-
               <button class="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors" :disabled="isPulling" @click="handlePull">
-              <DownloadCloud :class="['w-3.5 h-3.5', isPulling && 'animate-bounce text-primary']" />
-            </button>
-
+                <DownloadCloud :class="['w-3.5 h-3.5', isPulling && 'animate-bounce text-primary']" />
+              </button>
             </UiTooltip>
+
             <UiTooltip text="Push Commit ke Remote (git push)" side="bottom">
-
               <button class="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors" :disabled="isPushing" @click="handlePush">
-              <UploadCloud :class="['w-3.5 h-3.5', isPushing && 'animate-bounce text-primary']" />
-            </button>
-
+                <UploadCloud :class="['w-3.5 h-3.5', isPushing && 'animate-bounce text-primary']" />
+              </button>
             </UiTooltip>
+
             <UiTooltip text="Refresh Git Status" side="bottom">
-
               <button class="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors" @click="refreshGitStatus">
-              <RefreshCw class="w-3 h-3" />
-            </button>
-
+                <RefreshCw class="w-3.5 h-3.5" />
+              </button>
             </UiTooltip>
           </div>
         </div>

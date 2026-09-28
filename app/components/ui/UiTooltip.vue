@@ -91,16 +91,19 @@ const updatePosition = () => {
   placement.value = side
 
   // Sumbu mengikuti trigger, lalu di-clamp supaya tidak keluar viewport —
-  // ini yang bikin native `title` أحيان muncul di layar yang salah.
+  // ini yang bikin native `title` kadang muncul di layar yang salah.
   const centerX = t.left + t.width / 2
   const centerY = t.top + t.height / 2
+  const rawX = side === 'left' || side === 'right'
+    ? side === 'left' ? t.left - w - props.gap : t.right + props.gap
+    : centerX - w / 2
+  const rawY = side === 'top' || side === 'bottom'
+    ? side === 'top' ? t.top - h - props.gap : t.bottom + props.gap
+    : centerY - h / 2
+
   coords.value = {
-    x: side === 'left' || side === 'right'
-      ? side === 'left' ? t.left - w - props.gap : t.right + props.gap
-      : Math.min(Math.max(centerX - w / 2, margin), vw - w - margin),
-    y: side === 'top' || side === 'bottom'
-      ? side === 'top' ? t.top - h - props.gap : t.bottom + props.gap
-      : Math.min(Math.max(centerY - h / 2, margin), vh - h - margin)
+    x: Math.min(Math.max(rawX, margin), Math.max(margin, vw - w - margin)),
+    y: Math.min(Math.max(rawY, margin), Math.max(margin, vh - h - margin))
   }
 }
 
@@ -169,7 +172,7 @@ watch(() => props.side, (v) => (placement.value = v))
       v-if="open"
       ref="tooltipRef"
       role="tooltip"
-      class="fixed z-[300] pointer-events-none max-w-[280px] rounded-md border border-border bg-[#1b1c26] px-2 py-1 text-[11px] leading-snug text-foreground shadow-lg shadow-black/50"
+      class="fixed z-[300] pointer-events-none max-w-[min(480px,calc(100vw-32px))] rounded-md border border-border bg-[#1b1c26] px-2 py-1 text-[11px] leading-snug text-foreground shadow-lg shadow-black/50 break-words [overflow-wrap:anywhere]"
       :style="{ left: `${coords.x}px`, top: `${coords.y}px` }"
     >
       {{ props.text }}
