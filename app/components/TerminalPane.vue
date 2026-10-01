@@ -75,6 +75,15 @@ const { togglePalette, openPalette } = useCommandPalette()
 const { reportIdle, trackOutput, evaluateRules, parsePayload, clearStatus, formatDuration, statuses } = useShellIntegration()
 const { envMap, configPath } = useProjectConfig()
 const { error: logError } = useDiagnostics()
+const { refreshGitStatus } = useProjectExplorer()
+
+let gitRefreshTimer: any = null
+const triggerGitRefresh = () => {
+  if (gitRefreshTimer) clearTimeout(gitRefreshTimer)
+  gitRefreshTimer = setTimeout(() => {
+    refreshGitStatus()
+  }, 150)
+}
 
 // Env project hanya dipakai terminal yang folder-nya cocok dengan pemilik
 // .mytermin/project.json — kalau tidak, env bisa "bocor" ke project lain.
@@ -317,6 +326,7 @@ const handleIncomingData = (data: string) => {
     if (payload.cwd) {
       updateTerminalCwd(props.paneId, payload.cwd)
     }
+    triggerGitRefresh()
     const status = statuses.value[props.paneId]
     if (status) {
       const reason = evaluateRules(
@@ -987,6 +997,7 @@ const fetchStats = async () => {
         }
       } else if (wasProcessBusy) {
         wasProcessBusy = false
+        triggerGitRefresh()
         if (!props.isTabActive) {
           setTerminalAlert(props.paneId, 'completed')
         }
@@ -1071,6 +1082,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(async () => {
+  if (gitRefreshTimer) clearTimeout(gitRefreshTimer)
   if (typeof window !== 'undefined') {
     window.removeEventListener(`terminal-action-${props.paneId}`, handleTerminalAction)
   }

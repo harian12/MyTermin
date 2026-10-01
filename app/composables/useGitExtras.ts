@@ -1,15 +1,16 @@
 import { invoke } from '@tauri-apps/api/core'
-import type { GitAheadBehind, GitStashEntry } from '~/types/terminal'
+import type { GitAheadBehind, GitStashEntry, GitWorktreeEntry } from '~/types/terminal'
 
 const isTauri = () => typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
 
 // Operasi Git yang belum tersedia di useProjectExplorer: fetch, ahead/behind,
-// stash, amend, cherry-pick, dan tag.
+// stash, amend, cherry-pick, tag, dan worktree.
 export const useGitExtras = () => {
   const { activeWorkstation, saveNotification } = useWorkspaceStore()
   const aheadBehind = useState<GitAheadBehind | null>('git-ahead-behind', () => null)
   const stashList = useState<GitStashEntry[]>('git-stash-list', () => [])
   const tagList = useState<string[]>('git-tag-list', () => [])
+  const worktreeList = useState<GitWorktreeEntry[]>('git-worktree-list', () => [])
   const isBusy = useState<boolean>('git-extras-busy', () => false)
   const { refreshGitStatus } = useProjectExplorer()
 
@@ -147,10 +148,49 @@ export const useGitExtras = () => {
     })
   }
 
+  const refreshWorktrees = async () => {
+    const repo = root()
+    if (!repo || !isTauri()) return []
+    try {
+      worktreeList.value = await invoke<GitWorktreeEntry[]>('git_worktree_list', { repoPath: repo })
+      return worktreeList.value
+    } catch {
+      worktreeList.value = []
+      return []
+    }
+  }
+
+  const addWorktree = (path: string, branch: string, newBranch = false) => {
+    const repo = root()
+    if (!repo) return Promise.resolve(null)
+    return run(
+      () => invoke<string>('git_worktree_add', { repoPath: repo, path, branch, newBranch }),
+      `Worktree "${branch}" dibuat`
+    ).then(async (res) => {
+      await refreshWorktrees()
+      await refreshGitStatus()
+      return res
+    })
+  }
+
+  const removeWorktree = (worktreePath: string, force = false) => {
+    const repo = root()
+    if (!repo) return Promise.resolve(null)
+    return run(
+      () => invoke<string>('git_worktree_remove', { repoPath: repo, worktreePath, force }),
+      'Worktree dihapus'
+    ).then(async (res) => {
+      await refreshWorktrees()
+      await refreshGitStatus()
+      return res
+    })
+  }
+
   return {
     aheadBehind,
     stashList,
     tagList,
+    worktreeList,
     isBusy,
     fetchAll,
     refreshAheadBehind,
@@ -162,6 +202,9 @@ export const useGitExtras = () => {
     amendCommit,
     cherryPick,
     refreshTags,
-    createTag
+    createTag,
+    refreshWorktrees,
+    addWorktree,
+    removeWorktree
   }
 }

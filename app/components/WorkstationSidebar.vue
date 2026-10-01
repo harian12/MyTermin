@@ -107,7 +107,7 @@ const emit = defineEmits<{
   (e: 'open-palette'): void
 }>()
 
-const activeTab = ref<'explorer' | 'git' | 'terminals'>('explorer')
+const activeTab = useState<'explorer' | 'git' | 'terminals'>('sidebar-active-tab', () => 'explorer')
 const rootEntries = ref<FileEntry[]>([])
 const isLoadingRoot = ref(false)
 const searchQuery = ref('')

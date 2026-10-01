@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { GitBranch, FolderOpen, Rows2, Columns2, Sparkles } from 'lucide-vue-next'
+import { GitBranch, FolderOpen, Rows2, Columns2, Sparkles, ArrowDown, ArrowUp, FileEdit, RefreshCw } from 'lucide-vue-next'
 import { useWorkspaceStore } from '~/composables/useWorkspaceStore'
 import { useEditorStore } from '~/composables/useEditorStore'
 import { useProjectExplorer } from '~/composables/useProjectExplorer'
+import { useGitExtras } from '~/composables/useGitExtras'
 import { useUpdater } from '~/composables/useUpdater'
 
 const {
@@ -20,6 +21,7 @@ const {
   removeTerminal,
   moveTerminalTab,
   toggleSidebar,
+  isSidebarOpen,
   nextWorkstation,
   prevWorkstation,
   setLayout,
@@ -46,7 +48,9 @@ const {
   saveEditorSession,
   saveAll
 } = useEditorStore()
-const { gitBranch, refreshGitStatus, fetchBranches } = useProjectExplorer()
+const { gitBranch, gitOverview, refreshGitStatus, startGitPolling, stopGitPolling, fetchBranches, pullGit, pushGit } = useProjectExplorer()
+const { aheadBehind, fetchAll } = useGitExtras()
+const sidebarActiveTab = useState<'explorer' | 'git' | 'terminals'>('sidebar-active-tab', () => 'explorer')
 const { isTauri, writePty, pasteFromClipboard } = useTauriPty()
 const { isShortcut, requestDesktopNotification, settings, updateSettings } = useSettingsStore()
 const { showAppConfirm } = useAppDialog()
@@ -94,6 +98,71 @@ const { portsList: activePortsList, startPolling: startPortPolling, stopPolling:
 const openFooterBranchPicker = async () => {
   await fetchBranches()
   isBranchModalOpen.value = true
+}
+
+const gitChangesCount = computed(() => {
+  return (gitOverview.value?.staged?.length || 0) +
+    (gitOverview.value?.unstaged?.length || 0) +
+    (gitOverview.value?.untracked?.length || 0)
+})
+
+const isPullingFooter = ref(false)
+const handleFooterPull = async () => {
+  if (isPullingFooter.value) return
+  isPullingFooter.value = true
+  try {
+    const res = await pullGit()
+    if (res.success) {
+      await refreshGitStatus()
+    } else {
+      await showAppConfirm(
+        `Gagal melakukan pull: ${res.error || 'Terjadi kesalahan saat git pull'}`,
+        'Git Pull',
+        'info',
+        'OK'
+      )
+    }
+  } finally {
+    isPullingFooter.value = false
+  }
+}
+
+const isPushingFooter = ref(false)
+const handleFooterPush = async () => {
+  if (isPushingFooter.value) return
+  isPushingFooter.value = true
+  try {
+    const res = await pushGit()
+    if (res.success) {
+      await refreshGitStatus()
+    } else {
+      await showAppConfirm(
+        `Gagal melakukan push: ${res.error || 'Terjadi kesalahan saat git push'}`,
+        'Git Push',
+        'info',
+        'OK'
+      )
+    }
+  } finally {
+    isPushingFooter.value = false
+  }
+}
+
+const isFetchingFooter = ref(false)
+const handleFooterFetch = async () => {
+  if (isFetchingFooter.value) return
+  isFetchingFooter.value = true
+  try {
+    await fetchAll()
+    await refreshGitStatus()
+  } finally {
+    isFetchingFooter.value = false
+  }
+}
+
+const openGitSidebarTab = () => {
+  sidebarActiveTab.value = 'git'
+  isSidebarOpen.value = true
 }
 const { isOpen: isCommandPaletteOpen, togglePalette, openPalette } = useCommandPalette()
 
@@ -296,6 +365,8 @@ const handleContextMenuAction = async (action: string) => {
     openPalette()
   } else if (action === 'new-tab') {
     addTerminal()
+  } else if (action === 'git-worktrees') {
+    openFooterBranchPicker()
   } else if (action === 'duplicate') {
     duplicateTerminal(contextMenuPaneId.value || activeTerminalId.value)
   } else if (action === 'close-tab') {
@@ -614,12 +685,14 @@ onMounted(async () => {
 
   // Poll listening ports in background for footer status
   startPortPolling(5000)
+  startGitPolling(3000)
 
   window.addEventListener('beforeunload', () => {
     saveSession(false)
     saveEditorSession()
     persistWindowState()
     stopPortPolling()
+    stopGitPolling()
   })
   window.addEventListener('error', handleGlobalError)
   window.addEventListener('unhandledrejection', handleUnhandledRejection)
@@ -632,6 +705,7 @@ onBeforeUnmount(() => {
   unlistenResize?.()
   unlistenMove?.()
   stopPortPolling()
+  stopGitPolling()
   window.removeEventListener('keydown', handleKeydown, true)
   window.removeEventListener('error', handleGlobalError)
   window.removeEventListener('unhandledrejection', handleUnhandledRejection)
@@ -712,14 +786,66 @@ onBeforeUnmount(() => {
     <footer class="h-6 w-full bg-[#0a0b0f] border-t border-border/60 px-3 flex items-center justify-between text-[11px] font-mono select-none z-30 flex-shrink-0 text-muted-foreground">
       <!-- Left: Git Branch, Folder Path, Workspace Name -->
       <div class="flex items-center gap-3 truncate max-w-[60%]">
-        <!-- Git Branch Badge / Selector -->
-        <UiTooltip v-if="gitBranch" :text="`Git Branch: ${gitBranch} (Klik untuk beralih atau buat branch)`" side="top" class="flex-shrink-0">
+        <!-- Git Branch Badge / Selector with Ahead/Behind indicator -->
+        <UiTooltip v-if="gitBranch" :text="aheadBehind?.has_upstream ? `Git Branch: ${gitBranch} (vs ${aheadBehind.upstream}: ${aheadBehind.ahead} ahead, ${aheadBehind.behind} behind). Klik untuk beralih/buat branch.` : `Git Branch: ${gitBranch} (Klik untuk beralih atau buat branch)`" side="top" class="flex-shrink-0">
           <button
             class="flex items-center gap-1.5 px-1.5 py-0.5 rounded hover:bg-[#1c1d2b] text-primary hover:text-primary/90 transition-colors cursor-pointer font-medium"
             @click="openFooterBranchPicker"
           >
             <GitBranch class="w-3.5 h-3.5 text-primary flex-shrink-0" />
             <span>{{ gitBranch }}</span>
+            <span v-if="aheadBehind?.has_upstream && (aheadBehind.ahead > 0 || aheadBehind.behind > 0)" class="flex items-center gap-1 font-mono text-[10px] ml-0.5">
+              <span v-if="aheadBehind.ahead > 0" class="text-emerald-400 font-semibold">↑{{ aheadBehind.ahead }}</span>
+              <span v-if="aheadBehind.behind > 0" class="text-amber-400 font-semibold">↓{{ aheadBehind.behind }}</span>
+            </span>
+          </button>
+        </UiTooltip>
+
+        <!-- Pull Button / Indicator if behind > 0 -->
+        <UiTooltip v-if="gitBranch && aheadBehind?.has_upstream && aheadBehind.behind > 0" :text="`Tarik ${aheadBehind.behind} commit dari ${aheadBehind.upstream} (Git Pull)`" side="top" class="flex-shrink-0">
+          <button
+            class="flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400 border border-amber-500/30 hover:bg-amber-500/25 transition-colors cursor-pointer font-medium text-[10px]"
+            :disabled="isPullingFooter"
+            @click="handleFooterPull"
+          >
+            <RefreshCw v-if="isPullingFooter" class="w-3 h-3 text-amber-400 animate-spin" />
+            <ArrowDown v-else class="w-3 h-3 text-amber-400 animate-bounce" />
+            <span>Pull {{ aheadBehind.behind }}</span>
+          </button>
+        </UiTooltip>
+
+        <!-- Push Button / Indicator if ahead > 0 -->
+        <UiTooltip v-if="gitBranch && aheadBehind?.has_upstream && aheadBehind.ahead > 0" :text="`Kirim ${aheadBehind.ahead} commit ke ${aheadBehind.upstream} (Git Push)`" side="top" class="flex-shrink-0">
+          <button
+            class="flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/25 transition-colors cursor-pointer font-medium text-[10px]"
+            :disabled="isPushingFooter"
+            @click="handleFooterPush"
+          >
+            <RefreshCw v-if="isPushingFooter" class="w-3 h-3 text-emerald-400 animate-spin" />
+            <ArrowUp v-else class="w-3 h-3 text-emerald-400" />
+            <span>Push {{ aheadBehind.ahead }}</span>
+          </button>
+        </UiTooltip>
+
+        <!-- Quick Fetch / Sync Button -->
+        <UiTooltip v-if="gitBranch" text="Fetch status dari remote (Git Fetch)" side="top" class="flex-shrink-0">
+          <button
+            class="flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-[#1c1d2b] text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+            :disabled="isFetchingFooter"
+            @click="handleFooterFetch"
+          >
+            <RefreshCw :class="['w-3 h-3', isFetchingFooter ? 'animate-spin text-primary' : '']" />
+          </button>
+        </UiTooltip>
+
+        <!-- Changes Badge Button (Open Git Sidebar Tab) -->
+        <UiTooltip v-if="gitBranch && gitChangesCount > 0" :text="`${gitChangesCount} berkas berubah (${gitOverview.staged.length} staged, ${gitOverview.unstaged.length} unstaged, ${gitOverview.untracked.length} untracked). Klik untuk buka panel Git.`" side="top" class="flex-shrink-0">
+          <button
+            class="flex items-center gap-1 px-1.5 py-0.5 rounded bg-sky-500/15 text-sky-400 border border-sky-500/30 hover:bg-sky-500/25 transition-colors cursor-pointer text-[10px] font-medium"
+            @click="openGitSidebarTab"
+          >
+            <FileEdit class="w-3 h-3 text-sky-400" />
+            <span>{{ gitChangesCount }} Perubahan</span>
           </button>
         </UiTooltip>
 

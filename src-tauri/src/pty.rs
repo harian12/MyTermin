@@ -29,30 +29,22 @@ pub struct PtyStats {
 // OSC 1337 ; MyTermin=<base64 json> agar xterm.js bisa.metadata tanpa parses ANSI prompt.
 const POWERSHELL_INIT_SCRIPT: &str = r#"
 $global:MyTerminPromptStamp = $null
-$global:MyTerminBranchCache = ''
-$global:MyTerminBranchStamp = $null
 
 function global:MyTermin-GetBranch {
-  $now = Get-Date
-  if ($global:MyTerminBranchStamp -and ($now - $global:MyTerminBranchStamp).TotalSeconds -lt 3) {
-    return $global:MyTerminBranchCache
-  }
-  $global:MyTerminBranchStamp = $now
   try {
     $b = (& git rev-parse --abbrev-ref HEAD 2>$null)
-    if ($LASTEXITCODE -eq 0 -and $b) { $global:MyTerminBranchCache = $b.Trim() } else { $global:MyTerminBranchCache = '' }
-  } catch { $global:MyTerminBranchCache = '' }
-  return $global:MyTerminBranchCache
+    if ($LASTEXITCODE -eq 0 -and $b) { return $b.Trim() } else { return '' }
+  } catch { return '' }
 }
 
-function global:MyTermin-Report($exitCode, $durationMs) {
+function global:MyTermin-Report($exitCode, $durationMs, $branch) {
   try {
     $payload = @{
       state = 'idle'
       exit = $exitCode
       ms = $durationMs
       cwd = (Get-Location).Path
-      branch = (MyTermin-GetBranch)
+      branch = $branch
     } | ConvertTo-Json -Compress
     $b64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($payload))
     # Windows PowerShell 5.1 tidak mengenal escape `e, jadi pakai [char]27.
@@ -71,11 +63,11 @@ function global:Prompt {
   }
   $code = 0
   if ($null -ne $LASTEXITCODE) { $code = [int]$LASTEXITCODE }
-  MyTermin-Report $code $ms
+  $branch = MyTermin-GetBranch
+  MyTermin-Report $code $ms $branch
   $global:MyTerminPromptStamp = $now
 
   $loc = $executionContext.SessionState.Path.CurrentLocation.Path
-  $branch = MyTermin-GetBranch
   $suffix = ''
   if ($branch) { $suffix = " [$branch]" }
   "PS $loc$suffix> "
@@ -85,32 +77,15 @@ function global:Prompt {
 // Versi bash (Git Bash / MSYS) untuk shell integration yang sama.
 const BASH_INIT_SCRIPT: &str = r#"
 __mytermin_branch() {
-  local stamp_file="${TMPDIR:-/tmp}/.mytermin_branch_stamp"
-  local cache_file="${TMPDIR:-/tmp}/.mytermin_branch_cache"
-  local now
-  now=$(date +%s)
-  if [ -f "$stamp_file" ] && [ -f "$cache_file" ]; then
-    local last
-    last=$(cat "$stamp_file" 2>/dev/null || echo 0)
-    if [ $((now - last)) -lt 3 ]; then
-      cat "$cache_file" 2>/dev/null
-      return
-    fi
-  fi
-  local b
-  b=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
-  echo "$now" > "$stamp_file" 2>/dev/null
-  echo "$b" > "$cache_file" 2>/dev/null
-  printf '%s' "$b"
+  git rev-parse --abbrev-ref HEAD 2>/dev/null
 }
 
 __mytermin_report() {
   local code=$1
   local ms=$2
+  local branch=$3
   local cwd
   cwd=$(pwd)
-  local branch
-  branch=$(__mytermin_branch)
   local payload
   payload=$(printf '{"state":"idle","exit":%s,"ms":%s,"cwd":"%s","branch":"%s"}' "$code" "$ms" "$cwd" "$branch")
   local b64
@@ -122,12 +97,12 @@ __mytermin_prompt() {
   local exit_code=$?
   local now
   now=$(date +%s%3N)
-  if [ -n "$__MYTERMIN_STAMP" ]; then
-    __mytermin_report "$exit_code" "$((now - __MYTERMIN_STAMP))"
-  fi
-  __MYTERMIN_STAMP=$now
   local branch
   branch=$(__mytermin_branch)
+  if [ -n "$__MYTERMIN_STAMP" ]; then
+    __mytermin_report "$exit_code" "$((now - __MYTERMIN_STAMP))" "$branch"
+  fi
+  __MYTERMIN_STAMP=$now
   local suffix=""
   [ -n "$branch" ] && suffix=" [$branch]"
   printf '\033[32m%s\033[0m%s$ ' "$(pwd)" "$suffix"

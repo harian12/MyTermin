@@ -12,7 +12,8 @@ import {
   Square,
   Sparkles,
   Search,
-  Download
+  Download,
+  GitBranch
 } from 'lucide-vue-next'
 
 const props = defineProps<{
@@ -164,6 +165,16 @@ onBeforeUnmount(() => {
         <span>Tab Baru</span>
       </div>
       <kbd class="text-[10px] text-muted-foreground font-mono">Ctrl+T</kbd>
+    </button>
+
+    <button
+      class="w-full flex items-center justify-between px-2.5 py-1.5 text-xs rounded-md hover:bg-accent hover:text-foreground text-foreground/90 transition-colors cursor-pointer"
+      @click="handleAction('git-worktrees')"
+    >
+      <div class="flex items-center gap-2">
+        <GitBranch class="w-3.5 h-3.5 text-sky-400" />
+        <span>Branch & Worktree...</span>
+      </div>
     </button>
 
     <button

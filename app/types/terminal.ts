@@ -213,6 +213,16 @@ export interface GitStashEntry {
   date: string
 }
 
+export interface GitWorktreeEntry {
+  path: string
+  head: string
+  branch: string
+  is_main: boolean
+  is_locked: boolean
+  lock_reason?: string
+  is_prunable: boolean
+}
+
 export interface EnvEntry {
   key: string
   value: string

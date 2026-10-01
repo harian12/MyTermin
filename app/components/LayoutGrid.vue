@@ -16,7 +16,8 @@ import {
   Search,
   ListTodo,
   CheckCircle2,
-  XCircle
+  XCircle,
+  GitBranch
 } from 'lucide-vue-next'
 import type { LayoutType, TerminalTab } from '~/types/terminal'
 import { useEditorStore } from '~/composables/useEditorStore'
@@ -421,6 +422,16 @@ const gridClass = computed(() => {
             @click.stop
           />
           <span v-else class="truncate max-w-[120px]">{{ term.title }}</span>
+
+          <!-- Branch Badge per tab terminal -->
+          <span
+            v-if="getTermStatus(term.id)?.branch && editingTermId !== term.id"
+            class="inline-flex items-center gap-0.5 px-1 py-0.2 rounded bg-primary/10 text-primary text-[10px] max-w-[75px] truncate font-sans font-medium"
+            :title="`Git Branch: ${getTermStatus(term.id)!.branch}`"
+          >
+            <GitBranch class="w-2.5 h-2.5 flex-shrink-0" />
+            <span class="truncate">{{ getTermStatus(term.id)!.branch }}</span>
+          </span>
 
           <!-- Close Terminal Tab Button -->
           <UiTooltip

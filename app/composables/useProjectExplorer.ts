@@ -162,6 +162,9 @@ export const useProjectExplorer = () => {
     ]
   }
 
+  let isRefreshingGit = false
+  let gitPollInterval: any = null
+
   // Refresh Git Status & Branch & Detailed Overview
   const refreshGitStatus = async () => {
     const root = activeWorkstation.value.folderPath
@@ -169,24 +172,52 @@ export const useProjectExplorer = () => {
       gitStatusMap.value = {}
       gitBranch.value = ''
       gitOverview.value = { branch: '', staged: [], unstaged: [], untracked: [] }
+      const aheadBehind = useState<any>('git-ahead-behind', () => null)
+      aheadBehind.value = null
       return
     }
 
+    if (isRefreshingGit) return
+    isRefreshingGit = true
+
     try {
       const { invoke } = await import('@tauri-apps/api/core')
-      const [resMap, overview] = await Promise.all([
+      const [resMap, overview, aheadBehindRes] = await Promise.all([
         invoke<Record<string, string>>('get_git_status', { repoPath: root }),
-        invoke<GitStatusOverview>('get_git_status_overview', { repoPath: root })
+        invoke<GitStatusOverview>('get_git_status_overview', { repoPath: root }),
+        invoke<any>('git_ahead_behind', { repoPath: root }).catch(() => null)
       ])
       gitStatusMap.value = resMap || {}
       if (overview) {
         gitOverview.value = overview
         gitBranch.value = overview.branch || ''
       }
+      if (aheadBehindRes !== undefined) {
+        const aheadBehind = useState<any>('git-ahead-behind', () => null)
+        aheadBehind.value = aheadBehindRes
+      }
     } catch (e) {
       gitStatusMap.value = {}
       gitBranch.value = ''
       gitOverview.value = { branch: '', staged: [], unstaged: [], untracked: [] }
+    } finally {
+      isRefreshingGit = false
+    }
+  }
+
+  const startGitPolling = (intervalMs = 3000) => {
+    if (gitPollInterval) clearInterval(gitPollInterval)
+    gitPollInterval = setInterval(() => {
+      if (activeWorkstation.value?.folderPath && !isRefreshingGit) {
+        refreshGitStatus()
+      }
+    }, intervalMs)
+  }
+
+  const stopGitPolling = () => {
+    if (gitPollInterval) {
+      clearInterval(gitPollInterval)
+      gitPollInterval = null
     }
   }
 
@@ -581,6 +612,8 @@ export const useProjectExplorer = () => {
     pickFolder,
     readDirectory,
     refreshGitStatus,
+    startGitPolling,
+    stopGitPolling,
     fetchBranches,
     switchBranch,
     createBranch,

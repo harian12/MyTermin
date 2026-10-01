@@ -745,7 +745,7 @@ fn git_pull(repo_path: String) -> Result<String, String> {
 fn git_get_branches(repo_path: String) -> Result<Vec<String>, String> {
     let root = Path::new(&repo_path);
     let mut cmd = std::process::Command::new("git");
-    cmd.arg("branch").arg("--format=%(refname:short)").current_dir(root);
+    cmd.arg("branch").arg("-a").arg("--format=%(refname:short)").current_dir(root);
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
@@ -756,15 +756,35 @@ fn git_get_branches(repo_path: String) -> Result<Vec<String>, String> {
         return Ok(Vec::new());
     }
     let text = String::from_utf8_lossy(&output.stdout);
-    let branches: Vec<String> = text.lines().map(|l| l.trim().to_string()).filter(|l| !l.is_empty()).collect();
-    Ok(branches)
+    let mut unique_branches = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+
+    for l in text.lines() {
+        let trimmed = l.trim();
+        if trimmed.is_empty() || trimmed.ends_with("/HEAD") || trimmed == "origin" {
+            continue;
+        }
+        let clean = if let Some(stripped) = trimmed.strip_prefix("origin/") {
+            stripped
+        } else {
+            trimmed
+        };
+        if seen.insert(clean.to_string()) {
+            unique_branches.push(clean.to_string());
+        }
+    }
+    Ok(unique_branches)
 }
 
 #[tauri::command]
 fn git_switch_branch(repo_path: String, branch_name: String) -> Result<String, String> {
     let root = Path::new(&repo_path);
+    let mut clean_name = branch_name.trim();
+    if let Some(stripped) = clean_name.strip_prefix("origin/") {
+        clean_name = stripped;
+    }
     let mut cmd = std::process::Command::new("git");
-    cmd.arg("checkout").arg(&branch_name).current_dir(root);
+    cmd.arg("checkout").arg(clean_name).current_dir(root);
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
@@ -2153,6 +2173,130 @@ fn git_get_tags(repo_path: String) -> Result<Vec<String>, String> {
     Ok(raw.lines().map(|l| l.trim().to_string()).filter(|l| !l.is_empty()).collect())
 }
 
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+pub struct GitWorktreeEntry {
+    pub path: String,
+    pub head: String,
+    pub branch: String,
+    pub is_main: bool,
+    pub is_locked: bool,
+    pub lock_reason: Option<String>,
+    pub is_prunable: bool,
+}
+
+#[tauri::command]
+fn git_worktree_list(repo_path: String) -> Result<Vec<GitWorktreeEntry>, String> {
+    let root = Path::new(&repo_path);
+    if !root.exists() {
+        return Err("Path tidak ditemukan".into());
+    }
+    let raw = run_git_output(root, &["worktree", "list", "--porcelain"])?;
+    let mut entries = Vec::new();
+    let mut current_path = String::new();
+    let mut current_head = String::new();
+    let mut current_branch = String::new();
+    let mut current_locked = false;
+    let mut current_lock_reason = None;
+    let mut current_prunable = false;
+
+    for line in raw.lines() {
+        let line = line.trim();
+        if line.is_empty() {
+            if !current_path.is_empty() {
+                entries.push(GitWorktreeEntry {
+                    path: current_path.clone(),
+                    head: current_head.clone(),
+                    branch: current_branch.clone(),
+                    is_main: entries.is_empty(),
+                    is_locked: current_locked,
+                    lock_reason: current_lock_reason.clone(),
+                    is_prunable: current_prunable,
+                });
+                current_path.clear();
+                current_head.clear();
+                current_branch.clear();
+                current_locked = false;
+                current_lock_reason = None;
+                current_prunable = false;
+            }
+            continue;
+        }
+
+        if let Some(p) = line.strip_prefix("worktree ") {
+            current_path = p.trim().to_string();
+        } else if let Some(h) = line.strip_prefix("HEAD ") {
+            current_head = h.trim().to_string();
+        } else if let Some(b) = line.strip_prefix("branch refs/heads/") {
+            current_branch = b.trim().to_string();
+        } else if let Some(b) = line.strip_prefix("branch ") {
+            current_branch = b.trim().to_string();
+        } else if line == "detached" {
+            current_branch = "HEAD (detached)".to_string();
+        } else if line.starts_with("locked") {
+            current_locked = true;
+            let reason = line.strip_prefix("locked").unwrap_or("").trim();
+            if !reason.is_empty() {
+                current_lock_reason = Some(reason.to_string());
+            }
+        } else if line.starts_with("prunable") {
+            current_prunable = true;
+        }
+    }
+
+    if !current_path.is_empty() {
+        entries.push(GitWorktreeEntry {
+            path: current_path,
+            head: current_head,
+            branch: current_branch,
+            is_main: entries.is_empty(),
+            is_locked: current_locked,
+            lock_reason: current_lock_reason,
+            is_prunable: current_prunable,
+        });
+    }
+
+    Ok(entries)
+}
+
+#[tauri::command]
+fn git_worktree_add(
+    repo_path: String,
+    path: String,
+    branch: String,
+    new_branch: bool,
+) -> Result<String, String> {
+    let root = Path::new(&repo_path);
+    if !root.exists() {
+        return Err("Path repo tidak ditemukan".into());
+    }
+    let target_path = path.trim();
+    let target_branch = branch.trim();
+    if target_path.is_empty() {
+        return Err("Path folder worktree tidak boleh kosong".into());
+    }
+    if target_branch.is_empty() {
+        return Err("Branch tidak boleh kosong".into());
+    }
+    if new_branch {
+        run_git_output(root, &["worktree", "add", "-b", target_branch, target_path])
+    } else {
+        run_git_output(root, &["worktree", "add", target_path, target_branch])
+    }
+}
+
+#[tauri::command]
+fn git_worktree_remove(repo_path: String, worktree_path: String, force: bool) -> Result<String, String> {
+    let root = Path::new(&repo_path);
+    if !root.exists() {
+        return Err("Path repo tidak ditemukan".into());
+    }
+    if force {
+        run_git_output(root, &["worktree", "remove", "--force", worktree_path.trim()])
+    } else {
+        run_git_output(root, &["worktree", "remove", worktree_path.trim()])
+    }
+}
+
 #[tauri::command]
 fn git_create_tag(repo_path: String, tag_name: String, message: Option<String>) -> Result<String, String> {
     let root = Path::new(&repo_path);
@@ -2394,6 +2538,9 @@ fn main() {
             git_cherry_pick,
             git_get_tags,
             git_create_tag,
+            git_worktree_list,
+            git_worktree_add,
+            git_worktree_remove,
             get_listening_ports,
             kill_process_by_pid,
             git_commit,
