@@ -148,6 +148,10 @@ export interface TerminalSettings {
   editorFontSize?: number
   editorTabSize?: number
   editorMinimap?: boolean
+  editorAutoSave?: 'off' | 'afterDelay' | 'onFocusChange'
+  editorAutoSaveDelay?: number
+  editorRenderWhitespace?: 'none' | 'boundary' | 'selection' | 'all'
+  editorRenderIndentGuides?: boolean
   closeToTray?: boolean
   audioBell?: boolean
   cursorStyle: 'block' | 'underline' | 'bar'

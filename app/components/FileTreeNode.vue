@@ -37,18 +37,67 @@ const emit = defineEmits<{
   (e: 'action-context', payload: { action: string; entry: FileEntry; x: number; y: number }): void
 }>()
 
-const { gitStatusMap, readDirectory, renamePath } = useProjectExplorer()
+const {
+  gitStatusMap,
+  readDirectory,
+  renamePath,
+  isFolderExpanded,
+  setFolderExpanded,
+  explorerRefreshVersion,
+  filterOnlyGitChanges,
+  isEntryOrChildrenChanged
+} = useProjectExplorer()
 const { showAppConfirm } = useAppDialog()
 const { activeWorkstation } = useWorkspaceStore()
 const collapseVersion = useState<number>('explorer-collapse-all-version', () => 0)
-watch(collapseVersion, () => {
-  isExpanded.value = false
-})
+
+const currentRoot = computed(() => props.rootPath || activeWorkstation.value?.folderPath || '')
+
 const isExpanded = ref(false)
 const isLoading = ref(false)
 const children = ref<FileEntry[]>([])
 const hasLoaded = ref(false)
 const isDragOver = ref(false)
+
+const loadFolderChildren = async () => {
+  if (!props.entry.is_dir) return
+  isLoading.value = true
+  try {
+    children.value = await readDirectory(props.entry.path)
+    hasLoaded.value = true
+  } finally {
+    isLoading.value = false
+  }
+}
+
+// Sinkronkan status buka dari state konfigurasi (persisten lintas sesi)
+watch(
+  () => (props.entry.is_dir && currentRoot.value ? isFolderExpanded(props.entry.path, currentRoot.value) : false),
+  async (expanded) => {
+    if (props.entry.is_dir) {
+      if (expanded && !isExpanded.value) {
+        isExpanded.value = true
+        if (!hasLoaded.value) {
+          await loadFolderChildren()
+        }
+      } else if (!expanded && isExpanded.value) {
+        isExpanded.value = false
+      }
+    }
+  },
+  { immediate: true }
+)
+
+// Perbarui isi folder saat refresh dipicu tanpa menutup folder
+watch(explorerRefreshVersion, async () => {
+  if (props.entry.is_dir && isExpanded.value) {
+    await loadFolderChildren()
+  }
+})
+
+watch(collapseVersion, () => {
+  isExpanded.value = false
+})
 
 const handleDragStart = (e: DragEvent) => {
   if (e.dataTransfer) {
@@ -133,33 +182,44 @@ const folderHasGitChanges = computed(() => {
   return Object.keys(gitStatusMap.value).some((k) => k.startsWith(prefix))
 })
 
+const displayedChildren = computed(() => {
+  if (!filterOnlyGitChanges.value || !currentRoot.value) {
+    return children.value
+  }
+  return children.value.filter((child) => isEntryOrChildrenChanged(child, currentRoot.value))
+})
+
+watch(
+  () => filterOnlyGitChanges.value,
+  async (onlyGit) => {
+    if (onlyGit && props.entry.is_dir && folderHasGitChanges.value && !isExpanded.value) {
+      isExpanded.value = true
+      if (!hasLoaded.value) {
+        await loadFolderChildren()
+      }
+    }
+  },
+  { immediate: true }
+)
+
 const toggleExpand = async () => {
   if (!props.entry.is_dir) {
     emit('select-file', props.entry)
     return
   }
 
-  isExpanded.value = !isExpanded.value
-  if (isExpanded.value && !hasLoaded.value) {
-    isLoading.value = true
-    try {
-      children.value = await readDirectory(props.entry.path)
-      hasLoaded.value = true
-    } finally {
-      isLoading.value = false
-    }
+  const nextState = !isExpanded.value
+  isExpanded.value = nextState
+  setFolderExpanded(props.entry.path, nextState, currentRoot.value)
+
+  if (nextState && !hasLoaded.value) {
+    await loadFolderChildren()
   }
 }
 
 const refreshFolder = async () => {
   if (props.entry.is_dir && isExpanded.value) {
-    isLoading.value = true
-    try {
-      children.value = await readDirectory(props.entry.path)
-      hasLoaded.value = true
-    } finally {
-      isLoading.value = false
-    }
+    await loadFolderChildren()
   }
 }
 
@@ -302,11 +362,11 @@ const handleContextMenu = (e: MouseEvent) => {
       <div v-if="isLoading" class="py-1 text-[11px] text-muted-foreground/60" :style="{ paddingLeft: `${(depth + 1) * 14 + 6}px` }">
         Memuat...
       </div>
-      <div v-else-if="children.length === 0" class="py-1 text-[11px] text-muted-foreground/50 italic" :style="{ paddingLeft: `${(depth + 1) * 14 + 6}px` }">
+      <div v-else-if="displayedChildren.length === 0" class="py-1 text-[11px] text-muted-foreground/50 italic" :style="{ paddingLeft: `${(depth + 1) * 14 + 6}px` }">
         Folder kosong
       </div>
       <FileTreeNode
-        v-for="child in children"
+        v-for="child in displayedChildren"
         :key="child.path"
         :entry="child"
         :depth="depth + 1"

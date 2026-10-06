@@ -1817,6 +1817,41 @@ fn reveal_in_explorer(path: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn open_path_default(path: String) -> Result<(), String> {
+    let p = Path::new(&path);
+    if !p.exists() {
+        return Err("Path tidak ditemukan".into());
+    }
+
+    #[cfg(windows)]
+    {
+        let win_path = path.replace('/', "\\");
+        std::process::Command::new("cmd")
+            .args(["/C", "start", "", &win_path])
+            .spawn()
+            .map_err(|e| format!("Gagal membuka file: {}", e))?;
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg(&path)
+            .spawn()
+            .map_err(|e| format!("Gagal membuka file: {}", e))?;
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(&path)
+            .spawn()
+            .map_err(|e| format!("Gagal membuka file: {}", e))?;
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
 fn get_listening_ports() -> Result<Vec<ListeningPortInfo>, String> {
     let mut ports = Vec::new();
     let mut sys = sysinfo::System::new();
@@ -2711,6 +2746,7 @@ fn main() {
             search_in_files,
             replace_in_files,
             reveal_in_explorer,
+            open_path_default,
             is_blank_startup,
             open_new_window,
             window_minimize,

@@ -23,6 +23,8 @@ const emit = defineEmits<{
   (e: 'update:modelValue', value: string): void
   (e: 'save'): void
   (e: 'format'): void
+  (e: 'toggle-word-wrap'): void
+  (e: 'blur'): void
   (e: 'run'): void
   (e: 'toggle-word-wrap'): void
 }>()
@@ -185,6 +187,7 @@ onMounted(() => {
     fontLigatures: true,
     lineNumbers: 'on',
     wordWrap: props.wordWrap ? 'on' : 'off',
+    stickyScroll: { enabled: true, maxLineCount: 5 },
     minimap: {
       enabled: settings.value.editorMinimap !== false,
       maxColumn: 80,
@@ -192,7 +195,12 @@ onMounted(() => {
     },
     scrollBeyondLastLine: false,
     tabSize: settings.value.editorTabSize || 2,
-    renderWhitespace: 'selection',
+    renderWhitespace: settings.value.editorRenderWhitespace || 'selection',
+    guides: {
+      indentation: settings.value.editorRenderIndentGuides !== false,
+      highlightActiveIndentation: true
+    },
+    multiCursorModifier: 'alt',
     readOnly: props.readonly || false,
     bracketPairColorization: {
       enabled: true
@@ -220,6 +228,35 @@ onMounted(() => {
         column: e.position.column
       }
     }
+  })
+
+  editor.onDidBlurEditorText(() => {
+    emit('blur')
+  })
+
+  // Multi-Cursor: Ctrl+D Add Selection to Next Find Match
+  editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyD, () => {
+    editor?.getAction('editor.action.addSelectionToNextFindMatch')?.run()
+  })
+
+  // Multi-Cursor: Ctrl+Alt+Up Insert Cursor Above
+  editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Alt | monaco.KeyCode.UpArrow, () => {
+    editor?.getAction('editor.action.insertCursorAbove')?.run()
+  })
+
+  // Multi-Cursor: Ctrl+Alt+Down Insert Cursor Below
+  editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Alt | monaco.KeyCode.DownArrow, () => {
+    editor?.getAction('editor.action.insertCursorBelow')?.run()
+  })
+
+  // Multi-Cursor: Shift+Alt+I Add Cursors to Ends of Selected Lines
+  editor.addCommand(monaco.KeyMod.Shift | monaco.KeyMod.Alt | monaco.KeyCode.KeyI, () => {
+    editor?.getAction('editor.action.insertCursorAtEndOfEachLineSelected')?.run()
+  })
+
+  // Multi-Cursor: Shift+Alt+C Toggle Column Selection Mode
+  editor.addCommand(monaco.KeyMod.Shift | monaco.KeyMod.Alt | monaco.KeyCode.KeyC, () => {
+    editor?.trigger('keyboard', 'editor.action.toggleColumnSelection', null)
   })
 
   // Ctrl+S / Cmd+S save command
@@ -320,12 +357,23 @@ watch(
 )
 
 watch(
-  () => [settings.value.editorFontSize, settings.value.editorTabSize, settings.value.editorMinimap],
-  ([fontSize, tabSize, minimap]) => {
+  () => [
+    settings.value.editorFontSize,
+    settings.value.editorTabSize,
+    settings.value.editorMinimap,
+    settings.value.editorRenderWhitespace,
+    settings.value.editorRenderIndentGuides
+  ],
+  ([fontSize, tabSize, minimap, whitespace, indentGuides]) => {
     editor?.updateOptions({
       fontSize: (fontSize as number) || 13,
       tabSize: (tabSize as number) || 2,
-      minimap: { enabled: minimap !== false }
+      minimap: { enabled: minimap !== false },
+      renderWhitespace: (whitespace as any) || 'selection',
+      guides: {
+        indentation: indentGuides !== false,
+        highlightActiveIndentation: true
+      }
     })
   }
 )

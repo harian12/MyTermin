@@ -66,6 +66,9 @@ const groups = computed<ShortcutGroup[]>(() => [
       { keys: [kb('reopenClosedTab', 'Ctrl+Shift+T')], label: 'Buka Kembali Tab yang Ditutup', customizable: true },
       { keys: ['Shift+Alt+F'], label: 'Format Dokumen (Prettier)' },
       { keys: ['Alt+Z'], label: 'Toggle Word Wrap' },
+      { keys: ['Ctrl+D'], label: 'Pilih Kata Berikutnya (Multi-Cursor)' },
+      { keys: ['Ctrl+Alt+Up', 'Ctrl+Alt+Down'], label: 'Tambah Kursor Atas / Bawah' },
+      { keys: ['Shift+Alt+I'], label: 'Kursor di Akhir Tiap Baris' },
       { keys: ['Ctrl+F'], label: 'Cari di File' },
       { keys: ['Ctrl+H'], label: 'Cari & Ganti di File' },
       { keys: ['Ctrl+W'], label: 'Tutup Tab File' }

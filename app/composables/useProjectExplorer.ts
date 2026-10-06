@@ -39,6 +39,7 @@ export interface GitStatusOverview {
 }
 
 const RECENT_PROJECTS_KEY = 'mytermin_recent_projects_v1'
+const EXPANDED_FOLDERS_STORAGE_KEY = 'mytermin_expanded_folders_v1'
 
 export const useProjectExplorer = () => {
   const { isTauri, writePty } = useTauriPty()
@@ -59,6 +60,181 @@ export const useProjectExplorer = () => {
   const projectFileList = useState<string[]>('project-all-files-list', () => [])
   const isScanningFiles = useState<boolean>('project-is-scanning-files', () => false)
   const recentProjects = useState<RecentProject[]>('project-recent-list', () => [])
+
+  // Expanded folders persistence state
+  const expandedFoldersMap = useState<Record<string, string[]>>('project-expanded-folders-map', () => ({}))
+  const explorerRefreshVersion = useState<number>('explorer-refresh-version', () => 0)
+  const filterOnlyGitChanges = useState<boolean>('explorer-filter-git-only', () => false)
+
+  const normalizeFolderPath = (p: string) => p.replace(/\\/g, '/').replace(/\/+$/, '')
+
+  const getRelativeFolderPath = (fullPath: string, rootPath: string): string => {
+    const normFull = normalizeFolderPath(fullPath)
+    const normRoot = normalizeFolderPath(rootPath)
+    if (normFull.toLowerCase().startsWith(normRoot.toLowerCase())) {
+      const rel = normFull.slice(normRoot.length).replace(/^\/+/, '')
+      return rel
+    }
+    return normFull
+  }
+
+  const saveToLocalStorage = (normRoot: string, list: string[]) => {
+    if (typeof window === 'undefined') return
+    try {
+      const raw = localStorage.getItem(EXPANDED_FOLDERS_STORAGE_KEY)
+      const existing = raw ? JSON.parse(raw) : {}
+      existing[normRoot] = list
+      localStorage.setItem(EXPANDED_FOLDERS_STORAGE_KEY, JSON.stringify(existing))
+    } catch (e) {
+      console.warn('Gagal menyimpan expanded folders ke localStorage:', e)
+    }
+  }
+
+  let saveWorkspaceDebounceTimer: ReturnType<typeof setTimeout> | null = null
+
+  const saveExpandedFolders = (rootPath: string) => {
+    if (!rootPath) return
+    const normRoot = normalizeFolderPath(rootPath).toLowerCase()
+    const list = expandedFoldersMap.value[normRoot] || []
+
+    // 1. Simpan segera ke localStorage (instan)
+    saveToLocalStorage(normRoot, list)
+
+    // 2. Debounce simpan ke file lokal .mytermin/workspace.json jika dalam lingkungan Tauri
+    if (!isTauri.value) return
+    if (saveWorkspaceDebounceTimer) clearTimeout(saveWorkspaceDebounceTimer)
+
+    saveWorkspaceDebounceTimer = setTimeout(async () => {
+      try {
+        const { invoke } = await import('@tauri-apps/api/core')
+        const dirPath = `${rootPath.replace(/[\\/]+$/, '')}\\.mytermin`
+        const configPath = `${dirPath}\\workspace.json`
+
+        try {
+          await invoke('create_dir', { path: dirPath })
+        } catch {
+          // Folder .mytermin sudah ada
+        }
+
+        let existingData: Record<string, any> = {}
+        try {
+          const raw = await invoke<string>('read_file_content', { path: configPath })
+          existingData = JSON.parse(raw)
+        } catch {
+          existingData = {}
+        }
+
+        existingData.expandedFolders = list
+        await invoke('save_file_content', {
+          path: configPath,
+          content: `${JSON.stringify(existingData, null, 2)}\n`
+        })
+      } catch (e) {
+        console.warn('Gagal menyimpan .mytermin/workspace.json:', e)
+      }
+    }, 400)
+  }
+
+  const loadExpandedFolders = async (rootPath: string) => {
+    if (!rootPath) return
+    const normRoot = normalizeFolderPath(rootPath).toLowerCase()
+
+    // 1. Baca dari localStorage (sinkron & instan)
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = localStorage.getItem(EXPANDED_FOLDERS_STORAGE_KEY)
+        if (raw) {
+          const stored = JSON.parse(raw) as Record<string, string[]>
+          if (Array.isArray(stored[normRoot])) {
+            expandedFoldersMap.value = {
+              ...expandedFoldersMap.value,
+              [normRoot]: stored[normRoot]
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Gagal membaca expanded folders dari localStorage:', e)
+      }
+    }
+
+    // 2. Baca dari .mytermin/workspace.json jika aplikasi berjalan di desktop Tauri
+    if (isTauri.value) {
+      try {
+        const { invoke } = await import('@tauri-apps/api/core')
+        const configPath = `${rootPath.replace(/[\\/]+$/, '')}\\.mytermin\\workspace.json`
+        const raw = await invoke<string>('read_file_content', { path: configPath })
+        const parsed = JSON.parse(raw)
+        if (Array.isArray(parsed?.expandedFolders)) {
+          expandedFoldersMap.value = {
+            ...expandedFoldersMap.value,
+            [normRoot]: parsed.expandedFolders
+          }
+          saveToLocalStorage(normRoot, parsed.expandedFolders)
+        }
+      } catch {
+        // Berkas konfigurasi belum ada, fallback ke localStorage
+      }
+    }
+  }
+
+  const isFolderExpanded = (fullPath: string, rootPath: string): boolean => {
+    if (!rootPath || !fullPath) return false
+    const normRoot = normalizeFolderPath(rootPath).toLowerCase()
+    const rel = getRelativeFolderPath(fullPath, rootPath)
+    if (!rel) return false
+    const list = expandedFoldersMap.value[normRoot] || []
+    return list.some(item => item.toLowerCase() === rel.toLowerCase())
+  }
+
+  const setFolderExpanded = (fullPath: string, expand: boolean, rootPath: string) => {
+    if (!rootPath || !fullPath) return
+    const normRoot = normalizeFolderPath(rootPath).toLowerCase()
+    const rel = getRelativeFolderPath(fullPath, rootPath)
+    if (!rel) return
+
+    const currentList = expandedFoldersMap.value[normRoot] || []
+    let newList: string[]
+
+    if (expand) {
+      if (!currentList.some(item => item.toLowerCase() === rel.toLowerCase())) {
+        newList = [...currentList, rel]
+      } else {
+        newList = currentList
+      }
+    } else {
+      newList = currentList.filter(item => item.toLowerCase() !== rel.toLowerCase())
+    }
+
+    expandedFoldersMap.value = {
+      ...expandedFoldersMap.value,
+      [normRoot]: newList
+    }
+
+    saveExpandedFolders(rootPath)
+  }
+
+  const toggleFolderExpanded = (fullPath: string, rootPath: string) => {
+    const currentState = isFolderExpanded(fullPath, rootPath)
+    setFolderExpanded(fullPath, !currentState, rootPath)
+  }
+
+  const collapseAllFolders = (rootPath?: string) => {
+    const root = rootPath || activeWorkstation.value?.folderPath
+    if (root) {
+      const normRoot = normalizeFolderPath(root).toLowerCase()
+      expandedFoldersMap.value = {
+        ...expandedFoldersMap.value,
+        [normRoot]: []
+      }
+      saveExpandedFolders(root)
+    }
+    const version = useState<number>('explorer-collapse-all-version', () => 0)
+    version.value++
+  }
+
+  const refreshExplorerTree = () => {
+    explorerRefreshVersion.value++
+  }
 
   // Load Recent Projects from localStorage
   const loadRecentProjects = () => {
@@ -490,6 +666,35 @@ export const useProjectExplorer = () => {
     }
   }
 
+  // Buka berkas dengan aplikasi bawaan OS
+  const openPathDefault = async (path: string): Promise<boolean> => {
+    if (!path || !isTauri.value) return false
+    try {
+      const { invoke } = await import('@tauri-apps/api/core')
+      await invoke('open_path_default', { path })
+      return true
+    } catch (e) {
+      console.error('openPathDefault error:', e)
+      return false
+    }
+  }
+
+  const isEntryOrChildrenChanged = (entry: FileEntry, rootPath: string): boolean => {
+    if (!rootPath) return false
+    const normRoot = normalizeFolderPath(rootPath)
+    const normEntry = normalizeFolderPath(entry.path)
+    const rel = normEntry.toLowerCase().startsWith(normRoot.toLowerCase())
+      ? normEntry.slice(normRoot.length).replace(/^\/+/, '')
+      : entry.name
+
+    if (!entry.is_dir) {
+      return !!gitStatusMap.value[rel]
+    }
+
+    const prefix = rel + '/'
+    return Object.keys(gitStatusMap.value).some((k) => k.startsWith(prefix) || k === rel)
+  }
+
   // Create new file
   const createFile = async (filePath: string): Promise<boolean> => {
     if (!isTauri.value) return false
@@ -591,6 +796,7 @@ export const useProjectExplorer = () => {
 
     saveSession(false)
     saveRecentProject(folderPath)
+    await loadExpandedFolders(folderPath)
     await refreshGitStatus()
     await fetchBranches()
     await fetchCommitLogs()
@@ -598,6 +804,15 @@ export const useProjectExplorer = () => {
   }
 
   return {
+    expandedFoldersMap,
+    explorerRefreshVersion,
+    loadExpandedFolders,
+    saveExpandedFolders,
+    isFolderExpanded,
+    setFolderExpanded,
+    toggleFolderExpanded,
+    collapseAllFolders,
+    refreshExplorerTree,
     gitStatusMap,
     gitBranch,
     gitOverview,
@@ -630,6 +845,9 @@ export const useProjectExplorer = () => {
     searchInFiles,
     replaceInFiles,
     revealInExplorer,
+    openPathDefault,
+    filterOnlyGitChanges,
+    isEntryOrChildrenChanged,
     createFile,
     createFolder,
     renamePath,

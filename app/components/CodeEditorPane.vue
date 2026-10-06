@@ -24,8 +24,13 @@ import {
   AlignJustify,
   Eye,
   Plus,
-  FileEdit
+  FileEdit,
+  ChevronRight,
+  Folder,
+  ExternalLink,
+  Pilcrow
 } from 'lucide-vue-next'
+import { useWorkspaceStore } from '~/composables/useWorkspaceStore'
 import { useEditorStore, type OpenFileItem } from '~/composables/useEditorStore'
 import { useSettingsStore } from '~/composables/useSettingsStore'
 import { useProjectExplorer } from '~/composables/useProjectExplorer'
@@ -65,11 +70,100 @@ const {
   createScratchpadFile,
   moveFileTab,
   copyRelativePath,
-  reloadOpenFilesFromDisk
+  reloadOpenFilesFromDisk,
+  handleFocusLoss
 } = useEditorStore()
 
-const { gitBranch, revealInExplorer } = useProjectExplorer()
+const { gitBranch, revealInExplorer, openPathDefault } = useProjectExplorer()
 const { settings, updateSettings } = useSettingsStore()
+const { activeWorkstation } = useWorkspaceStore()
+
+// Breadcrumb Logic
+const breadcrumbPopover = ref<{
+  path: string
+  entries: any[]
+  top: number
+  left: number
+} | null>(null)
+
+const breadcrumbSegments = computed(() => {
+  if (!activeFile.value || !activeFile.value.path) return []
+  let basePath = activeWorkstation.value?.folderPath || ''
+  
+  let fullPath = activeFile.value.path.replace(/\\/g, '/')
+  basePath = basePath.replace(/\\/g, '/')
+
+  let relativePath = fullPath
+  if (basePath && fullPath.startsWith(basePath)) {
+    relativePath = fullPath.substring(basePath.length)
+    if (relativePath.startsWith('/')) relativePath = relativePath.substring(1)
+  }
+
+  const parts = relativePath.split('/')
+  const segments = []
+  
+  const rootName = basePath ? basePath.split('/').pop() || 'Project' : 'Project'
+  segments.push({
+    name: rootName,
+    isFolder: true,
+    fullPath: basePath
+  })
+
+  let currentPath = basePath
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i]
+    if (!part) continue
+    currentPath += `/${part}`
+    const isFolder = i < parts.length - 1
+    segments.push({
+      name: part,
+      isFolder,
+      fullPath: currentPath,
+      isLast: i === parts.length - 1
+    })
+  }
+
+  return segments
+})
+
+const showBreadcrumbMenu = async (e: MouseEvent, segment: any) => {
+  e.stopPropagation()
+  if (!segment.isFolder || !segment.fullPath) return
+  
+  try {
+    const { readDirectory } = useProjectExplorer()
+    const entries = await readDirectory(segment.fullPath)
+    entries.sort((a: any, b: any) => {
+      if (a.is_dir && !b.is_dir) return -1
+      if (!a.is_dir && b.is_dir) return 1
+      return a.name.localeCompare(b.name)
+    })
+    
+    const target = e.currentTarget as HTMLElement
+    const rect = target.getBoundingClientRect()
+    
+    breadcrumbPopover.value = {
+      path: segment.fullPath,
+      entries,
+      top: rect.bottom + 4,
+      left: rect.left
+    }
+  } catch (err) {
+    console.error('Failed to read directory:', err)
+  }
+}
+
+const closeBreadcrumbMenu = () => {
+  breadcrumbPopover.value = null
+}
+
+const handleBreadcrumbItemClick = async (entry: any) => {
+  if (!entry.is_dir) {
+    const { openFile } = useEditorStore()
+    await openFile(entry.path)
+    closeBreadcrumbMenu()
+  }
+}
 
 const isCopied = ref(false)
 const isFormatting = ref(false)
@@ -239,14 +333,22 @@ const onWindowFocus = () => {
   reloadOpenFilesFromDisk()
 }
 
+const onWindowBlur = () => {
+  handleFocusLoss()
+}
+
 onMounted(() => {
   window.addEventListener('click', closeTabContextMenu)
+  window.addEventListener('click', closeBreadcrumbMenu)
   window.addEventListener('focus', onWindowFocus)
+  window.addEventListener('blur', onWindowBlur)
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('click', closeTabContextMenu)
+  window.removeEventListener('click', closeBreadcrumbMenu)
   window.removeEventListener('focus', onWindowFocus)
+  window.removeEventListener('blur', onWindowBlur)
 })
 
 const getFileIcon = (filename: string) => {
@@ -464,6 +566,24 @@ const toggleFullscreenEditor = () => {
           </button>
         </UiTooltip>
 
+        <!-- Toggle Whitespace Characters -->
+        <UiTooltip
+          v-if="!activeFile.isDiff"
+          :text="`Tampilkan Whitespace (${settings.editorRenderWhitespace === 'all' ? 'Aktif (All)' : 'Nonaktif/Selection'})`"
+          side="bottom"
+          class="flex-shrink-0"
+        >
+          <button
+            :class="[
+              'p-1 rounded transition-colors',
+              settings.editorRenderWhitespace === 'all' ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+            ]"
+            @click="updateSettings({ editorRenderWhitespace: settings.editorRenderWhitespace === 'all' ? 'selection' : 'all' })"
+          >
+            <Pilcrow class="w-3.5 h-3.5" />
+          </button>
+        </UiTooltip>
+
         <!-- Markdown Live Preview Toggle -->
         <UiTooltip
           v-if="isMarkdownFile"
@@ -640,6 +760,35 @@ const toggleFullscreenEditor = () => {
 
     <!-- Monaco Code Editor Main Area (Single or Split 2-Pane) -->
     <template v-else>
+      <!-- Breadcrumbs -->
+      <div
+        v-if="activeFile && !activeFile.isDiff"
+        class="flex items-center h-[26px] px-3 bg-[#0f1017] border-b border-border/40 text-[11px] font-mono text-muted-foreground select-none overflow-x-auto no-scrollbar shrink-0 gap-0.5"
+      >
+        <template v-for="(segment, idx) in breadcrumbSegments" :key="idx">
+          <div
+            v-if="segment.isFolder"
+            class="flex items-center gap-1 hover:text-foreground hover:bg-white/5 px-1.5 py-0.5 rounded cursor-pointer transition-colors"
+            @click="showBreadcrumbMenu($event, segment)"
+          >
+            <Folder class="w-3 h-3 text-muted-foreground/70" />
+            <span>{{ segment.name }}</span>
+          </div>
+          <div
+            v-else
+            class="flex items-center gap-1 px-1.5 py-0.5 text-foreground font-medium"
+          >
+            <component
+              :is="getFileIcon(segment.name).icon"
+              :class="['w-3 h-3', getFileIcon(segment.name).color]"
+            />
+            <span>{{ segment.name }}</span>
+          </div>
+
+          <ChevronRight v-if="idx < breadcrumbSegments.length - 1" class="w-3 h-3 text-muted-foreground/50 flex-shrink-0 mx-0.5" />
+        </template>
+      </div>
+
       <!-- Git Merge Conflict Quick Action Banner -->
       <div
         v-if="activeFileConflicts.length > 0"
@@ -701,6 +850,7 @@ const toggleFullscreenEditor = () => {
                 @save="saveFile"
                 @format="handleFormat"
                 @toggle-word-wrap="isWordWrap = !isWordWrap"
+                @blur="handleFocusLoss"
               />
             </div>
             <div
@@ -758,12 +908,45 @@ const toggleFullscreenEditor = () => {
                 @update:model-value="updateContent(secondaryFile.id, $event)"
                 @save="saveFile(secondaryFile.id)"
                 @toggle-word-wrap="isWordWrap = !isWordWrap"
+                @blur="handleFocusLoss"
               />
             </div>
           </div>
         </template>
       </div>
     </template>
+
+    <!-- Breadcrumb Popover -->
+    <Teleport to="body">
+      <div
+        v-if="breadcrumbPopover"
+        class="fixed z-[100] min-w-[200px] max-w-[300px] max-h-[300px] overflow-y-auto overflow-x-hidden bg-[#14151f] border border-border/80 rounded shadow-xl p-1 text-[11px] font-mono text-foreground animate-in fade-in zoom-in-95 duration-100"
+        :style="{ top: `${breadcrumbPopover.top}px`, left: `${breadcrumbPopover.left}px` }"
+        @click.stop
+      >
+        <div v-if="breadcrumbPopover.entries.length === 0" class="px-2 py-1.5 text-muted-foreground italic">
+          (Empty folder)
+        </div>
+        <button
+          v-for="entry in breadcrumbPopover.entries"
+          :key="entry.path"
+          class="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-accent text-left transition-colors truncate"
+          @click="handleBreadcrumbItemClick(entry)"
+        >
+          <template v-if="entry.is_dir">
+            <Folder class="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+            <span class="truncate">{{ entry.name }}</span>
+          </template>
+          <template v-else>
+            <component
+              :is="getFileIcon(entry.name).icon"
+              :class="['w-3.5 h-3.5 flex-shrink-0', getFileIcon(entry.name).color]"
+            />
+            <span class="truncate">{{ entry.name }}</span>
+          </template>
+        </button>
+      </div>
+    </Teleport>
 
     <!-- Tab Right Click Context Menu -->
     <Teleport to="body">
@@ -779,6 +962,13 @@ const toggleFullscreenEditor = () => {
         >
           <Save class="w-3.5 h-3.5 text-primary" />
           <span>Save (Ctrl+S)</span>
+        </button>
+        <button
+          class="w-full flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-accent text-left transition-colors"
+          @click="openPathDefault(tabContextMenu.file?.path || ''); closeTabContextMenu()"
+        >
+          <ExternalLink class="w-3.5 h-3.5 text-sky-400" />
+          <span>Buka dengan Aplikasi Bawaan</span>
         </button>
         <button
           class="w-full flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-accent text-left transition-colors"

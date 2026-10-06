@@ -45,7 +45,8 @@ import {
   CloudDownload,
   Archive,
   EyeOff,
-  FolderMinus
+  FolderMinus,
+  FolderGit2
 } from 'lucide-vue-next'
 import type { FileEntry } from '~/types/terminal'
 import type { GitTreeNode } from '~/components/GitFileTreeItem.vue'
@@ -98,7 +99,13 @@ const {
   deletePath,
   gitCommit,
   setWorkstationFolder,
-  revealInExplorer
+  revealInExplorer,
+  openPathDefault,
+  filterOnlyGitChanges,
+  isEntryOrChildrenChanged,
+  loadExpandedFolders,
+  collapseAllFolders: collapseAllFoldersAction,
+  refreshExplorerTree
 } = useProjectExplorer()
 
 const { openFile, openGitDiffTab } = useEditorStore()
@@ -264,6 +271,7 @@ const loadProjectFiles = async () => {
     await refreshGitStatus()
     rootEntries.value = await readDirectory(activeWorkstation.value.folderPath)
     await scanProjectFiles()
+    refreshExplorerTree()
   } finally {
     isLoadingRoot.value = false
   }
@@ -271,8 +279,11 @@ const loadProjectFiles = async () => {
 
 watch(
   () => activeWorkstation.value?.folderPath,
-  () => {
-    loadProjectFiles()
+  async (newPath) => {
+    if (newPath) {
+      await loadExpandedFolders(newPath)
+    }
+    await loadProjectFiles()
   },
   { immediate: true }
 )
@@ -359,7 +370,16 @@ const handlePull = async () => {
   }
 }
 
+const branchModalTab = ref<'branches' | 'worktrees'>('branches')
+
 const openBranchModal = async () => {
+  branchModalTab.value = 'branches'
+  await fetchBranches()
+  showBranchPicker.value = true
+}
+
+const openWorktreesModal = async () => {
+  branchModalTab.value = 'worktrees'
   await fetchBranches()
   showBranchPicker.value = true
 }
@@ -482,8 +502,7 @@ const handleNewFolder = async (parentPath?: string) => {
 }
 
 const collapseAllFolders = () => {
-  const version = useState<number>('explorer-collapse-all-version', () => 0)
-  version.value++
+  collapseAllFoldersAction(activeWorkstation.value?.folderPath)
 }
 
 const handleRenameEntry = async (entry: FileEntry) => {
@@ -590,9 +609,14 @@ const getFileIcon = (filename: string) => {
 }
 
 const filteredEntries = computed(() => {
-  if (!searchQuery.value.trim()) return rootEntries.value
+  let list = rootEntries.value
+  if (filterOnlyGitChanges.value && activeWorkstation.value.folderPath) {
+    const root = activeWorkstation.value.folderPath
+    list = list.filter((e) => isEntryOrChildrenChanged(e, root))
+  }
+  if (!searchQuery.value.trim()) return list
   const query = searchQuery.value.toLowerCase()
-  return rootEntries.value.filter((e) => e.name.toLowerCase().includes(query))
+  return list.filter((e) => e.name.toLowerCase().includes(query))
 })
 
 // Terminal Renaming
@@ -806,6 +830,17 @@ const finishRename = (termId: string) => {
                 <FolderMinus class="w-3.5 h-3.5 text-indigo-400" />
               </button>
             </UiTooltip>
+            <UiTooltip :text="filterOnlyGitChanges ? 'Tampilkan Semua Berkas' : 'Hanya Berkas Berubah (Git)'" side="bottom">
+              <button
+                :class="[
+                  'p-1 rounded transition-colors',
+                  filterOnlyGitChanges ? 'bg-amber-400/20 text-amber-400 font-bold' : 'hover:bg-accent text-muted-foreground hover:text-foreground'
+                ]"
+                @click="filterOnlyGitChanges = !filterOnlyGitChanges"
+              >
+                <GitCompare class="w-3.5 h-3.5" />
+              </button>
+            </UiTooltip>
             <UiTooltip text="Refresh Berkas" side="bottom">
               <button
                 class="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
@@ -951,6 +986,13 @@ const finishRename = (termId: string) => {
             <UiTooltip text="Buka Branch Compare & Diff" side="bottom">
               <button class="p-1 rounded hover:bg-accent text-muted-foreground hover:text-primary transition-colors cursor-pointer" @click="showBranchCompareModal = true">
                 <GitCompare class="w-3.5 h-3.5 text-indigo-400" />
+              </button>
+            </UiTooltip>
+
+            <!-- Worktrees Button -->
+            <UiTooltip text="Kelola Git Worktrees Paralel" side="bottom">
+              <button class="p-1 rounded hover:bg-accent text-muted-foreground hover:text-emerald-400 transition-colors cursor-pointer" @click="openWorktreesModal">
+                <FolderGit2 class="w-3.5 h-3.5 text-emerald-400" />
               </button>
             </UiTooltip>
 
@@ -1353,7 +1395,7 @@ const finishRename = (termId: string) => {
     </div>
 
     <!-- Git Branch Selection / Creation Modal -->
-    <GitBranchModal v-model:open="showBranchPicker" />
+    <GitBranchModal v-model:open="showBranchPicker" :default-tab="branchModalTab" />
 
     <!-- Visual Git Commit Graph Modal -->
     <GitGraphModal v-model:open="showGitGraphModal" />
@@ -1401,6 +1443,13 @@ const finishRename = (termId: string) => {
         >
           <Pencil class="w-3.5 h-3.5 text-amber-400" />
           <span>Ubah Nama (Rename)</span>
+        </button>
+        <button
+          class="w-full flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-accent text-left transition-colors"
+          @click="openPathDefault(treeContextMenu.entry?.path || ''); closeTreeContextMenu()"
+        >
+          <ExternalLink class="w-3.5 h-3.5 text-sky-400" />
+          <span>Buka dengan Aplikasi Bawaan</span>
         </button>
         <button
           class="w-full flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-accent text-left transition-colors"

@@ -469,20 +469,34 @@ export const useEditorStore = () => {
 
   const autoSaveTimers = new Map<string, any>()
 
+  const handleFocusLoss = async () => {
+    const { settings } = useSettingsStore()
+    if (settings.value.editorAutoSave === 'onFocusChange') {
+      const dirtyFiles = openFiles.value.filter((f) => f.isDirty && !f.isScratchpad && !f.isDiff)
+      for (const f of dirtyFiles) {
+        await saveFile(f.id)
+      }
+    }
+  }
+
   const updateContent = (fileId: string, newContent: string) => {
     const file = openFiles.value.find((f) => f.id === fileId)
     if (file) {
       file.content = newContent
       file.isDirty = file.content !== file.originalContent
 
-      if (isAutoSave.value && file.isDirty) {
+      const { settings } = useSettingsStore()
+      const mode = settings.value.editorAutoSave || (isAutoSave.value ? 'afterDelay' : 'off')
+
+      if (mode === 'afterDelay' && file.isDirty && !file.isScratchpad && !file.isDiff) {
         if (autoSaveTimers.has(fileId)) {
           clearTimeout(autoSaveTimers.get(fileId))
         }
+        const delay = settings.value.editorAutoSaveDelay || 1500
         const t = setTimeout(() => {
           saveFile(fileId)
           autoSaveTimers.delete(fileId)
-        }, 1000)
+        }, delay)
         autoSaveTimers.set(fileId, t)
       }
     }
@@ -698,6 +712,7 @@ export const useEditorStore = () => {
     openFileAtPosition,
     saveFile,
     saveAll,
+    handleFocusLoss,
     updateContent,
     toggleEditorPaneSplit,
     closeFile,

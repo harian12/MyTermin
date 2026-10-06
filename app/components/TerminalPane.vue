@@ -28,7 +28,7 @@ import {
 import { TERMINAL_THEMES } from '~/composables/useThemes'
 import { winPathToWsl } from '~/utils/msysPath'
 import type { PtyStats } from '~/types/terminal'
-import { sendDesktopNotification } from '~/composables/useSettingsStore'
+import { sendDesktopNotification, playCompletionChime } from '~/composables/useSettingsStore'
 import { useEditorStore } from '~/composables/useEditorStore'
 
 interface Props {
@@ -110,6 +110,7 @@ let resizeObserver: ResizeObserver | null = null
 let statsInterval: any = null
 let ptyStreamBuffer = ''
 let wasProcessBusy = false
+let commandStartTime = 0
 let lastPromptCwdAt = 0
 
 const isPtyReady = ref(false)
@@ -235,6 +236,7 @@ const dynamicQuickActions = computed(() => {
 
 const executeCommand = (cmd: string) => {
   const formattedCmd = cmd.endsWith('\r') || cmd.endsWith('\n') ? cmd : cmd + '\r'
+  if (commandStartTime === 0) commandStartTime = Date.now()
   if (isTauri.value) {
     writePty(props.paneId, formattedCmd)
     updateTerminalLastCommand(props.paneId, cmd)
@@ -329,16 +331,33 @@ const applyMsysCwd = (msysPath: string | null) => {
   if (paneStats.value) paneStats.value.cwd = ''
 }
 
+const handleCommandCompletion = (exactDurationMs?: number) => {
+  if (commandStartTime === 0 && !exactDurationMs) return
+
+  const duration = exactDurationMs ?? (Date.now() - commandStartTime)
+  if (duration >= 5000) {
+    const isBackground = !props.isTabActive || (typeof document !== 'undefined' && (document.hidden || !document.hasFocus()))
+    if (isBackground && settings.value.enableNotifications !== false) {
+      sendDesktopNotification(`Terminal: ${props.title}`, `Perintah selesai dalam ${(duration / 1000).toFixed(1)}s`)
+      playCompletionChime()
+    }
+  }
+  commandStartTime = 0
+}
+
 // Satu pintu masuk untuk semua data dari PTY: tulis ke xterm, kumpulkan output
 // untuk notification rule, lalu tangkap metadata shell integration & cwd.
 const handleIncomingData = (data: string) => {
   term?.write(data)
   trackOutput(props.paneId, data)
 
-  const payload = parsePayload(data)
-  if (payload) {
-    reportIdle(props.paneId, payload)
-    if (payload.cwd) {
+    const payload = parsePayload(data)
+    if (payload) {
+      reportIdle(props.paneId, payload)
+      if (payload.ms !== undefined) {
+        handleCommandCompletion(payload.ms)
+      }
+      if (payload.cwd) {
       updateTerminalCwd(props.paneId, payload.cwd)
     }
     triggerGitRefresh()
@@ -703,23 +722,24 @@ const initTerminal = async () => {
 
     let inputLineBuffer = ''
 
-    // Listen to user input keystrokes & track executed commands
-    term.onData((data) => {
-      writePty(props.paneId, data)
-      if (isBroadcastInput.value && props.isActive) {
-        for (const other of terminals.value) {
-          if (other.id !== props.paneId) {
-            writePty(other.id, data)
+      // Listen to user input keystrokes & track executed commands
+      term.onData((data) => {
+        writePty(props.paneId, data)
+        if (isBroadcastInput.value && props.isActive) {
+          for (const other of terminals.value) {
+            if (other.id !== props.paneId) {
+              writePty(other.id, data)
+            }
           }
         }
-      }
-      if (data === '\r' || data === '\n') {
-        const cmd = inputLineBuffer.trim()
-        if (cmd) {
-          updateTerminalLastCommand(props.paneId, cmd)
-          recordCommand(cmd, props.cwd || props.projectFolder, props.shell)
-        }
-        inputLineBuffer = ''
+        if (data === '\r' || data === '\n') {
+          if (commandStartTime === 0) commandStartTime = Date.now()
+          const cmd = inputLineBuffer.trim()
+          if (cmd) {
+            updateTerminalLastCommand(props.paneId, cmd)
+            recordCommand(cmd, props.cwd || props.projectFolder, props.shell)
+          }
+          inputLineBuffer = ''
       } else if (data === '\u007F' || data === '\b') {
         inputLineBuffer = inputLineBuffer.slice(0, -1)
       } else if (data.length === 1 && data.charCodeAt(0) >= 32) {
@@ -731,17 +751,18 @@ const initTerminal = async () => {
 
     // Auto-run hanya initialCommand (preset). Perintah terakhir tidak dijalankan ulang;
     // hanya direktori terakhir yang dipulihkan via props.cwd.
-    if (props.initialCommand) {
-      const initialCommand = props.initialCommand
-      setTimeout(() => {
-        const formattedCmd = initialCommand.endsWith('\r') || initialCommand.endsWith('\n') ? initialCommand : `${initialCommand}\r`
-        writePty(props.paneId, formattedCmd)
-        const cleanCmd = initialCommand.replace(/[\r\n]+$/, '').trim()
-        if (cleanCmd) {
-          recordCommand(cleanCmd, props.cwd || props.projectFolder, props.shell)
-        }
-      }, 700)
-    }
+      if (props.initialCommand) {
+        const initialCommand = props.initialCommand
+        setTimeout(() => {
+          const formattedCmd = initialCommand.endsWith('\r') || initialCommand.endsWith('\n') ? initialCommand : `${initialCommand}\r`
+          if (commandStartTime === 0) commandStartTime = Date.now()
+          writePty(props.paneId, formattedCmd)
+          const cleanCmd = initialCommand.replace(/[\r\n]+$/, '').trim()
+          if (cleanCmd) {
+            recordCommand(cleanCmd, props.cwd || props.projectFolder, props.shell)
+          }
+        }, 700)
+      }
   } catch (err) {
     console.error('Failed to start PTY:', err)
     if (!isTauri.value) {
@@ -1121,23 +1142,15 @@ const fetchStats = async () => {
         if (!props.isTabActive) {
           setTerminalAlert(props.paneId, 'running')
         }
-      } else if (wasProcessBusy) {
-        wasProcessBusy = false
-        triggerGitRefresh()
-        if (!props.isTabActive) {
-          setTerminalAlert(props.paneId, 'completed')
-        }
-        // Kirim OS desktop notification jika jendela di-minimize atau tab di background
-        if (settings.value.enableNotifications !== false) {
-          const isBackground = !props.isTabActive || (typeof document !== 'undefined' && (document.hidden || !document.hasFocus()))
-          if (isBackground) {
-            sendDesktopNotification(
-              'MyTermin - Proses Selesai',
-              `Perintah di tab "${props.title}" telah selesai dieksekusi.`
-            )
+        } else if (wasProcessBusy) {
+          wasProcessBusy = false
+          triggerGitRefresh()
+          if (!props.isTabActive) {
+            setTerminalAlert(props.paneId, 'completed')
           }
+          // Panggil handleCommandCompletion untuk cek durasi & notifikasi (fallback shell integration)
+          handleCommandCompletion()
         }
-      }
 
       // Jika Rust sysinfo mendeteksi CWD proses aktif (misal opencode, node, dsb),
       // update direktori tab — hanya saat tidak ada child, karena loop Rust

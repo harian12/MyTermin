@@ -20,16 +20,19 @@ import { useAppDialog } from '~/composables/useAppDialog'
 
 interface Props {
   open: boolean
+  defaultTab?: 'branches' | 'worktrees'
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  defaultTab: 'branches'
+})
 const emit = defineEmits<{
   (e: 'update:open', val: boolean): void
 }>()
 
 const activeTab = ref<'branches' | 'worktrees'>('branches')
 
-const { gitBranch, gitBranchesList, fetchBranches, switchBranch, createBranch } = useProjectExplorer()
+const { gitBranch, gitBranchesList, fetchBranches, switchBranch, createBranch, setWorkstationFolder } = useProjectExplorer()
 const { worktreeList, refreshWorktrees, addWorktree, removeWorktree, fetchAll, isBusy } = useGitExtras()
 const { activeWorkstation, addTerminal } = useWorkspaceStore()
 const { showAppAlert, showAppConfirm } = useAppDialog()
@@ -82,6 +85,9 @@ watch(
   () => props.open,
   async (isOpen) => {
     if (isOpen) {
+      if (props.defaultTab) {
+        activeTab.value = props.defaultTab
+      }
       await Promise.all([fetchBranches(), refreshWorktrees()])
       if (gitBranchesList.value.length > 0 && !selectedWorktreeBranch.value) {
         selectedWorktreeBranch.value = gitBranchesList.value.find(b => b !== gitBranch.value) || gitBranchesList.value[0] || ''
@@ -116,6 +122,12 @@ const handleOpenWorktreeTerminal = (wtPath: string, branchName: string) => {
     title: `[${branchName || 'worktree'}]`,
     cwd: wtPath
   })
+  emit('update:open', false)
+}
+
+// Beralih folder workstation ke path worktree ini
+const handleSwitchWorkstationToWorktree = async (wtPath: string) => {
+  await setWorkstationFolder(wtPath)
   emit('update:open', false)
 }
 
@@ -358,6 +370,16 @@ const handleRemoveWorktree = async (wtPath: string, branchName: string) => {
                 </div>
 
                 <div class="flex items-center gap-1 flex-shrink-0">
+                  <UiTooltip text="Buka & beralih ke folder worktree ini di workstation" side="top">
+                    <button
+                      class="px-2 py-1 rounded bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 text-[10px] font-sans font-medium flex items-center gap-1 transition-colors cursor-pointer"
+                      @click="handleSwitchWorkstationToWorktree(wt.path)"
+                    >
+                      <FolderOpen class="w-3 h-3" />
+                      <span>Buka Folder</span>
+                    </button>
+                  </UiTooltip>
+
                   <UiTooltip text="Buka tab terminal baru di folder worktree ini" side="top">
                     <button
                       class="px-2 py-1 rounded bg-primary/20 hover:bg-primary/30 text-primary text-[10px] font-sans font-medium flex items-center gap-1 transition-colors cursor-pointer"

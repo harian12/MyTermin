@@ -16,7 +16,61 @@ const { copyToClipboard } = useTauriPty()
 
 const activeTab = ref<'stash' | 'tag'>('stash')
 const preview = ref<{ selector: string; patch: string } | null>(null)
+const selectedDiffFile = ref<string | null>(null)
 const newTag = ref('')
+
+interface StashDiffFile {
+  name: string
+  additions: number
+  deletions: number
+  patch: string
+}
+
+const parsedDiffFiles = computed<StashDiffFile[]>(() => {
+  if (!preview.value?.patch) return []
+  const files: StashDiffFile[] = []
+  const rawFiles = preview.value.patch.split(/^diff --git /m)
+
+  for (const block of rawFiles) {
+    if (!block.trim()) continue
+    const firstLine = block.split('\n')[0] || ''
+    const match = firstLine.match(/b\/(.*)$/)
+    const name = match ? match[1] : firstLine.trim()
+
+    let adds = 0
+    let dels = 0
+    for (const line of block.split('\n')) {
+      if (line.startsWith('+') && !line.startsWith('+++')) adds++
+      else if (line.startsWith('-') && !line.startsWith('---')) dels++
+    }
+
+    files.push({
+      name,
+      additions: adds,
+      deletions: dels,
+      patch: `diff --git ${block}`
+    })
+  }
+  return files
+})
+
+const totalAdditions = computed(() => parsedDiffFiles.value.reduce((acc, f) => acc + f.additions, 0))
+const totalDeletions = computed(() => parsedDiffFiles.value.reduce((acc, f) => acc + f.deletions, 0))
+
+const displayedDiffLines = computed(() => {
+  const targetPatch = selectedDiffFile.value
+    ? parsedDiffFiles.value.find(f => f.name === selectedDiffFile.value)?.patch || ''
+    : preview.value?.patch || ''
+
+  return targetPatch.split('\n').map((line, idx) => {
+    let type: 'add' | 'del' | 'hunk' | 'header' | 'normal' = 'normal'
+    if (line.startsWith('+') && !line.startsWith('+++')) type = 'add'
+    else if (line.startsWith('-') && !line.startsWith('---')) type = 'del'
+    else if (line.startsWith('@@')) type = 'hunk'
+    else if (line.startsWith('diff --git') || line.startsWith('index ') || line.startsWith('---') || line.startsWith('+++')) type = 'header'
+    return { id: idx, line, type }
+  })
+})
 
 watch(
   () => props.open,
@@ -26,6 +80,7 @@ watch(
       refreshTags()
     } else {
       preview.value = null
+      selectedDiffFile.value = null
     }
   }
 )
@@ -39,8 +94,10 @@ const handleStashSave = async () => {
 const handlePreview = async (selector: string) => {
   if (preview.value?.selector === selector) {
     preview.value = null
+    selectedDiffFile.value = null
     return
   }
+  selectedDiffFile.value = null
   const patch = await stashShow(selector)
   preview.value = { selector, patch }
 }
@@ -148,17 +205,64 @@ const handleCreateTag = async () => {
               </div>
             </div>
 
-            <div v-if="preview?.selector === entry.selector" class="border-t border-border/40">
-              <div class="flex items-center justify-between px-2.5 py-1">
-                <span class="font-mono text-[10px] text-muted-foreground">{{ entry.selector }}</span>
+            <div v-if="preview?.selector === entry.selector" class="border-t border-border/40 bg-[#090a0f]">
+              <div class="flex items-center justify-between px-2.5 py-1.5 border-b border-border/40">
+                <div class="flex items-center gap-2">
+                  <span class="font-mono text-[10px] text-primary font-semibold">{{ entry.selector }}</span>
+                  <div class="flex items-center gap-1.5 text-[10px] font-mono">
+                    <span v-if="totalAdditions > 0" class="text-emerald-400 font-semibold">+{{ totalAdditions }}</span>
+                    <span v-if="totalDeletions > 0" class="text-rose-400 font-semibold">-{{ totalDeletions }}</span>
+                    <span class="text-muted-foreground">({{ parsedDiffFiles.length }} file)</span>
+                  </div>
+                </div>
                 <button
-                  class="rounded px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  class="rounded px-2 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground font-mono"
                   @click="copyToClipboard(preview.patch)"
                 >
-                  Salin patch
+                  Salin Patch
                 </button>
               </div>
-              <pre class="max-h-52 overflow-auto border-t border-border/40 bg-black/30 px-2.5 py-2 font-mono text-[10px] leading-relaxed text-foreground/80">{{ preview.patch || '(patch kosong)' }}</pre>
+
+              <!-- File Tabs Filter -->
+              <div v-if="parsedDiffFiles.length > 1" class="flex items-center gap-1 px-2 py-1 overflow-x-auto no-scrollbar border-b border-border/30 bg-[#0d0e14]">
+                <button
+                  :class="[
+                    'px-2 py-0.5 rounded text-[10px] font-mono transition-colors whitespace-nowrap',
+                    selectedDiffFile === null ? 'bg-primary/20 text-primary font-bold' : 'text-muted-foreground hover:text-foreground'
+                  ]"
+                  @click="selectedDiffFile = null"
+                >
+                  Semua ({{ parsedDiffFiles.length }})
+                </button>
+                <button
+                  v-for="file in parsedDiffFiles"
+                  :key="file.name"
+                  :class="[
+                    'px-2 py-0.5 rounded text-[10px] font-mono transition-colors flex items-center gap-1 whitespace-nowrap',
+                    selectedDiffFile === file.name ? 'bg-primary/20 text-primary font-bold' : 'text-muted-foreground hover:text-foreground'
+                  ]"
+                  @click="selectedDiffFile = file.name"
+                >
+                  <span>{{ file.name.split('/').pop() || file.name }}</span>
+                  <span class="text-[9px] text-emerald-400">+{{ file.additions }}</span>
+                  <span class="text-[9px] text-rose-400">-{{ file.deletions }}</span>
+                </button>
+              </div>
+
+              <!-- Syntax-Highlighted Diff Line Viewer -->
+              <div class="max-h-60 overflow-auto font-mono text-[10.5px] leading-relaxed p-2 space-y-0.5 select-text">
+                <div
+                  v-for="item in displayedDiffLines"
+                  :key="item.id"
+                  :class="[
+                    'px-1.5 py-0.2 rounded-xs whitespace-pre-wrap break-all',
+                    item.type === 'add' ? 'bg-emerald-500/15 text-emerald-300' :
+                    item.type === 'del' ? 'bg-rose-500/15 text-rose-300' :
+                    item.type === 'hunk' ? 'bg-sky-500/10 text-sky-400 font-semibold text-[10px] my-0.5' :
+                    item.type === 'header' ? 'text-muted-foreground/60 text-[10px] italic' : 'text-foreground/80'
+                  ]"
+                >{{ item.line }}</div>
+              </div>
             </div>
           </div>
         </div>

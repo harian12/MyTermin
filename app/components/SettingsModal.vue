@@ -366,6 +366,52 @@ onMounted(async () => {
               @update:model-value="updateSettings({ editorMinimap: $event })"
             />
           </UiSettingRow>
+
+          <UiSettingRow label="Auto-Save Berkas" hint="Simpan perubahan editor secara otomatis">
+            <UiSelect
+              :model-value="settings.editorAutoSave || 'off'"
+              @update:model-value="updateSettings({ editorAutoSave: $event as 'off' | 'afterDelay' | 'onFocusChange' })"
+            >
+              <option value="off">Mati (Manual Ctrl+S)</option>
+              <option value="afterDelay">Setelah Jeda Waktu</option>
+              <option value="onFocusChange">Saat Kehilangan Fokus</option>
+            </UiSelect>
+          </UiSettingRow>
+
+          <UiSettingRow
+            v-if="settings.editorAutoSave === 'afterDelay'"
+            label="Jeda Auto-Save (ms)"
+            hint="Waktu tunggu setelah ketikan berhenti (500 - 5000ms)"
+          >
+            <UiInput
+              type="number"
+              min="500"
+              max="5000"
+              step="250"
+              class="h-8 text-xs"
+              :model-value="settings.editorAutoSaveDelay || 1500"
+              @update:model-value="updateSettings({ editorAutoSaveDelay: Number($event) })"
+            />
+          </UiSettingRow>
+
+          <UiSettingRow label="Tampilkan Whitespace" hint="Visualisasi karakter spasi dan tab">
+            <UiSelect
+              :model-value="settings.editorRenderWhitespace || 'selection'"
+              @update:model-value="updateSettings({ editorRenderWhitespace: $event as 'none' | 'boundary' | 'selection' | 'all' })"
+            >
+              <option value="none">Sembunyikan (None)</option>
+              <option value="selection">Hanya Saat Diseleksi (Selection)</option>
+              <option value="boundary">Batas Kata (Boundary)</option>
+              <option value="all">Tampilkan Semua (All)</option>
+            </UiSelect>
+          </UiSettingRow>
+
+          <UiSettingRow label="Garis Panduan Indentasi" hint="Garis vertikal pemandu kedalaman blok kode">
+            <UiSwitch
+              :model-value="settings.editorRenderIndentGuides !== false"
+              @update:model-value="updateSettings({ editorRenderIndentGuides: $event })"
+            />
+          </UiSettingRow>
         </UiSettingsGroup>
 
         <UiSettingsGroup title="Warna & Kursor" description="Skema warna, palet ANSI, dan bentuk kursor">
