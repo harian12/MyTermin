@@ -2511,6 +2511,11 @@ fn window_minimize(window: tauri::Window) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn window_start_dragging(window: tauri::Window) -> Result<(), String> {
+    window.start_dragging().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 fn window_toggle_maximize(window: tauri::Window) -> Result<(), String> {
     if window.is_maximized().unwrap_or(false) {
         window.unmaximize().map_err(|e| e.to_string())
@@ -2750,6 +2755,7 @@ fn main() {
             is_blank_startup,
             open_new_window,
             window_minimize,
+            window_start_dragging,
             window_toggle_maximize,
             window_close,
             window_destroy

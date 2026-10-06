@@ -855,7 +855,10 @@ onBeforeUnmount(() => {
     </main>
 
     <!-- Global Workspace Status Bar (Always Visible across Terminal & Editor) -->
-    <footer class="h-6 w-full bg-[#0a0b0f] border-t border-border/60 px-3 flex items-center justify-between text-[11px] font-mono select-none z-30 flex-shrink-0 text-muted-foreground">
+    <footer
+      class="h-6 w-full bg-[#0a0b0f] border-t border-border/60 px-3 flex items-center justify-between text-[11px] font-mono select-none z-30 flex-shrink-0 text-muted-foreground"
+      data-tauri-drag-region
+    >
       <!-- Left: Git Branch, Folder Path, Workspace Name -->
       <div class="flex items-center gap-3 truncate max-w-[60%]">
         <!-- Git Branch Badge / Selector with Ahead/Behind indicator -->

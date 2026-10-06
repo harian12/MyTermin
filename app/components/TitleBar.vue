@@ -178,6 +178,72 @@ const toggleMaximizeWindow = async () => {
   }
 }
 
+const startWindowDrag = async () => {
+  if (!isTauri.value) return
+  try {
+    await getCurrentWindow().startDragging()
+  } catch (e) {
+    try {
+      const { invoke } = await import('@tauri-apps/api/core')
+      await invoke('window_start_dragging')
+    } catch (err) {
+      console.warn('Failed window drag fallback:', err)
+    }
+  }
+}
+
+const handleTitleBarMouseDown = async (e: MouseEvent) => {
+  if (e.button !== 0) return
+  const target = e.target as HTMLElement | null
+  if (!target) return
+
+  // Jangan trigger drag jika mengklik tombol interaktif atau tab
+  if (
+    target.closest('button') ||
+    target.closest('input') ||
+    target.closest('textarea') ||
+    target.closest('select') ||
+    target.closest('a') ||
+    target.closest('[role="button"]') ||
+    target.closest('[data-ws-tab-index]') ||
+    target.closest('[data-no-drag]')
+  ) {
+    return
+  }
+
+  // Double click pada area kosong titlebar = toggle maximize
+  if (e.detail === 2) {
+    await toggleMaximizeWindow()
+    return
+  }
+
+  // Single click starts native OS window dragging
+  if (e.detail === 1) {
+    await startWindowDrag()
+  }
+}
+
+const handleTitleBarDblClick = async (e: MouseEvent) => {
+  if (e.button !== 0) return
+  const target = e.target as HTMLElement | null
+  if (!target) return
+
+  if (
+    target.closest('button') ||
+    target.closest('input') ||
+    target.closest('textarea') ||
+    target.closest('select') ||
+    target.closest('a') ||
+    target.closest('[role="button"]') ||
+    target.closest('[data-ws-tab-index]') ||
+    target.closest('[data-no-drag]')
+  ) {
+    return
+  }
+
+  await toggleMaximizeWindow()
+}
+
 const closeWindow = async () => {
   if (isTauri.value) {
     if (settings.value.closeToTray) {
@@ -205,11 +271,13 @@ const closeWindow = async () => {
 
 <template>
   <header
-    class="flex items-center justify-between h-10 bg-[#12131a] border-b border-border select-none px-2 z-40 relative"
+    class="flex items-center justify-between h-10 bg-[#12131a] border-b border-border select-none px-2 z-40 relative cursor-default"
     data-tauri-drag-region
+    @mousedown="handleTitleBarMouseDown"
+    @dblclick="handleTitleBarDblClick"
   >
     <!-- Left: App Brand & Workstation Tabs -->
-    <div class="flex items-center gap-1.5 flex-1 min-w-0 mr-2">
+    <div class="flex items-center gap-1.5 min-w-0 max-w-[calc(100vw-450px)]" data-tauri-drag-region>
       <div
         class="flex items-center gap-2 px-2 text-white font-bold text-sm tracking-wide flex-shrink-0 cursor-default"
         data-tauri-drag-region
@@ -234,7 +302,7 @@ const closeWindow = async () => {
       <!-- Workstation Tabs (Draggable & Reorderable & Scrollable) -->
       <div
         ref="wsTabsRef"
-        class="flex items-center gap-1 overflow-x-auto no-scrollbar scroll-smooth flex-1 min-w-0 py-0.5"
+        class="flex items-center gap-1 overflow-x-auto no-scrollbar scroll-smooth py-0.5 flex-shrink min-w-0"
         @wheel.passive="handleWsTabsWheel"
       >
         <div
@@ -330,6 +398,12 @@ const closeWindow = async () => {
       </div>
     </div>
 
+    <!-- Central Draggable Region (Mengisi seluruh area kosong titlebar agar dapat digeser) -->
+    <div
+      class="flex-1 h-full min-w-4 cursor-default self-stretch"
+      data-tauri-drag-region
+    />
+
     <!-- Notification Toast -->
     <div
       v-if="saveNotification"
@@ -339,7 +413,7 @@ const closeWindow = async () => {
     </div>
 
     <!-- Right Controls -->
-    <div class="flex items-center gap-1.5" data-tauri-drag-region>
+    <div class="flex items-center gap-1.5 flex-shrink-0" data-tauri-drag-region>
       <!-- Command Palette Launcher -->
       <UiTooltip text="Buka Command Palette (Ctrl+K)" side="bottom">
         <UiButton
