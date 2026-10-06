@@ -13,7 +13,8 @@ import {
   Sparkles,
   Search,
   Download,
-  GitBranch
+  GitBranch,
+  CheckSquare
 } from 'lucide-vue-next'
 
 const props = defineProps<{
@@ -113,6 +114,17 @@ onBeforeUnmount(() => {
 
     <button
       class="w-full flex items-center justify-between px-2.5 py-1.5 text-xs rounded-md hover:bg-accent hover:text-foreground text-foreground/90 transition-colors cursor-pointer"
+      @click="handleAction('select-all')"
+    >
+      <div class="flex items-center gap-2">
+        <CheckSquare class="w-3.5 h-3.5 text-blue-400" />
+        <span>Select All</span>
+      </div>
+      <kbd class="text-[10px] text-muted-foreground font-mono">Ctrl+A</kbd>
+    </button>
+
+    <button
+      class="w-full flex items-center justify-between px-2.5 py-1.5 text-xs rounded-md hover:bg-accent hover:text-foreground text-foreground/90 transition-colors cursor-pointer"
       @click="handleAction('clear')"
     >
       <div class="flex items-center gap-2">
@@ -200,6 +212,24 @@ onBeforeUnmount(() => {
     </button>
 
     <div class="h-px bg-border/50 my-1" />
+
+    <div class="h-px bg-border/50 my-1" />
+
+    <!-- Color Picker -->
+    <div class="px-2.5 py-1 text-[10px] font-semibold text-muted-foreground tracking-wider uppercase">
+      Warna Tab
+    </div>
+    <div class="flex items-center gap-1.5 px-2.5 py-1.5">
+      <button class="w-4 h-4 rounded-full bg-emerald-500 hover:ring-2 ring-emerald-500/50 hover:scale-110 transition-all cursor-pointer" @click="handleAction('color-emerald')" />
+      <button class="w-4 h-4 rounded-full bg-blue-500 hover:ring-2 ring-blue-500/50 hover:scale-110 transition-all cursor-pointer" @click="handleAction('color-blue')" />
+      <button class="w-4 h-4 rounded-full bg-amber-500 hover:ring-2 ring-amber-500/50 hover:scale-110 transition-all cursor-pointer" @click="handleAction('color-amber')" />
+      <button class="w-4 h-4 rounded-full bg-rose-500 hover:ring-2 ring-rose-500/50 hover:scale-110 transition-all cursor-pointer" @click="handleAction('color-rose')" />
+      <button class="w-4 h-4 rounded-full bg-purple-500 hover:ring-2 ring-purple-500/50 hover:scale-110 transition-all cursor-pointer" @click="handleAction('color-purple')" />
+      <button class="w-4 h-4 rounded-full bg-cyan-500 hover:ring-2 ring-cyan-500/50 hover:scale-110 transition-all cursor-pointer" @click="handleAction('color-cyan')" />
+      <button class="ml-auto w-4 h-4 rounded-full border border-border flex items-center justify-center hover:bg-muted transition-all cursor-pointer" @click="handleAction('color-none')">
+        <X class="w-2.5 h-2.5 text-muted-foreground" />
+      </button>
+    </div>
 
     <!-- Layout Switch Quick Pick -->
     <div class="px-2.5 py-1 text-[10px] font-semibold text-muted-foreground tracking-wider uppercase">

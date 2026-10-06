@@ -271,7 +271,7 @@ const emit = defineEmits<{
   (e: 'focus', termId: string): void
   (e: 'close', termId: string): void
   (e: 'open-presets'): void
-  (e: 'contextmenu', payload: { x: number; y: number; hasSelection: boolean; paneId: string }): void
+  (e: 'contextmenu', payload: { x: number; y: number; hasSelection: boolean; selectionText?: string; paneId: string }): void
   (e: 'unified-search', payload: { query: string; caseSensitive: boolean }): void
 }>()
 
@@ -318,6 +318,15 @@ watch(
   updateWindow,
   { immediate: true }
 )
+
+const colorMap: Record<string, string> = {
+  emerald: '#10b981',
+  blue: '#3b82f6',
+  amber: '#f59e0b',
+  rose: '#f43f5e',
+  purple: '#a855f7',
+  cyan: '#06b6d4'
+}
 
 // Menentukan terminal mana saja yang aktif tampil di viewport grid
 const isTerminalVisible = (termId: string): boolean => {
@@ -394,6 +403,13 @@ const gridClass = computed(() => {
           @click="handleTabClick(term.id)"
           @dblclick="startRenameTab(term)"
         >
+          <!-- Color Indicator (Dot) -->
+          <div
+            v-if="term.color && colorMap[term.color]"
+            class="w-2 h-2 rounded-full shadow-sm flex-shrink-0"
+            :style="{ backgroundColor: colorMap[term.color] }"
+          />
+
           <Terminal class="w-3.5 h-3.5 text-primary flex-shrink-0" />
 
           <!-- Status command terakhir (shell integration) -->

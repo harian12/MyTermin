@@ -148,14 +148,21 @@ export const useTauriPty = () => {
   }
 
   const copyToClipboard = async (text: string): Promise<void> => {
-    if (!isTauri.value) {
-      await navigator.clipboard?.writeText(text)
-      return
+    if (!text) return
+    if (isTauri.value) {
+      try {
+        await invoke('copy_to_clipboard', { text })
+        return
+      } catch (e) {
+        console.warn('Native clipboard copy failed, falling back to navigator:', e)
+      }
     }
     try {
-      await invoke('copy_to_clipboard', { text })
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text)
+      }
     } catch (e) {
-      console.error('Failed to copy to native clipboard:', e)
+      console.error('Failed to copy to clipboard:', e)
     }
   }
 

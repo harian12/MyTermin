@@ -1,5 +1,14 @@
 export type LayoutType = 'single' | 'split-h' | 'split-v' | 'grid-2x2'
 
+export interface CommandHistoryEntry {
+  id: string
+  cmd: string
+  cwd: string
+  shell?: string
+  at: number
+  runCount: number
+}
+
 export interface TerminalTab {
   id: string
   title: string
@@ -7,6 +16,7 @@ export interface TerminalTab {
   cwd?: string
   initialCommand?: string
   lastCommand?: string
+  color?: string
 }
 
 export interface Workstation {
@@ -104,6 +114,7 @@ export interface KeybindingConfig {
   aiPanel?: string
   toggleSidebar?: string
   reopenClosedTab?: string
+  commandHistory?: string
 }
 
 export const DEFAULT_KEYBINDINGS: Required<KeybindingConfig> = {
@@ -121,13 +132,16 @@ export const DEFAULT_KEYBINDINGS: Required<KeybindingConfig> = {
   unifiedSearch: 'Ctrl+Shift+U',
   aiPanel: 'Ctrl+Shift+I',
   toggleSidebar: 'Ctrl+B',
-  reopenClosedTab: 'Ctrl+Shift+T'
+  reopenClosedTab: 'Ctrl+Shift+T',
+  commandHistory: 'Ctrl+R'
 }
 
 export interface TerminalSettings {
   fontSize: number
   fontFamily: string
   fontLigatures?: boolean
+  editorFontSize?: number
+  editorTabSize?: number
   cursorStyle: 'block' | 'underline' | 'bar'
   cursorBlink: boolean
   theme: string
@@ -147,6 +161,7 @@ export interface TerminalSettings {
   firstRunDone?: boolean
   aiTool?: string
   aiCommand?: string
+  copyOnSelect?: boolean
 }
 
 export type NotificationRuleKind = 'keyword' | 'regex' | 'exit-code' | 'terminal-name' | 'duration'

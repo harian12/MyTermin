@@ -51,7 +51,7 @@ const {
 const { gitBranch, gitOverview, refreshGitStatus, startGitPolling, stopGitPolling, fetchBranches, pullGit, pushGit } = useProjectExplorer()
 const { aheadBehind, fetchAll } = useGitExtras()
 const sidebarActiveTab = useState<'explorer' | 'git' | 'terminals'>('sidebar-active-tab', () => 'explorer')
-const { isTauri, writePty, pasteFromClipboard } = useTauriPty()
+const { isTauri, writePty, pasteFromClipboard, copyToClipboard } = useTauriPty()
 const { isShortcut, requestDesktopNotification, settings, updateSettings } = useSettingsStore()
 const { showAppConfirm } = useAppDialog()
 const { backgroundAlerts } = useWorkspaceStore()
@@ -324,20 +324,22 @@ const startSplitDrag = (e: MouseEvent) => {
 const contextMenuVisible = ref(false)
 const contextMenuPos = ref({ x: 0, y: 0 })
 const contextMenuHasSelection = ref(false)
+const contextMenuSelectionText = ref('')
 const contextMenuPaneId = ref('')
 
-const handlePaneContextMenu = (payload: { x: number; y: number; hasSelection: boolean; paneId: string }) => {
+const handlePaneContextMenu = (payload: { x: number; y: number; hasSelection: boolean; selectionText?: string; paneId: string }) => {
   contextMenuPos.value = { x: payload.x, y: payload.y }
   contextMenuHasSelection.value = payload.hasSelection
+  contextMenuSelectionText.value = payload.selectionText || ''
   contextMenuPaneId.value = payload.paneId
   contextMenuVisible.value = true
 }
 
 const handleContextMenuAction = async (action: string) => {
   if (action === 'copy') {
-    const sel = window.getSelection()?.toString()
+    const sel = contextMenuSelectionText.value || window.getSelection()?.toString() || ''
     if (sel) {
-      await navigator.clipboard.writeText(sel)
+      await copyToClipboard(sel)
     }
   } else if (action === 'paste') {
     try {
@@ -355,6 +357,11 @@ const handleContextMenuAction = async (action: string) => {
     const target = contextMenuPaneId.value || activeTerminalId.value
     if (target && typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent(`terminal-action-${target}`, { detail: 'search' }))
+    }
+  } else if (action === 'select-all') {
+    const target = contextMenuPaneId.value || activeTerminalId.value
+    if (target && typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent(`terminal-action-${target}`, { detail: 'select-all' }))
     }
   } else if (action === 'export') {
     const target = contextMenuPaneId.value || activeTerminalId.value
@@ -381,6 +388,13 @@ const handleContextMenuAction = async (action: string) => {
     setLayout('split-v')
   } else if (action === 'layout-grid-2x2') {
     setLayout('grid-2x2')
+  } else if (action.startsWith('color-')) {
+    const color = action.replace('color-', '')
+    const targetPane = contextMenuPaneId.value || activeTerminalId.value
+    if (targetPane) {
+      const { setTerminalColor } = useWorkspaceStore()
+      setTerminalColor(targetPane, color === 'none' ? undefined : color)
+    }
   }
 }
 
@@ -499,6 +513,13 @@ const handleKeydown = (e: KeyboardEvent) => {
   if (isShortcut(e, 'commandPalette')) {
     e.preventDefault()
     togglePalette()
+    return
+  }
+
+  if (isShortcut(e, 'commandHistory')) {
+    e.preventDefault()
+    const { togglePalette: toggleHistoryPalette } = useCommandHistory()
+    toggleHistoryPalette()
     return
   }
 
@@ -967,6 +988,7 @@ onBeforeUnmount(() => {
       @open-presets="isPresetModalOpen = true"
       @open-settings="isSettingsModalOpen = true"
     />
+    <CommandHistoryPalette />
     <PresetModal v-model:open="isPresetModalOpen" />
     <SettingsModal v-model:open="isSettingsModalOpen" :initial-tab="settingsInitialTab" />
     <UpdateNotificationModal v-model:open="isUpdateModalOpen" />

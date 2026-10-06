@@ -1,4 +1,5 @@
 import type { TerminalTab, WorkspacePreset, LayoutType, TerminalSettings, Workstation, PresetWorkstationConfig } from '~/types/terminal'
+import { isRecordable } from '~/utils/commandHistory'
 
 const STORAGE_KEY = 'mytermin_session_v5'
 const CUSTOM_PRESETS_KEY = 'mytermin_custom_presets_v1'
@@ -603,7 +604,7 @@ export const useWorkspaceStore = () => {
     if (!ws) return
     const term = ws.terminals.find(t => t.id === termId)
     const cleanCmd = cmd.trim()
-    if (term && cleanCmd && cleanCmd !== 'clear' && cleanCmd !== 'cls' && cleanCmd !== 'exit') {
+    if (term && isRecordable(cleanCmd)) {
       if (term.lastCommand !== cleanCmd) {
         term.lastCommand = cleanCmd
         saveSession(false)
@@ -726,6 +727,16 @@ export const useWorkspaceStore = () => {
     setTerminalAlert(termId, null)
   }
 
+  const setTerminalColor = (termId: string, color?: string) => {
+    const ws = workstations.value.find(w => w.terminals.some(t => t.id === termId))
+    if (!ws) return
+    const term = ws.terminals.find(t => t.id === termId)
+    if (term) {
+      term.color = color
+      saveSession(false)
+    }
+  }
+
   return {
     workstations,
     activeWorkstationId,
@@ -769,6 +780,7 @@ export const useWorkspaceStore = () => {
     applyStartupPreset,
     backgroundAlerts,
     setTerminalAlert,
-    clearTerminalAlert
+    clearTerminalAlert,
+    setTerminalColor
   }
 }

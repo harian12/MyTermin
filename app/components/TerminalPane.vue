@@ -28,6 +28,7 @@ import { TERMINAL_THEMES } from '~/composables/useThemes'
 import { winPathToWsl } from '~/utils/msysPath'
 import type { PtyStats } from '~/types/terminal'
 import { sendDesktopNotification } from '~/composables/useSettingsStore'
+import { useEditorStore } from '~/composables/useEditorStore'
 
 interface Props {
   paneId: string
@@ -49,7 +50,7 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<{
   (e: 'focus', paneId: string): void
   (e: 'close', paneId: string): void
-  (e: 'contextmenu', payload: { x: number; y: number; hasSelection: boolean; paneId: string }): void
+  (e: 'contextmenu', payload: { x: number; y: number; hasSelection: boolean; selectionText?: string; paneId: string }): void
 }>()
 
 const terminalContainer = ref<HTMLElement | null>(null)
@@ -67,11 +68,14 @@ const {
   saveTempFile,
   pasteFromClipboard,
   getClipboardFiles,
-  copyToClipboard
+  copyToClipboard,
+  openUrl
 } = useTauriPty()
 const { settings, isShortcut, updateSettings } = useSettingsStore()
+const { openFileAtPosition } = useEditorStore()
 const { terminals, renameTerminal, updateTerminalCwd, updateTerminalLastCommand, setTerminalAlert, clearTerminalAlert, sessionReady } = useWorkspaceStore()
 const { togglePalette, openPalette } = useCommandPalette()
+const { recordCommand } = useCommandHistory()
 const { reportIdle, trackOutput, evaluateRules, parsePayload, clearStatus, formatDuration, statuses } = useShellIntegration()
 const { envMap, configPath } = useProjectConfig()
 const { error: logError } = useDiagnostics()
@@ -230,6 +234,7 @@ const executeCommand = (cmd: string) => {
   if (isTauri.value) {
     writePty(props.paneId, formattedCmd)
     updateTerminalLastCommand(props.paneId, cmd)
+    recordCommand(cmd.trim(), props.cwd || props.projectFolder, props.shell)
   } else if (term) {
     term.writeln(`\r\n$ ${cmd.trim()}`)
   }
@@ -430,7 +435,9 @@ const initTerminal = async () => {
 
   fitAddon = new FitAddon()
   searchAddon = new SearchAddon()
-  const webLinksAddon = new WebLinksAddon()
+  const webLinksAddon = new WebLinksAddon((event, uri) => {
+    openUrl(uri)
+  })
   const unicode11Addon = new Unicode11Addon()
 
   term.loadAddon(fitAddon)
@@ -438,6 +445,50 @@ const initTerminal = async () => {
   term.loadAddon(webLinksAddon)
   term.loadAddon(unicode11Addon)
   term.unicode.activeVersion = '11'
+
+  term.registerLinkProvider({
+    provideLinks: (bufferLineNumber: number, callback: (links: any[]) => void) => {
+      const line = term?.buffer.active.getLine(bufferLineNumber - 1)?.translateToString(true)
+      if (!line) return callback([])
+
+      const links: any[] = []
+      const regex = /(?:(?:[a-zA-Z]:[\\/]|(?:\.{1,2}[\\/])|[a-zA-Z0-9_.-]+[\\/])[a-zA-Z0-9_.\-\\/]+\.[a-zA-Z0-9]+)(?::(\d+)(?::(\d+))?)?/g
+      let match
+      while ((match = regex.exec(line)) !== null) {
+        const text = match[0]
+        if (text.startsWith('http://') || text.startsWith('https://')) continue
+
+        const lineNum = match[1] ? parseInt(match[1], 10) : 1
+        const colNum = match[2] ? parseInt(match[2], 10) : 1
+        
+        let extractedPath = text
+        if (match[1]) {
+          const suffix = match[2] ? `:${match[1]}:${match[2]}` : `:${match[1]}`
+          if (extractedPath.endsWith(suffix)) {
+            extractedPath = extractedPath.slice(0, -suffix.length)
+          }
+        }
+
+        links.push({
+          range: {
+            start: { x: match.index + 1, y: bufferLineNumber },
+            end: { x: match.index + text.length, y: bufferLineNumber }
+          },
+          text,
+          activate: () => {
+            const base = props.cwd || props.projectFolder || ''
+            let resolved = extractedPath
+            if (!/^[a-zA-Z]:[\\/]/.test(resolved) && !resolved.startsWith('/')) {
+              const sep = base.includes('\\') ? '\\' : '/'
+              resolved = base ? (base.endsWith(sep) ? base + resolved : base + sep + resolved) : resolved
+            }
+            openFileAtPosition(resolved, lineNum, colNum)
+          }
+        })
+      }
+      callback(links)
+    }
+  })
 
   if (settings.value.fontLigatures !== false) {
     try {
@@ -475,8 +526,9 @@ const initTerminal = async () => {
       return false
     }
 
-    // Ctrl+C: If text is selected in xterm, copy to clipboard. Otherwise let xterm send SIGINT (\x03)
-    if (event.ctrlKey && !event.shiftKey && (event.key === 'c' || event.key === 'C' || event.code === 'KeyC')) {
+    // Ctrl+C / Ctrl+Shift+C: If text is selected in xterm, copy to clipboard. Otherwise let xterm send SIGINT (\x03)
+    const isCopyKey = event.ctrlKey && (event.key === 'c' || event.key === 'C' || event.code === 'KeyC')
+    if (isCopyKey) {
       const selection = term?.getSelection()
       if (selection && selection.length > 0) {
         if (event.type === 'keydown') {
@@ -484,6 +536,9 @@ const initTerminal = async () => {
           event.stopPropagation()
           copySelection()
         }
+        return false
+      }
+      if (event.shiftKey) {
         return false
       }
     }
@@ -572,6 +627,15 @@ const initTerminal = async () => {
     }
   })
 
+  term.onSelectionChange(() => {
+    if (settings.value.copyOnSelect) {
+      const selection = term?.getSelection()
+      if (selection) {
+        copyToClipboard(selection)
+      }
+    }
+  })
+
   term.open(terminalContainer.value)
   safeFit()
 
@@ -626,6 +690,7 @@ const initTerminal = async () => {
         const cmd = inputLineBuffer.trim()
         if (cmd) {
           updateTerminalLastCommand(props.paneId, cmd)
+          recordCommand(cmd, props.cwd || props.projectFolder, props.shell)
         }
         inputLineBuffer = ''
       } else if (data === '\u007F' || data === '\b') {
@@ -644,6 +709,10 @@ const initTerminal = async () => {
       setTimeout(() => {
         const formattedCmd = initialCommand.endsWith('\r') || initialCommand.endsWith('\n') ? initialCommand : `${initialCommand}\r`
         writePty(props.paneId, formattedCmd)
+        const cleanCmd = initialCommand.replace(/[\r\n]+$/, '').trim()
+        if (cleanCmd) {
+          recordCommand(cleanCmd, props.cwd || props.projectFolder, props.shell)
+        }
       }, 700)
     }
   } catch (err) {
@@ -727,8 +796,9 @@ const clearTerminal = () => {
 
 const copySelection = async () => {
   const selection = term?.getSelection()
-  if (selection) {
+  if (selection && selection.length > 0) {
     await copyToClipboard(selection)
+    term?.clearSelection()
   }
 }
 
@@ -811,11 +881,13 @@ const handleContextMenu = (e: MouseEvent) => {
   e.preventDefault()
   e.stopPropagation()
   emit('focus', props.paneId)
-  const hasSel = Boolean(term?.hasSelection())
+  const selection = term?.getSelection() || ''
+  const hasSel = Boolean(selection.length > 0)
   emit('contextmenu', {
     x: e.clientX,
     y: e.clientY,
     hasSelection: hasSel,
+    selectionText: selection,
     paneId: props.paneId
   })
 }
@@ -858,6 +930,7 @@ defineExpose({
   exportBufferToFile,
   searchInBuffer,
   scrollToBufferLine,
+  selectAll: () => term?.selectAll(),
   focus: () => term?.focus()
 })
 
@@ -1039,6 +1112,7 @@ const handleTerminalAction = (e: any) => {
   if (act === 'search') openSearch()
   else if (act === 'export') exportBufferToFile()
   else if (act === 'clear') clearTerminal()
+  else if (act === 'select-all') term?.selectAll()
 }
 
 // Terminal Font Zoom (Ctrl + Wheel / Ctrl + = / Ctrl + - / Ctrl + 0)

@@ -109,6 +109,7 @@ const keybindingList: { key: keyof KeybindingConfig; label: string; hint?: strin
   { key: 'duplicateTab', label: 'Duplikat Tab' },
   { key: 'reopenClosedTab', label: 'Buka Ulang Tab Tertutup' },
   { key: 'searchBuffer', label: 'Cari di Buffer' },
+  { key: 'commandHistory', label: 'Histori Perintah' },
   { key: 'unifiedSearch', label: 'Unified Search', hint: 'Buffer terminal + file project' },
   { key: 'commandPalette', label: 'Command Palette' },
   { key: 'splitHorizontal', label: 'Split Horisontal' },
@@ -335,6 +336,29 @@ onMounted(async () => {
           </UiSettingRow>
         </UiSettingsGroup>
 
+        <UiSettingsGroup title="Monaco Editor" description="Pengaturan tampilan text editor internal">
+          <UiSettingRow label="Ukuran Font Editor" hint="Ukuran font di editor (10-24)">
+            <UiInput
+              type="number"
+              min="10"
+              max="24"
+              class="h-8 text-xs"
+              :model-value="settings.editorFontSize || 13"
+              @update:model-value="updateSettings({ editorFontSize: Number($event) })"
+            />
+          </UiSettingRow>
+
+          <UiSettingRow label="Ukuran Tab Editor" hint="Lebar spasi saat menekan Tab">
+            <UiSelect
+              :model-value="(settings.editorTabSize || 2).toString()"
+              @update:model-value="updateSettings({ editorTabSize: Number($event) })"
+            >
+              <option value="2">2 Spasi</option>
+              <option value="4">4 Spasi</option>
+            </UiSelect>
+          </UiSettingRow>
+        </UiSettingsGroup>
+
         <UiSettingsGroup title="Warna & Kursor" description="Skema warna, palet ANSI, dan bentuk kursor">
           <UiSettingRow label="Color Theme" hint="Skema warna dan palet ANSI">
             <UiSelect
@@ -410,6 +434,13 @@ onMounted(async () => {
               />
               <span class="shrink-0 text-[11px] text-muted-foreground">lines</span>
             </div>
+          </UiSettingRow>
+
+          <UiSettingRow label="Salin Otomatis" hint="Salin teks ke clipboard saat teks diseleksi">
+            <UiSwitch
+              :model-value="settings.copyOnSelect === true"
+              @update:model-value="updateSettings({ copyOnSelect: $event })"
+            />
           </UiSettingRow>
         </UiSettingsGroup>
 

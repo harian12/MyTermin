@@ -2,6 +2,7 @@
 import { ref, onMounted, onBeforeUnmount, watch, computed, nextTick } from 'vue'
 import * as monaco from 'monaco-editor'
 import { useEditorStore } from '~/composables/useEditorStore'
+import { useSettingsStore } from '~/composables/useSettingsStore'
 
 interface Props {
   modelValue: string
@@ -24,6 +25,7 @@ const emit = defineEmits<{
 }>()
 
 const { targetNavigatePosition } = useEditorStore()
+const { settings } = useSettingsStore()
 
 const containerRef = ref<HTMLDivElement | null>(null)
 let editor: monaco.editor.IStandaloneCodeEditor | null = null
@@ -122,7 +124,7 @@ onMounted(() => {
     language,
     theme: 'mytermin-dark',
     automaticLayout: true,
-    fontSize: 13,
+    fontSize: settings.value.editorFontSize || 13,
     fontFamily: '"JetBrains Mono", "Fira Code", Consolas, Menlo, monospace',
     fontLigatures: true,
     lineNumbers: 'on',
@@ -133,7 +135,7 @@ onMounted(() => {
       scale: 1
     },
     scrollBeyondLastLine: false,
-    tabSize: 2,
+    tabSize: settings.value.editorTabSize || 2,
     renderWhitespace: 'selection',
     readOnly: props.readonly || false,
     bracketPairColorization: {
@@ -239,6 +241,16 @@ watch(
         editor?.focus()
       })
     }
+  }
+)
+
+watch(
+  () => [settings.value.editorFontSize, settings.value.editorTabSize],
+  ([fontSize, tabSize]) => {
+    editor?.updateOptions({
+      fontSize: (fontSize as number) || 13,
+      tabSize: (tabSize as number) || 2
+    })
   }
 )
 

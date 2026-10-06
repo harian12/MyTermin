@@ -22,6 +22,8 @@ const defaultSettings: TerminalSettings = {
   fontSize: 14,
   fontFamily: 'Cascadia Code, Consolas, "Courier New", monospace',
   fontLigatures: true,
+  editorFontSize: 13,
+  editorTabSize: 2,
   cursorStyle: 'bar',
   cursorBlink: true,
   theme: 'tokyoNight',
@@ -38,7 +40,8 @@ const defaultSettings: TerminalSettings = {
   notificationRules: DEFAULT_NOTIFICATION_RULES,
   useProjectConfig: true,
   customTheme: null,
-  firstRunDone: false
+  firstRunDone: false,
+  copyOnSelect: false
 }
 
 const MODIFIER_LABELS: Record<string, string> = {
