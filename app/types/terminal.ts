@@ -1,4 +1,4 @@
-export type LayoutType = 'single' | 'split-h' | 'split-v' | 'grid-2x2'
+export type LayoutType = 'single' | 'split-h' | 'split-v' | 'split-3' | 'grid-2x2'
 
 export interface CommandHistoryEntry {
   id: string
@@ -17,6 +17,7 @@ export interface TerminalTab {
   initialCommand?: string
   lastCommand?: string
   color?: string
+  isPinned?: boolean
 }
 
 export interface Workstation {
@@ -114,6 +115,8 @@ export interface KeybindingConfig {
   aiPanel?: string
   toggleSidebar?: string
   reopenClosedTab?: string
+  reopenClosedTerminal?: string
+  toggleBroadcastInput?: string
   commandHistory?: string
 }
 
@@ -133,6 +136,8 @@ export const DEFAULT_KEYBINDINGS: Required<KeybindingConfig> = {
   aiPanel: 'Ctrl+Shift+I',
   toggleSidebar: 'Ctrl+B',
   reopenClosedTab: 'Ctrl+Shift+T',
+  reopenClosedTerminal: 'Ctrl+Alt+T',
+  toggleBroadcastInput: 'Ctrl+Alt+B',
   commandHistory: 'Ctrl+R'
 }
 
@@ -142,6 +147,9 @@ export interface TerminalSettings {
   fontLigatures?: boolean
   editorFontSize?: number
   editorTabSize?: number
+  editorMinimap?: boolean
+  closeToTray?: boolean
+  audioBell?: boolean
   cursorStyle: 'block' | 'underline' | 'bar'
   cursorBlink: boolean
   theme: string

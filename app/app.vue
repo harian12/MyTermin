@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { GitBranch, FolderOpen, Rows2, Columns2, Sparkles, ArrowDown, ArrowUp, FileEdit, RefreshCw } from 'lucide-vue-next'
+import { GitBranch, GitCommit, FolderOpen, Rows2, Columns2, Sparkles, ArrowDown, ArrowUp, FileEdit, RefreshCw } from 'lucide-vue-next'
 import { useWorkspaceStore } from '~/composables/useWorkspaceStore'
 import { useEditorStore } from '~/composables/useEditorStore'
 import { useProjectExplorer } from '~/composables/useProjectExplorer'
@@ -12,6 +12,7 @@ const {
   activeWorkstation,
   removeWorkstation,
   terminals,
+  renameTerminal,
   activeTerminalId,
   currentLayout,
   nextTab,
@@ -25,6 +26,9 @@ const {
   nextWorkstation,
   prevWorkstation,
   setLayout,
+  togglePinTerminal,
+  reopenClosedTerminal,
+  toggleBroadcastInput,
   initFromStorage,
   saveSession,
   sessionReady,
@@ -40,10 +44,13 @@ const {
   lastFocusedPane,
   activeFile,
   activeFileId,
+  createScratchpadFile,
   closeActiveFile,
   reopenClosedTab,
   nextFileTab,
   prevFileTab,
+  editorCursorPos,
+  activeLineBlame,
   initEditorSession,
   saveEditorSession,
   saveAll
@@ -53,7 +60,7 @@ const { aheadBehind, fetchAll } = useGitExtras()
 const sidebarActiveTab = useState<'explorer' | 'git' | 'terminals'>('sidebar-active-tab', () => 'explorer')
 const { isTauri, writePty, pasteFromClipboard, copyToClipboard } = useTauriPty()
 const { isShortcut, requestDesktopNotification, settings, updateSettings } = useSettingsStore()
-const { showAppConfirm } = useAppDialog()
+const { showAppConfirm, showAppPrompt } = useAppDialog()
 const { backgroundAlerts } = useWorkspaceStore()
 const { loadConfig, loadEnvFile, envEntries } = useProjectConfig()
 const { error: logError, warn: logWarn } = useDiagnostics()
@@ -353,6 +360,11 @@ const handleContextMenuAction = async (action: string) => {
     if (contextMenuPaneId.value) {
       writePty(contextMenuPaneId.value, 'clear\r')
     }
+  } else if (action === 'reset') {
+    const target = contextMenuPaneId.value || activeTerminalId.value
+    if (target && typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent(`terminal-action-${target}`, { detail: 'reset' }))
+    }
   } else if (action === 'search') {
     const target = contextMenuPaneId.value || activeTerminalId.value
     if (target && typeof window !== 'undefined') {
@@ -376,6 +388,20 @@ const handleContextMenuAction = async (action: string) => {
     openFooterBranchPicker()
   } else if (action === 'duplicate') {
     duplicateTerminal(contextMenuPaneId.value || activeTerminalId.value)
+  } else if (action === 'rename-tab') {
+    const target = contextMenuPaneId.value || activeTerminalId.value
+    if (target) {
+      const term = terminals.value.find(t => t.id === target)
+      const newTitle = await showAppPrompt('Nama baru untuk tab terminal:', 'Ganti Nama Terminal', term?.title || 'Terminal')
+      if (newTitle && newTitle.trim()) {
+        renameTerminal(target, newTitle.trim())
+      }
+    }
+  } else if (action === 'toggle-pin-tab') {
+    const target = contextMenuPaneId.value || activeTerminalId.value
+    if (target) {
+      togglePinTerminal(target)
+    }
   } else if (action === 'close-tab') {
     if (contextMenuPaneId.value) {
       removeTerminal(contextMenuPaneId.value)
@@ -386,6 +412,8 @@ const handleContextMenuAction = async (action: string) => {
     setLayout('split-h')
   } else if (action === 'layout-split-v') {
     setLayout('split-v')
+  } else if (action === 'layout-split-3') {
+    setLayout('split-3')
   } else if (action === 'layout-grid-2x2') {
     setLayout('grid-2x2')
   } else if (action.startsWith('color-')) {
@@ -440,6 +468,17 @@ const handleKeydown = (e: KeyboardEvent) => {
     e.preventDefault()
     reopenClosedTab()
     return
+  }
+
+  // New Draft / Scratchpad File: Ctrl+N / Cmd+N (Hanya saat bukan di terminal)
+  if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 'n' || e.key === 'N')) {
+    const activeEl = typeof document !== 'undefined' ? document.activeElement : null
+    const isDirectlyInTerminal = Boolean(activeEl?.closest('.xterm') || activeEl?.closest('#terminal-grid-container'))
+    if (!isDirectlyInTerminal) {
+      e.preventDefault()
+      createScratchpadFile()
+      return
+    }
   }
 
   // Open New Blank Window: Ctrl+Shift+N / Cmd+Shift+N
@@ -557,6 +596,18 @@ const handleKeydown = (e: KeyboardEvent) => {
   if (isShortcut(e, 'duplicateTab')) {
     e.preventDefault()
     duplicateTerminal()
+    return
+  }
+
+  if (isShortcut(e, 'reopenClosedTerminal')) {
+    e.preventDefault()
+    reopenClosedTerminal()
+    return
+  }
+
+  if (isShortcut(e, 'toggleBroadcastInput')) {
+    e.preventDefault()
+    toggleBroadcastInput()
     return
   }
 
@@ -960,6 +1011,31 @@ onBeforeUnmount(() => {
         <span class="text-primary/90 uppercase font-semibold text-[10px]">
           {{ currentLayout }}
         </span>
+
+        <template v-if="isEditorVisible && activeFile">
+          <UiTooltip
+            v-if="activeLineBlame"
+            :text="`${activeLineBlame.commit}: ${activeLineBlame.summary} (${activeLineBlame.author}, ${activeLineBlame.date})`"
+            side="top"
+            class="contents"
+          >
+            <span class="hover:text-foreground text-muted-foreground/60 transition-colors hidden lg:inline-flex items-center gap-1 truncate max-w-[220px] cursor-default font-sans text-[10px]">
+              <GitCommit class="w-3 h-3 text-primary/70 flex-shrink-0" />
+              <span class="truncate">{{ activeLineBlame.author }}, {{ activeLineBlame.date }}</span>
+            </span>
+          </UiTooltip>
+          <span class="hover:text-foreground transition-colors hidden sm:inline">
+            Ln {{ editorCursorPos.line }}, Col {{ editorCursorPos.column }}
+          </span>
+          <UiTooltip text="Klik untuk ubah ukuran tab (2 atau 4 spasi)" side="top" class="contents">
+            <button
+              class="hover:text-foreground transition-colors hidden md:inline cursor-pointer"
+              @click="updateSettings({ editorTabSize: (settings.editorTabSize === 4 ? 2 : 4) })"
+            >
+              Spaces: {{ settings.editorTabSize || 2 }}
+            </button>
+          </UiTooltip>
+        </template>
 
         <span>UTF-8</span>
       </div>

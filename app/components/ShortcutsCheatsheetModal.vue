@@ -60,6 +60,7 @@ const groups = computed<ShortcutGroup[]>(() => [
   {
     title: 'Editor Kode',
     items: [
+      { keys: ['Ctrl+N'], label: 'File Draf Baru (Tanpa Save)' },
       { keys: ['Ctrl+S'], label: 'Simpan File' },
       { keys: ['Ctrl+Shift+S'], label: 'Simpan Semua File' },
       { keys: [kb('reopenClosedTab', 'Ctrl+Shift+T')], label: 'Buka Kembali Tab yang Ditutup', customizable: true },
@@ -78,6 +79,8 @@ const groups = computed<ShortcutGroup[]>(() => [
       { keys: [kb('duplicateTab', 'Ctrl+Shift+D')], label: 'Duplikat Terminal', customizable: true },
       { keys: [kb('searchBuffer', 'Ctrl+F')], label: 'Cari di Buffer Terminal', customizable: true },
       { keys: [kb('commandHistory', 'Ctrl+R')], label: 'Histori Perintah', customizable: true },
+      { keys: [kb('reopenClosedTerminal', 'Ctrl+Alt+T')], label: 'Buka Kembali Terminal yang Ditutup', customizable: true },
+      { keys: [kb('toggleBroadcastInput', 'Ctrl+Alt+B')], label: 'Toggle Broadcast Input (Ketik Serentak)', customizable: true },
       { keys: ['Ctrl+C', 'Ctrl+Shift+C'], label: 'Copy seleksi (atau SIGINT)' },
       { keys: ['Ctrl+V', 'Ctrl+Shift+V'], label: 'Paste teks / gambar / path file' },
       { keys: ['Ctrl+='], label: 'Perbesar Font Terminal' },

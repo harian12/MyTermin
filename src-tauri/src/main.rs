@@ -6,6 +6,8 @@ mod pty;
 use pty::{PtyManager, PtyStats, ShellInfo};
 use std::collections::HashMap;
 use std::path::Path;
+use tauri::menu::{Menu, MenuItem};
+use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Manager, State};
 
 #[tauri::command]
@@ -1457,6 +1459,103 @@ fn get_git_branch(repo_path: String) -> Result<String, String> {
     Ok(branch)
 }
 
+#[derive(serde::Serialize)]
+struct GitBlameLine {
+    commit: String,
+    author: String,
+    date: String,
+    summary: String,
+}
+
+#[tauri::command]
+fn git_blame_line(repo_path: String, file_path: String, line: usize) -> Result<Option<GitBlameLine>, String> {
+    let repo = Path::new(&repo_path);
+    if !repo.exists() {
+        return Ok(None);
+    }
+    let mut cmd = std::process::Command::new("git");
+    let line_arg = format!("{},{}", line, line);
+    cmd.arg("blame")
+        .arg("-L")
+        .arg(&line_arg)
+        .arg("--porcelain")
+        .arg(&file_path)
+        .current_dir(repo);
+
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+    }
+
+    let output = match cmd.output() {
+        Ok(o) => o,
+        Err(_) => return Ok(None),
+    };
+
+    if !output.status.success() {
+        return Ok(None);
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let mut commit = String::new();
+    let mut author = String::new();
+    let mut summary = String::new();
+    let mut author_time: i64 = 0;
+
+    for (idx, line_str) in stdout.lines().enumerate() {
+        if idx == 0 {
+            commit = line_str.split_whitespace().next().unwrap_or("").chars().take(8).collect();
+        } else if line_str.starts_with("author ") {
+            author = line_str.trim_start_matches("author ").to_string();
+        } else if line_str.starts_with("author-time ") {
+            author_time = line_str.trim_start_matches("author-time ").parse().unwrap_or(0);
+        } else if line_str.starts_with("summary ") {
+            summary = line_str.trim_start_matches("summary ").to_string();
+        }
+    }
+
+    let date = if author_time > 0 {
+        use std::time::{SystemTime, UNIX_EPOCH};
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_secs() as i64)
+            .unwrap_or(0);
+        let diff = now.saturating_sub(author_time);
+        if diff < 60 {
+            "baru saja".into()
+        } else if diff < 3600 {
+            format!("{}m lalu", diff / 60)
+        } else if diff < 86400 {
+            format!("{}j lalu", diff / 3600)
+        } else if diff < 86400 * 30 {
+            format!("{}h lalu", diff / 86400)
+        } else if diff < 86400 * 365 {
+            format!("{}bln lalu", diff / (86400 * 30))
+        } else {
+            format!("{}th lalu", diff / (86400 * 365))
+        }
+    } else {
+        String::new()
+    };
+
+    if commit.is_empty() || commit.starts_with("0000000") {
+        return Ok(Some(GitBlameLine {
+            commit: "uncommitted".into(),
+            author: "You".into(),
+            date: "now".into(),
+            summary: "Perubahan belum di-commit".into(),
+        }));
+    }
+
+    Ok(Some(GitBlameLine {
+        commit,
+        author,
+        date,
+        summary,
+    }))
+}
+
 #[tauri::command]
 fn git_commit(repo_path: String, message: String) -> Result<String, String> {
     let root = Path::new(&repo_path);
@@ -2478,6 +2577,64 @@ fn main() {
     setup_taskbar_jumplist();
 
     tauri::Builder::default()
+        .setup(|app| {
+            let show_i = MenuItem::with_id(app, "show", "Buka MyTermin", true, None::<&str>)?;
+            let hide_i = MenuItem::with_id(app, "hide", "Sembunyikan ke Tray", true, None::<&str>)?;
+            let quit_i = MenuItem::with_id(app, "quit", "Keluar", true, None::<&str>)?;
+            let menu = Menu::with_items(app, &[&show_i, &hide_i, &quit_i])?;
+
+            if let Some(icon) = app.default_window_icon() {
+                let _ = TrayIconBuilder::new()
+                    .icon(icon.clone())
+                    .tooltip("MyTermin - Workspace")
+                    .menu(&menu)
+                    .show_menu_on_left_click(false)
+                    .on_menu_event(|app, event| match event.id.as_ref() {
+                        "show" => {
+                            if let Some(window) = app.get_webview_window("main") {
+                                let _ = window.show();
+                                let _ = window.unminimize();
+                                let _ = window.set_focus();
+                            }
+                        }
+                        "hide" => {
+                            if let Some(window) = app.get_webview_window("main") {
+                                let _ = window.hide();
+                            }
+                        }
+                        "quit" => {
+                            if let Some(pty) = app.try_state::<PtyManager>() {
+                                pty.kill_all();
+                            }
+                            app.exit(0);
+                        }
+                        _ => {}
+                    })
+                    .on_tray_icon_event(|tray, event| {
+                        if let TrayIconEvent::Click {
+                            button: MouseButton::Left,
+                            button_state: MouseButtonState::Up,
+                            ..
+                        } = event
+                        {
+                            let app = tray.app_handle();
+                            if let Some(window) = app.get_webview_window("main") {
+                                if let Ok(is_visible) = window.is_visible() {
+                                    if is_visible {
+                                        let _ = window.hide();
+                                    } else {
+                                        let _ = window.show();
+                                        let _ = window.unminimize();
+                                        let _ = window.set_focus();
+                                    }
+                                }
+                            }
+                        }
+                    })
+                    .build(app);
+            }
+            Ok(())
+        })
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -2550,6 +2707,7 @@ fn main() {
             get_listening_ports,
             kill_process_by_pid,
             git_commit,
+            git_blame_line,
             search_in_files,
             replace_in_files,
             reveal_in_explorer,

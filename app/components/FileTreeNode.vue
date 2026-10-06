@@ -37,12 +37,75 @@ const emit = defineEmits<{
   (e: 'action-context', payload: { action: string; entry: FileEntry; x: number; y: number }): void
 }>()
 
-const { gitStatusMap, readDirectory } = useProjectExplorer()
+const { gitStatusMap, readDirectory, renamePath } = useProjectExplorer()
+const { showAppConfirm } = useAppDialog()
 const { activeWorkstation } = useWorkspaceStore()
+const collapseVersion = useState<number>('explorer-collapse-all-version', () => 0)
+watch(collapseVersion, () => {
+  isExpanded.value = false
+})
 const isExpanded = ref(false)
 const isLoading = ref(false)
 const children = ref<FileEntry[]>([])
 const hasLoaded = ref(false)
+const isDragOver = ref(false)
+
+const handleDragStart = (e: DragEvent) => {
+  if (e.dataTransfer) {
+    e.dataTransfer.setData('text/plain', props.entry.path)
+    e.dataTransfer.effectAllowed = 'move'
+  }
+}
+
+const handleDragOver = (e: DragEvent) => {
+  if (props.entry.is_dir) {
+    e.preventDefault()
+    if (e.dataTransfer) {
+      e.dataTransfer.dropEffect = 'move'
+    }
+    isDragOver.value = true
+  }
+}
+
+const handleDragLeave = () => {
+  isDragOver.value = false
+}
+
+const handleDrop = async (e: DragEvent) => {
+  if (!props.entry.is_dir) return
+  e.preventDefault()
+  e.stopPropagation()
+  isDragOver.value = false
+
+  const sourcePath = e.dataTransfer?.getData('text/plain')
+  if (!sourcePath || sourcePath === props.entry.path) return
+
+  // Mencegah memindahkan folder ke dalam dirinya sendiri
+  if (props.entry.path.startsWith(sourcePath)) return
+
+  const fileName = sourcePath.split(/[\\/]/).pop() || ''
+  if (!fileName) return
+
+  const sep = props.entry.path.includes('/') ? '/' : '\\'
+  const targetPath = `${props.entry.path.replace(/[\\/]+$/, '')}${sep}${fileName}`
+
+  if (targetPath === sourcePath) return
+
+  const confirmed = await showAppConfirm(
+    `Pindahkan "${fileName}" ke folder "${props.entry.name}"?`,
+    'Pindahkan Berkas',
+    'Pindahkan'
+  )
+  if (!confirmed) return
+
+  const ok = await renamePath(sourcePath, targetPath)
+  if (ok) {
+    emit('refresh-tree')
+    if (isExpanded.value) {
+      await refreshFolder()
+    }
+  }
+}
 
 const currentGitStatus = computed(() => {
   const root = (props.rootPath || activeWorkstation.value?.folderPath || '').replace(/\\/g, '/').replace(/\/+$/, '')
@@ -156,9 +219,15 @@ const handleContextMenu = (e: MouseEvent) => {
         :class="[
           'flex items-center gap-1.5 py-1 px-1.5 rounded-sm hover:bg-[#1e1f2b] cursor-pointer group transition-colors relative',
           entry.is_dir ? 'text-foreground font-medium' : 'text-muted-foreground hover:text-foreground',
+          isDragOver ? 'ring-1 ring-primary bg-primary/20' : '',
           getGitStatusColor(currentGitStatus)
         ]"
         :style="{ paddingLeft: `${depth * 14 + 6}px` }"
+        :draggable="true"
+        @dragstart="handleDragStart"
+        @dragover="handleDragOver"
+        @dragleave="handleDragLeave"
+        @drop="handleDrop"
         @click="toggleExpand"
         @contextmenu="handleContextMenu"
       >

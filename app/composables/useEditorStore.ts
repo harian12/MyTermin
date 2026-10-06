@@ -7,6 +7,7 @@ export interface OpenFileItem {
   isDirty: boolean
   isDiff?: boolean
   diffOriginalContent?: string
+  isScratchpad?: boolean
 }
 
 export type ViewportMode = 'split' | 'editor-full' | 'terminal-full'
@@ -60,9 +61,9 @@ export const useEditorStore = () => {
           const activeItem = state.openFiles.find(f => f.id === state.activeFileId)
           const secondaryItem = state.openFiles.find(f => f.id === state.secondaryFileId)
           dataToSave[wsId] = {
-            filePaths: state.openFiles.filter(f => !f.isDiff).map(f => f.path),
-            activePath: activeItem?.path || null,
-            secondaryPath: secondaryItem?.path || null,
+            filePaths: state.openFiles.filter(f => !f.isDiff && !f.isScratchpad).map(f => f.path),
+            activePath: (activeItem && !activeItem.isScratchpad) ? activeItem.path : null,
+            secondaryPath: (secondaryItem && !secondaryItem.isScratchpad) ? secondaryItem.path : null,
             isEditorPaneSplit: state.isEditorPaneSplit,
             splitRatio: state.splitRatio
           }
@@ -321,6 +322,41 @@ export const useEditorStore = () => {
     saveEditorSession()
   }
 
+  let scratchpadCounter = 1
+
+  const createScratchpadFile = (initialContent = '', defaultName?: string): OpenFileItem => {
+    lastFocusedPane.value = 'editor'
+    if (viewportMode.value === 'terminal-full') {
+      viewportMode.value = 'split'
+    }
+
+    const name = defaultName || `Draft-${scratchpadCounter++}.txt`
+    const id = `scratchpad-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`
+    const newItem: OpenFileItem = {
+      id,
+      name,
+      path: `scratchpad://${name}`,
+      content: initialContent,
+      originalContent: '',
+      isDirty: false,
+      isScratchpad: true
+    }
+
+    openFiles.value.push(newItem)
+    activeFileId.value = newItem.id
+
+    if (isEditorPaneSplit.value && !secondaryFileId.value) {
+      secondaryFileId.value = newItem.id
+    }
+
+    editorNotification.value = `File draf ${name} dibuat (tanpa disimpan)`
+    setTimeout(() => {
+      editorNotification.value = null
+    }, 2000)
+
+    return newItem
+  }
+
   // Auto-reload non-dirty files from disk if modified externally
   const reloadOpenFilesFromDisk = async () => {
     if (!isTauri.value || openFiles.value.length === 0) return
@@ -348,6 +384,39 @@ export const useEditorStore = () => {
     const targetId = fileId || activeFileId.value
     const file = openFiles.value.find((f) => f.id === targetId)
     if (!file) return
+
+    if (file.isScratchpad) {
+      const { showAppPrompt } = useAppDialog()
+      const root = activeWorkstation.value.folderPath || ''
+      const promptName = await showAppPrompt(
+        'Simpan draf sebagai file permanen (nama file):',
+        'Simpan Draf ke Berkas',
+        file.name
+      )
+      if (!promptName || !promptName.trim()) return
+      const sep = root.includes('/') ? '/' : '\\'
+      const targetPath = root ? `${root.replace(/[\\/]+$/, '')}${sep}${promptName.trim()}` : promptName.trim()
+      if (isTauri.value) {
+        try {
+          const { invoke } = await import('@tauri-apps/api/core')
+          await invoke('save_file_content', { path: targetPath, content: file.content })
+        } catch (e: any) {
+          editorNotification.value = `Gagal menyimpan: ${e}`
+          return
+        }
+      }
+      file.path = targetPath
+      file.name = promptName.trim()
+      file.isScratchpad = false
+      file.originalContent = file.content
+      file.isDirty = false
+      editorNotification.value = `${file.name} disimpan ke disk!`
+      setTimeout(() => {
+        editorNotification.value = null
+      }, 2000)
+      saveEditorSession()
+      return
+    }
 
     if (isTauri.value) {
       try {
@@ -425,7 +494,7 @@ export const useEditorStore = () => {
     const idx = openFiles.value.findIndex((f) => f.id === fileId)
     if (idx !== -1) {
       const closedFile = openFiles.value[idx]
-      if (closedFile && !closedFile.isDiff) {
+      if (closedFile && !closedFile.isDiff && !closedFile.isScratchpad) {
         currentEditorState.value.closedTabsHistory.push(closedFile.path)
         if (currentEditorState.value.closedTabsHistory.length > 20) {
           currentEditorState.value.closedTabsHistory.shift()
@@ -459,7 +528,7 @@ export const useEditorStore = () => {
     const file = openFiles.value.find((f) => f.id === fileId)
     if (!file) return
 
-    if (file.isDirty && !force && !isAutoSave.value) {
+    if (file.isDirty && !file.isScratchpad && !force && !isAutoSave.value) {
       unsavedConfirmFile.value = file
       return
     }
@@ -546,6 +615,53 @@ export const useEditorStore = () => {
     if (prevFile) activeFileId.value = prevFile.id
   }
 
+  const editorCursorPos = ref({ line: 1, column: 1 })
+
+  const moveFileTab = (fromIndex: number, toIndex: number) => {
+    if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0) return
+    const files = [...openFiles.value]
+    if (fromIndex >= files.length || toIndex >= files.length) return
+    const [moved] = files.splice(fromIndex, 1)
+    if (moved) {
+      files.splice(toIndex, 0, moved)
+      openFiles.value = files
+    }
+  }
+
+  const activeLineBlame = ref<{ commit: string; author: string; date: string; summary: string } | null>(null)
+  let blameTimer: any = null
+
+  const fetchLineBlame = () => {
+    if (blameTimer) clearTimeout(blameTimer)
+    blameTimer = setTimeout(async () => {
+      if (!isTauri.value || !activeFile.value || activeFile.value.isDiff) {
+        activeLineBlame.value = null
+        return
+      }
+      const repoPath = activeWorkstation.value.folderPath
+      const filePath = activeFile.value.path
+      const line = editorCursorPos.value.line
+      if (!repoPath || !filePath || line < 1) {
+        activeLineBlame.value = null
+        return
+      }
+      try {
+        const { invoke } = await import('@tauri-apps/api/core')
+        const blame = await invoke<{ commit: string; author: string; date: string; summary: string } | null>(
+          'git_blame_line',
+          { repoPath, filePath, line }
+        )
+        activeLineBlame.value = blame
+      } catch {
+        activeLineBlame.value = null
+      }
+    }, 200)
+  }
+
+  watch([() => editorCursorPos.value.line, activeFileId], () => {
+    fetchLineBlame()
+  })
+
   const copyRelativePath = async (filePath: string) => {
     const root = (activeWorkstation.value.folderPath || '').replace(/\\/g, '/').replace(/\/+$/, '')
     const norm = filePath.replace(/\\/g, '/')
@@ -577,6 +693,7 @@ export const useEditorStore = () => {
     saveEditorSession,
     reloadOpenFilesFromDisk,
     openFile,
+    createScratchpadFile,
     openGitDiffTab,
     openFileAtPosition,
     saveFile,
@@ -593,6 +710,9 @@ export const useEditorStore = () => {
     closeActiveFile,
     nextFileTab,
     prevFileTab,
+    moveFileTab,
+    editorCursorPos,
+    activeLineBlame,
     copyRelativePath
   }
 }

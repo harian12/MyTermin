@@ -8,6 +8,8 @@ import {
   Columns2,
   Rows2,
   LayoutGrid as GridIcon,
+  PanelTop,
+  Radio,
   X,
   Maximize2,
   Minimize2,
@@ -17,7 +19,8 @@ import {
   ListTodo,
   CheckCircle2,
   XCircle,
-  GitBranch
+  GitBranch,
+  Pin
 } from 'lucide-vue-next'
 import type { LayoutType, TerminalTab } from '~/types/terminal'
 import { useEditorStore } from '~/composables/useEditorStore'
@@ -33,9 +36,12 @@ const {
   terminalSplitPercent,
   addTerminal,
   removeTerminal,
+  togglePinTerminal,
   renameTerminal,
   moveTerminalTab,
   setLayout,
+  isBroadcastInput,
+  toggleBroadcastInput,
   saveSession
 } = useWorkspaceStore()
 
@@ -277,10 +283,11 @@ const emit = defineEmits<{
 
 defineExpose({ searchTerminalBuffers, jumpToBufferLine, isTaskPanelOpen })
 
-// Kapasitas layout dinamis: single=1, split=2, grid-2x2=4
+// Kapasitas layout dinamis: single=1, split=2, split-3=3, grid-2x2=4
 const layoutCapacity = computed(() => {
   if (currentLayout.value === 'single') return 1
   if (currentLayout.value === 'split-h' || currentLayout.value === 'split-v') return 2
+  if (currentLayout.value === 'split-3') return 3
   if (currentLayout.value === 'grid-2x2') return 4
   return 1
 })
@@ -363,6 +370,11 @@ const gridClass = computed(() => {
 
   if (currentLayout.value === 'split-v') {
     return 'grid grid-cols-1 grid-rows-2'
+  }
+
+  if (currentLayout.value === 'split-3') {
+    if (count === 2) return 'grid grid-cols-2 grid-rows-1'
+    return 'grid grid-cols-2 grid-rows-2'
   }
 
   if (currentLayout.value === 'grid-2x2') {
@@ -449,9 +461,24 @@ const gridClass = computed(() => {
             <span class="truncate">{{ getTermStatus(term.id)!.branch }}</span>
           </span>
 
+          <!-- Pinned Tab Indicator -->
+          <UiTooltip
+            v-if="term.isPinned"
+            text="Tab di-pin (kebal dari penutupan). Klik untuk unpin."
+            side="bottom"
+            class="flex-shrink-0"
+          >
+            <button
+              class="p-0.5 rounded text-emerald-400 hover:text-emerald-300 transition-colors ml-0.5"
+              @click.stop="togglePinTerminal(term.id)"
+            >
+              <Pin class="w-3 h-3 rotate-45" />
+            </button>
+          </UiTooltip>
+
           <!-- Close Terminal Tab Button -->
           <UiTooltip
-            v-if="terminals.length > 1 && editingTermId !== term.id"
+            v-else-if="terminals.length > 1 && editingTermId !== term.id"
             text="Tutup Terminal"
             side="bottom"
             class="ml-0.5 opacity-0 group-hover:opacity-100 flex-shrink-0"
@@ -513,6 +540,17 @@ const gridClass = computed(() => {
               <Rows2 class="w-3 h-3" />
             </button>
           </UiTooltip>
+          <UiTooltip text="3-Panel (1 Utama + 2 Split)">
+            <button
+              :class="[
+                'p-1 rounded transition-colors',
+                currentLayout === 'split-3' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+              ]"
+              @click="setLayout('split-3')"
+            >
+              <PanelTop class="w-3 h-3" />
+            </button>
+          </UiTooltip>
           <UiTooltip text="Grid 2x2">
             <button
               :class="[
@@ -525,6 +563,21 @@ const gridClass = computed(() => {
             </button>
           </UiTooltip>
         </div>
+
+        <!-- Broadcast Input Toggle -->
+        <UiTooltip :text="isBroadcastInput ? 'Broadcast Input Aktif: Input diketik ke semua terminal serentak (Klik / Ctrl+Alt+B untuk matikan)' : 'Broadcast Input: Ketik ke semua terminal aktif serentak (Ctrl+Alt+B)'">
+          <button
+            :class="[
+              'p-1.5 rounded border transition-colors flex items-center justify-center',
+              isBroadcastInput
+                ? 'bg-rose-500/20 text-rose-400 border-rose-500/50 shadow-xs shadow-rose-500/50 animate-pulse'
+                : 'bg-[#181924] border-border/50 text-muted-foreground hover:text-foreground hover:border-border'
+            ]"
+            @click="toggleBroadcastInput()"
+          >
+            <Radio class="w-3.5 h-3.5" />
+          </button>
+        </UiTooltip>
 
         <!-- Unified Search (buffer semua terminal + file project) -->
         <UiTooltip text="Cari di semua Terminal & File (Ctrl+Shift+U)">
@@ -607,7 +660,8 @@ const gridClass = computed(() => {
             }"
             :class="[
               'min-h-0 min-w-0 overflow-hidden flex-shrink-0 relative transition-none',
-              currentLayout === 'grid-2x2' && visibleCount === 3 && item.term.id === visibleTerminals[2]?.id ? 'col-span-2' : ''
+              currentLayout === 'grid-2x2' && visibleCount === 3 && item.term.id === visibleTerminals[2]?.id ? 'col-span-2' : '',
+              currentLayout === 'split-3' && visibleCount === 3 && item.term.id === visibleTerminals[0]?.id ? 'col-span-2' : ''
             ]"
           >
             <TerminalPane

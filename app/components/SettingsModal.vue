@@ -107,7 +107,9 @@ const keybindingList: { key: keyof KeybindingConfig; label: string; hint?: strin
   { key: 'newTab', label: 'Tab Baru' },
   { key: 'closeTab', label: 'Tutup Tab' },
   { key: 'duplicateTab', label: 'Duplikat Tab' },
-  { key: 'reopenClosedTab', label: 'Buka Ulang Tab Tertutup' },
+  { key: 'reopenClosedTab', label: 'Buka Ulang Tab File Tertutup' },
+  { key: 'reopenClosedTerminal', label: 'Buka Ulang Terminal Tertutup' },
+  { key: 'toggleBroadcastInput', label: 'Toggle Broadcast Input (Ketik Serentak)' },
   { key: 'searchBuffer', label: 'Cari di Buffer' },
   { key: 'commandHistory', label: 'Histori Perintah' },
   { key: 'unifiedSearch', label: 'Unified Search', hint: 'Buffer terminal + file project' },
@@ -357,6 +359,13 @@ onMounted(async () => {
               <option value="4">4 Spasi</option>
             </UiSelect>
           </UiSettingRow>
+
+          <UiSettingRow label="Minimap Editor" hint="Peta visual kode di sebelah kanan editor">
+            <UiSwitch
+              :model-value="settings.editorMinimap !== false"
+              @update:model-value="updateSettings({ editorMinimap: $event })"
+            />
+          </UiSettingRow>
         </UiSettingsGroup>
 
         <UiSettingsGroup title="Warna & Kursor" description="Skema warna, palet ANSI, dan bentuk kursor">
@@ -442,6 +451,13 @@ onMounted(async () => {
               @update:model-value="updateSettings({ copyOnSelect: $event })"
             />
           </UiSettingRow>
+
+          <UiSettingRow label="Audio Bell (Beep)" hint="Mainkan nada beep sintetis saat terminal memancarkan karakter BEL (\x07)">
+            <UiSwitch
+              :model-value="settings.audioBell === true"
+              @update:model-value="updateSettings({ audioBell: $event })"
+            />
+          </UiSettingRow>
         </UiSettingsGroup>
 
         <UiSettingsGroup title="Performa & Sistem" description="Rendering GPU dan notifikasi OS">
@@ -453,6 +469,16 @@ onMounted(async () => {
             <UiSwitch
               :model-value="settings.enableWebgl !== false"
               @update:model-value="updateSettings({ enableWebgl: $event })"
+            />
+          </UiSettingRow>
+
+          <UiSettingRow
+            label="Sembunyikan ke Tray saat Ditutup"
+            hint="Menjaga proses background/server tetap aktif di notification area saat tombol X ditekan"
+          >
+            <UiSwitch
+              :model-value="settings.closeToTray === true"
+              @update:model-value="updateSettings({ closeToTray: $event })"
             />
           </UiSettingRow>
 

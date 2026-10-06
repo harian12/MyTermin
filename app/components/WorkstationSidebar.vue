@@ -43,7 +43,9 @@ import {
   List,
   Network,
   CloudDownload,
-  Archive
+  Archive,
+  EyeOff,
+  FolderMinus
 } from 'lucide-vue-next'
 import type { FileEntry } from '~/types/terminal'
 import type { GitTreeNode } from '~/components/GitFileTreeItem.vue'
@@ -364,8 +366,9 @@ const openBranchModal = async () => {
 
 const isFetchingGit = ref(false)
 const isAmending = ref(false)
+const isUndoing = ref(false)
 const showStashModal = ref(false)
-const { fetchAll, refreshAheadBehind, aheadBehind, amendCommit } = useGitExtras()
+const { fetchAll, refreshAheadBehind, aheadBehind, amendCommit, undoLastCommit } = useGitExtras()
 
 const handleFetch = async () => {
   if (isFetchingGit.value) return
@@ -388,6 +391,22 @@ const handleAmend = async () => {
     await refreshGitStatus()
   } finally {
     isAmending.value = false
+  }
+}
+
+const handleUndoCommit = async () => {
+  if (isUndoing.value) return
+  const confirmed = await showAppConfirm(
+    'Batalkan commit terakhir? Perubahan berkas tetap tersimpan di staging (git reset --soft HEAD~1).',
+    'Undo Commit',
+    'Undo'
+  )
+  if (!confirmed) return
+  isUndoing.value = true
+  try {
+    await undoLastCommit()
+  } finally {
+    isUndoing.value = false
   }
 }
 
@@ -462,6 +481,11 @@ const handleNewFolder = async (parentPath?: string) => {
   }
 }
 
+const collapseAllFolders = () => {
+  const version = useState<number>('explorer-collapse-all-version', () => 0)
+  version.value++
+}
+
 const handleRenameEntry = async (entry: FileEntry) => {
   const newName = await showAppPrompt(
     `Ubah nama "${entry.name}" menjadi:`,
@@ -496,6 +520,50 @@ const handleDeleteEntry = async (entry: FileEntry) => {
 
 const handleCopyPath = async (path: string) => {
   await navigator.clipboard.writeText(path)
+}
+
+const handleCopyRelativePath = async (entry?: FileEntry | null) => {
+  if (!entry) return
+  const root = (activeWorkstation.value.folderPath || '').replace(/\\/g, '/').replace(/\/+$/, '')
+  const norm = entry.path.replace(/\\/g, '/')
+  const rel = (root && norm.startsWith(root)) ? norm.substring(root.length).replace(/^\/+/, '') : entry.name
+  await navigator.clipboard.writeText(rel)
+}
+
+const handleAddToGitignore = async (entry?: FileEntry | null) => {
+  if (!entry || !activeWorkstation.value.folderPath) return
+  const root = activeWorkstation.value.folderPath.replace(/[\\/]+$/, '')
+  const rootNorm = root.replace(/\\/g, '/')
+  const entryNorm = entry.path.replace(/\\/g, '/')
+  let rel = entryNorm.startsWith(rootNorm)
+    ? entryNorm.substring(rootNorm.length).replace(/^\/+/, '')
+    : entry.name
+  if (entry.is_dir && !rel.endsWith('/')) {
+    rel += '/'
+  }
+
+  const gitignorePath = `${root}\\.gitignore`
+  try {
+    const { invoke } = await import('@tauri-apps/api/core')
+    let currentContent = ''
+    try {
+      currentContent = await invoke<string>('read_file_content', { path: gitignorePath })
+    } catch {
+      currentContent = ''
+    }
+
+    const lines = currentContent.split('\n').map(l => l.trim())
+    if (!lines.includes(rel)) {
+      const newContent = currentContent
+        ? `${currentContent.trimEnd()}\n${rel}\n`
+        : `${rel}\n`
+      await invoke('save_file_content', { path: gitignorePath, content: newContent })
+      await refreshGitStatus()
+      await loadProjectFiles()
+    }
+  } catch (err: any) {
+    console.error('Failed to update .gitignore:', err)
+  }
 }
 
 const handleTreeContextAction = (payload: { action: string; entry: FileEntry; x: number; y: number }) => {
@@ -713,13 +781,48 @@ const finishRename = (termId: string) => {
               </span>
             </UiTooltip>
           </div>
-          <UiTooltip text="Ganti Folder Project" side="bottom">
-
-            <button class="text-[10px] text-muted-foreground hover:text-primary transition-colors flex items-center gap-0.5 ml-1 flex-shrink-0 font-medium" @click="handleOpenFolder">
-            Change
-          </button>
-
-          </UiTooltip>
+          <div class="flex items-center gap-0.5 ml-1 flex-shrink-0">
+            <UiTooltip text="File Baru di Root" side="bottom">
+              <button
+                class="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+                @click="handleNewFile()"
+              >
+                <FilePlus class="w-3.5 h-3.5 text-sky-400" />
+              </button>
+            </UiTooltip>
+            <UiTooltip text="Folder Baru di Root" side="bottom">
+              <button
+                class="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+                @click="handleNewFolder()"
+              >
+                <FolderPlus class="w-3.5 h-3.5 text-amber-400" />
+              </button>
+            </UiTooltip>
+            <UiTooltip text="Tutup Semua Folder (Collapse All)" side="bottom">
+              <button
+                class="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+                @click="collapseAllFolders()"
+              >
+                <FolderMinus class="w-3.5 h-3.5 text-indigo-400" />
+              </button>
+            </UiTooltip>
+            <UiTooltip text="Refresh Berkas" side="bottom">
+              <button
+                class="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+                @click="loadProjectFiles()"
+              >
+                <RefreshCw class="w-3.5 h-3.5" />
+              </button>
+            </UiTooltip>
+            <UiTooltip text="Ganti Folder Project" side="bottom">
+              <button
+                class="p-1 rounded hover:bg-accent text-muted-foreground hover:text-primary transition-colors font-medium text-[10px]"
+                @click="handleOpenFolder()"
+              >
+                Ganti
+              </button>
+            </UiTooltip>
+          </div>
         </div>
 
         <div v-else class="py-2 text-center">
@@ -911,11 +1014,14 @@ const finishRename = (termId: string) => {
               <span>{{ isCommitting ? 'Menyimpan...' : 'Commit Perubahan' }}</span>
             </button>
             <UiTooltip text="Amend commit terakhir dengan pesan yang sama" side="bottom">
-
               <button class="shrink-0 rounded border border-border/60 px-2 py-1.5 text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-40" :disabled="isAmending" @click="handleAmend">
-              Amend
-            </button>
-
+                Amend
+              </button>
+            </UiTooltip>
+            <UiTooltip text="Batalkan commit terakhir tanpa menghapus perubahan kode (git reset --soft HEAD~1)" side="bottom">
+              <button class="shrink-0 rounded border border-border/60 px-2 py-1.5 text-[11px] text-muted-foreground transition-colors hover:bg-rose-500/20 hover:text-rose-300 hover:border-rose-500/40 disabled:opacity-40" :disabled="isUndoing" @click="handleUndoCommit">
+                Undo
+              </button>
             </UiTooltip>
           </div>
 
@@ -1309,6 +1415,20 @@ const finishRename = (termId: string) => {
         >
           <Copy class="w-3.5 h-3.5 text-muted-foreground" />
           <span>Salin Path Lengkap</span>
+        </button>
+        <button
+          class="w-full flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-accent text-left transition-colors"
+          @click="handleCopyRelativePath(treeContextMenu.entry); closeTreeContextMenu()"
+        >
+          <Copy class="w-3.5 h-3.5 text-primary/80" />
+          <span>Salin Path Relatif</span>
+        </button>
+        <button
+          class="w-full flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-accent text-left transition-colors"
+          @click="handleAddToGitignore(treeContextMenu.entry); closeTreeContextMenu()"
+        >
+          <EyeOff class="w-3.5 h-3.5 text-amber-400" />
+          <span>Tambahkan ke .gitignore</span>
         </button>
         <div class="my-1 border-t border-border/50" />
         <button

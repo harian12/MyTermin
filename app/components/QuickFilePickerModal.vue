@@ -9,11 +9,13 @@ import {
   File,
   Image,
   FolderOpen,
-  Loader2
+  Loader2,
+  Sparkles
 } from 'lucide-vue-next'
 import { useProjectExplorer } from '~/composables/useProjectExplorer'
 import { useEditorStore } from '~/composables/useEditorStore'
 import { useWorkspaceStore } from '~/composables/useWorkspaceStore'
+import { useCommandPalette } from '~/composables/useCommandPalette'
 
 const props = defineProps<{
   open: boolean
@@ -24,8 +26,9 @@ const emit = defineEmits<{
 }>()
 
 const { projectFileList, isScanningFiles, scanProjectFiles } = useProjectExplorer()
-const { openFile, openFiles } = useEditorStore()
+const { openFile, openFiles, activeFile, openFileAtPosition } = useEditorStore()
 const { activeWorkstation } = useWorkspaceStore()
+const { openPalette } = useCommandPalette()
 
 const searchQuery = ref('')
 const selectedIndex = ref(0)
@@ -46,12 +49,26 @@ const getFileIcon = (filename: string) => {
   return { icon: File, color: 'text-muted-foreground' }
 }
 
-const filteredFiles = computed(() => {
-  const q = searchQuery.value.trim().toLowerCase()
-  if (!q) {
-    // Show first 50 files or recently open files
-    return projectFileList.value.slice(0, 50)
+const parsedSearch = computed(() => {
+  const q = searchQuery.value.trim()
+  const colonIdx = q.lastIndexOf(':')
+  if (colonIdx === 0) {
+    const line = parseInt(q.substring(1), 10)
+    return { type: 'line_only', line: isNaN(line) ? null : line, q: '' }
   }
+  if (colonIdx > 0) {
+    const line = parseInt(q.substring(colonIdx + 1), 10)
+    if (!isNaN(line)) {
+      return { type: 'file_line', line, q: q.substring(0, colonIdx).toLowerCase() }
+    }
+  }
+  return { type: 'normal', line: null, q: q.toLowerCase() }
+})
+
+const filteredFiles = computed(() => {
+  if (parsedSearch.value.type === 'line_only') return []
+  const q = parsedSearch.value.q
+  if (!q) return projectFileList.value.slice(0, 50)
   return projectFileList.value
     .filter((f) => f.toLowerCase().includes(q))
     .slice(0, 50)
@@ -81,7 +98,12 @@ const handleSelect = (relPath: string) => {
   const root = activeWorkstation.value.folderPath
   if (!root) return
   const fullPath = `${root.replace(/[\\/]+$/, '')}/${relPath.replace(/^[\\/]+/, '')}`.replace(/\//g, '\\')
-  openFile(fullPath)
+  
+  if (parsedSearch.value.line) {
+    openFileAtPosition(fullPath, parsedSearch.value.line)
+  } else {
+    openFile(fullPath)
+  }
   emit('update:open', false)
 }
 
@@ -103,6 +125,16 @@ const handleKeyDown = (e: KeyboardEvent) => {
     scrollToSelected()
   } else if (e.key === 'Enter') {
     e.preventDefault()
+    if (searchQuery.value.startsWith('>')) {
+      emit('update:open', false)
+      openPalette()
+      return
+    }
+    if (parsedSearch.value.type === 'line_only' && parsedSearch.value.line && activeFile.value) {
+      openFileAtPosition(activeFile.value.path, parsedSearch.value.line)
+      emit('update:open', false)
+      return
+    }
     const selectedFile = filteredFiles.value[selectedIndex.value]
     if (selectedFile) {
       handleSelect(selectedFile)
@@ -138,7 +170,7 @@ const scrollToSelected = () => {
           ref="inputRef"
           v-model="searchQuery"
           type="text"
-          placeholder="Ketik nama file untuk membuka di Editor (Ctrl+P)..."
+          placeholder="Ketik nama file (:baris untuk lompat, > untuk Command Palette)..."
           class="flex-1 bg-transparent border-none outline-none text-sm text-foreground placeholder:text-muted-foreground font-sans"
           @keydown="handleKeyDown"
         />
@@ -154,6 +186,30 @@ const scrollToSelected = () => {
         ref="listContainerRef"
         class="overflow-y-auto flex-1 p-1 max-h-[380px] divide-y divide-border/20 font-sans"
       >
+        <!-- Go to line helper -->
+        <div
+          v-if="searchQuery.trim().startsWith('>')"
+          class="flex items-center justify-between px-3 py-2 rounded-md cursor-pointer text-xs select-none transition-colors bg-primary/20 text-foreground"
+          @click="emit('update:open', false); openPalette()"
+        >
+          <div class="flex items-center gap-2.5 min-w-0">
+            <Sparkles class="w-4 h-4 text-primary flex-shrink-0" />
+            <span class="font-medium">Buka Command Palette...</span>
+          </div>
+          <span class="text-[10px] text-muted-foreground/70 font-mono flex-shrink-0 ml-2">Enter</span>
+        </div>
+
+        <div
+          v-else-if="parsedSearch.type === 'line_only' && activeFile && parsedSearch.line"
+          class="flex items-center justify-between px-3 py-2 rounded-md cursor-pointer text-xs select-none transition-colors bg-primary/20 text-foreground"
+          @click="openFileAtPosition(activeFile.path, parsedSearch.line!); emit('update:open', false)"
+        >
+          <div class="flex items-center gap-2.5 min-w-0">
+            <span class="font-medium">Lompat ke baris {{ parsedSearch.line }} di file aktif ({{ activeFile.name }})</span>
+          </div>
+          <span class="text-[10px] text-muted-foreground/50 font-mono flex-shrink-0 ml-2">Enter</span>
+        </div>
+
         <div
           v-for="(fileRel, idx) in filteredFiles"
           :key="fileRel"
@@ -181,7 +237,7 @@ const scrollToSelected = () => {
 
         <!-- Empty State -->
         <div
-          v-if="filteredFiles.length === 0 && !isScanningFiles"
+          v-if="filteredFiles.length === 0 && !isScanningFiles && parsedSearch.type !== 'line_only'"
           class="p-8 text-center text-muted-foreground text-xs"
         >
           <FolderOpen class="w-8 h-8 mx-auto mb-2 opacity-30" />

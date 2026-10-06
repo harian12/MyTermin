@@ -32,6 +32,7 @@ const {
   saveNotification
 } = useWorkspaceStore()
 const { isTauri } = useTauriPty()
+const { settings } = useSettingsStore()
 const { gitBranch } = useProjectExplorer()
 
 const wsTabsRef = ref<HTMLElement | null>(null)
@@ -179,6 +180,15 @@ const toggleMaximizeWindow = async () => {
 
 const closeWindow = async () => {
   if (isTauri.value) {
+    if (settings.value.closeToTray) {
+      try {
+        const { getCurrentWindow } = await import('@tauri-apps/api/window')
+        await getCurrentWindow().hide()
+        return
+      } catch (e) {
+        console.warn('Close to tray fallback:', e)
+      }
+    }
     try {
       const { getCurrentWindow } = await import('@tauri-apps/api/window')
       await getCurrentWindow().close()

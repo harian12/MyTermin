@@ -41,7 +41,10 @@ const defaultSettings: TerminalSettings = {
   useProjectConfig: true,
   customTheme: null,
   firstRunDone: false,
-  copyOnSelect: false
+  copyOnSelect: false,
+  editorMinimap: true,
+  closeToTray: false,
+  audioBell: false
 }
 
 const MODIFIER_LABELS: Record<string, string> = {

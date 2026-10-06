@@ -10,11 +10,15 @@ import {
   Columns2,
   Rows2,
   Square,
+  PanelTop,
   Sparkles,
   Search,
   Download,
   GitBranch,
-  CheckSquare
+  CheckSquare,
+  RotateCcw,
+  Pencil,
+  Pin
 } from 'lucide-vue-next'
 
 const props = defineProps<{
@@ -135,6 +139,16 @@ onBeforeUnmount(() => {
 
     <button
       class="w-full flex items-center justify-between px-2.5 py-1.5 text-xs rounded-md hover:bg-accent hover:text-foreground text-foreground/90 transition-colors cursor-pointer"
+      @click="handleAction('reset')"
+    >
+      <div class="flex items-center gap-2">
+        <RotateCcw class="w-3.5 h-3.5 text-rose-400" />
+        <span>Reset State Terminal</span>
+      </div>
+    </button>
+
+    <button
+      class="w-full flex items-center justify-between px-2.5 py-1.5 text-xs rounded-md hover:bg-accent hover:text-foreground text-foreground/90 transition-colors cursor-pointer"
       @click="handleAction('search')"
     >
       <div class="flex items-center gap-2">
@@ -202,6 +216,26 @@ onBeforeUnmount(() => {
 
     <button
       class="w-full flex items-center justify-between px-2.5 py-1.5 text-xs rounded-md hover:bg-accent hover:text-foreground text-foreground/90 transition-colors cursor-pointer"
+      @click="handleAction('rename-tab')"
+    >
+      <div class="flex items-center gap-2">
+        <Pencil class="w-3.5 h-3.5 text-amber-400" />
+        <span>Ganti Nama Tab</span>
+      </div>
+    </button>
+
+    <button
+      class="w-full flex items-center justify-between px-2.5 py-1.5 text-xs rounded-md hover:bg-accent hover:text-foreground text-foreground/90 transition-colors cursor-pointer"
+      @click="handleAction('toggle-pin-tab')"
+    >
+      <div class="flex items-center gap-2">
+        <Pin class="w-3.5 h-3.5 text-emerald-400" />
+        <span>Pin / Unpin Tab</span>
+      </div>
+    </button>
+
+    <button
+      class="w-full flex items-center justify-between px-2.5 py-1.5 text-xs rounded-md hover:bg-accent hover:text-foreground text-foreground/90 transition-colors cursor-pointer"
       @click="handleAction('close-tab')"
     >
       <div class="flex items-center gap-2">
@@ -236,10 +270,10 @@ onBeforeUnmount(() => {
       Layout View
     </div>
 
-    <div class="grid grid-cols-4 gap-1 px-1 py-0.5">
-      <UiTooltip text="Single View (Ctrl+Shift+S)" side="bottom" class="contents">
+    <div class="grid grid-cols-5 gap-0.5 px-1 py-0.5">
+      <UiTooltip text="Single View" side="bottom" class="contents">
         <button
-          class="flex flex-col items-center justify-center p-1.5 rounded-md hover:bg-accent hover:text-foreground text-muted-foreground transition-colors cursor-pointer"
+          class="flex flex-col items-center justify-center p-1 rounded-md hover:bg-accent hover:text-foreground text-muted-foreground transition-colors cursor-pointer"
           @click="handleAction('layout-single')"
         >
           <Square class="w-3.5 h-3.5" />
@@ -247,9 +281,9 @@ onBeforeUnmount(() => {
         </button>
       </UiTooltip>
 
-      <UiTooltip text="Split Horizontal (Ctrl+Shift+E)" side="bottom" class="contents">
+      <UiTooltip text="Split Horizontal" side="bottom" class="contents">
         <button
-          class="flex flex-col items-center justify-center p-1.5 rounded-md hover:bg-accent hover:text-foreground text-muted-foreground transition-colors cursor-pointer"
+          class="flex flex-col items-center justify-center p-1 rounded-md hover:bg-accent hover:text-foreground text-muted-foreground transition-colors cursor-pointer"
           @click="handleAction('layout-split-h')"
         >
           <Columns2 class="w-3.5 h-3.5" />
@@ -257,9 +291,9 @@ onBeforeUnmount(() => {
         </button>
       </UiTooltip>
 
-      <UiTooltip text="Split Vertical (Ctrl+Shift+O)" side="bottom" class="contents">
+      <UiTooltip text="Split Vertical" side="bottom" class="contents">
         <button
-          class="flex flex-col items-center justify-center p-1.5 rounded-md hover:bg-accent hover:text-foreground text-muted-foreground transition-colors cursor-pointer"
+          class="flex flex-col items-center justify-center p-1 rounded-md hover:bg-accent hover:text-foreground text-muted-foreground transition-colors cursor-pointer"
           @click="handleAction('layout-split-v')"
         >
           <Rows2 class="w-3.5 h-3.5" />
@@ -267,13 +301,23 @@ onBeforeUnmount(() => {
         </button>
       </UiTooltip>
 
-      <UiTooltip text="4-Grid (Ctrl+Shift+G)" side="bottom" class="contents">
+      <UiTooltip text="3-Pane (1 Atas + 2 Bawah)" side="bottom" class="contents">
         <button
-          class="flex flex-col items-center justify-center p-1.5 rounded-md hover:bg-accent hover:text-foreground text-muted-foreground transition-colors cursor-pointer"
+          class="flex flex-col items-center justify-center p-1 rounded-md hover:bg-accent hover:text-foreground text-muted-foreground transition-colors cursor-pointer"
+          @click="handleAction('layout-split-3')"
+        >
+          <PanelTop class="w-3.5 h-3.5" />
+          <span class="text-[9px] mt-0.5">3-Pane</span>
+        </button>
+      </UiTooltip>
+
+      <UiTooltip text="4-Grid (2x2)" side="bottom" class="contents">
+        <button
+          class="flex flex-col items-center justify-center p-1 rounded-md hover:bg-accent hover:text-foreground text-muted-foreground transition-colors cursor-pointer"
           @click="handleAction('layout-grid-2x2')"
         >
           <LayoutGrid class="w-3.5 h-3.5 text-primary" />
-          <span class="text-[9px] mt-0.5 text-primary">4-Grid</span>
+          <span class="text-[9px] mt-0.5">4-Grid</span>
         </button>
       </UiTooltip>
     </div>

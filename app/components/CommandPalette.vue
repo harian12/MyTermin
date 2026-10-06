@@ -22,9 +22,11 @@ import {
   Download,
   AppWindow,
   ListTodo,
-  Search as SearchIcon
+  Search as SearchIcon,
+  FileEdit
 } from 'lucide-vue-next'
 import { TERMINAL_THEMES } from '~/composables/useThemes'
+import { useEditorStore } from '~/composables/useEditorStore'
 
 const emit = defineEmits<{
   (e: 'open-settings'): void
@@ -50,6 +52,7 @@ const {
 } = useWorkspaceStore()
 
 const { isOpen, closePalette } = useCommandPalette()
+const { createScratchpadFile } = useEditorStore()
 const { settings, updateSettings } = useSettingsStore()
 const { writePty, isTauri } = useTauriPty()
 
@@ -62,7 +65,7 @@ interface CommandItem {
   id: string
   title: string
   subtitle?: string
-  category: 'Workstations' | 'Tabs' | 'Layout' | 'Quick Commands' | 'Themes' | 'Presets' | 'System'
+  category: 'Workstations' | 'Tabs' | 'Layout' | 'Quick Commands' | 'Themes' | 'Presets' | 'System' | 'Editor'
   icon: any
   action: () => void
 }
@@ -130,6 +133,14 @@ const allCommands = computed<CommandItem[]>(() => {
   })
 
   list.push(
+    {
+      id: 'file-new-scratchpad',
+      title: 'New Draft File (Scratchpad)',
+      subtitle: 'Ctrl+N - Buka file draf baru tanpa disimpan ke disk',
+      category: 'Editor',
+      icon: FileEdit,
+      action: () => createScratchpadFile()
+    },
     {
       id: 'tab-new',
       title: 'New Terminal Tab',

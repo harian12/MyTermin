@@ -18,12 +18,20 @@ import {
   AlertTriangle,
   GitBranch,
   GitCompare,
+  GitMerge,
   FolderOpen,
-  WrapText
+  WrapText,
+  AlignJustify,
+  Eye,
+  Plus,
+  FileEdit
 } from 'lucide-vue-next'
 import { useEditorStore, type OpenFileItem } from '~/composables/useEditorStore'
+import { useSettingsStore } from '~/composables/useSettingsStore'
 import { useProjectExplorer } from '~/composables/useProjectExplorer'
 import { formatCode } from '~/utils/formatter'
+import { detectConflicts, resolveAllConflicts } from '~/utils/mergeConflict'
+import { parseMarkdown } from '~/utils/markdownParser'
 import MonacoEditor from './MonacoEditor.vue'
 import MonacoDiffEditor from './MonacoDiffEditor.vue'
 
@@ -54,16 +62,73 @@ const {
   closeOtherTabs,
   closeTabsToTheRight,
   closeAllTabs,
+  createScratchpadFile,
+  moveFileTab,
   copyRelativePath,
   reloadOpenFilesFromDisk
 } = useEditorStore()
 
 const { gitBranch, revealInExplorer } = useProjectExplorer()
+const { settings, updateSettings } = useSettingsStore()
 
 const isCopied = ref(false)
 const isFormatting = ref(false)
 const renderDiffSideBySide = ref(true)
 const tabStripRef = ref<HTMLElement | null>(null)
+
+// Drag Editor Tab Reorder Logic
+const isDraggingTab = ref(false)
+const dragStartIndex = ref<number | null>(null)
+const currentDragIndex = ref<number | null>(null)
+const startX = ref(0)
+const hasMoved = ref(false)
+
+const handleTabPointerDown = (e: PointerEvent, index: number, fileId: string) => {
+  if (e.button !== 0) return
+  const target = e.target as HTMLElement
+  if (target.closest('button')) return
+
+  dragStartIndex.value = index
+  currentDragIndex.value = index
+  startX.value = e.clientX
+  hasMoved.value = false
+
+  const handlePointerMove = (moveEvt: PointerEvent) => {
+    const deltaX = Math.abs(moveEvt.clientX - startX.value)
+    if (deltaX > 4) {
+      hasMoved.value = true
+      isDraggingTab.value = true
+    }
+
+    if (!isDraggingTab.value) return
+
+    const tabElements = document.querySelectorAll<HTMLElement>('[data-editor-tab-index]')
+    tabElements.forEach((el) => {
+      const rect = el.getBoundingClientRect()
+      const idx = Number(el.getAttribute('data-editor-tab-index'))
+      if (moveEvt.clientX >= rect.left && moveEvt.clientX <= rect.right) {
+        if (currentDragIndex.value !== null && currentDragIndex.value !== idx) {
+          moveFileTab(currentDragIndex.value, idx)
+          currentDragIndex.value = idx
+        }
+      }
+    })
+  }
+
+  const handlePointerUp = () => {
+    window.removeEventListener('pointermove', handlePointerMove)
+    window.removeEventListener('pointerup', handlePointerUp)
+    setTimeout(() => {
+      isDraggingTab.value = false
+      dragStartIndex.value = null
+      currentDragIndex.value = null
+      hasMoved.value = false
+    }, 50)
+  }
+
+  window.addEventListener('pointermove', handlePointerMove)
+  window.addEventListener('pointerup', handlePointerUp)
+}
 
 // Strip tab hanya bisa digeser horizontal, tapi wheel mouse mengirim deltaY.
 // Tanpa ini wheel vertikal tidak melakukan apa-apa saat kursor di atas tab bar.
@@ -185,6 +250,7 @@ onBeforeUnmount(() => {
 })
 
 const getFileIcon = (filename: string) => {
+  if (filename.startsWith('Draft-')) return { icon: FileEdit, color: 'text-purple-400' }
   const ext = filename.split('.').pop()?.toLowerCase() || ''
   if (['ts', 'tsx', 'js', 'jsx', 'mjs', 'cjs'].includes(ext)) return { icon: FileCode, color: 'text-amber-400' }
   if (['vue', 'svelte'].includes(ext)) return { icon: FileCode, color: 'text-emerald-400' }
@@ -197,6 +263,26 @@ const getFileIcon = (filename: string) => {
   if (['css', 'scss', 'less'].includes(ext)) return { icon: FileSpreadsheet, color: 'text-blue-400' }
   return { icon: File, color: 'text-muted-foreground' }
 }
+
+const activeFileConflicts = computed(() => {
+  if (!activeFile.value || activeFile.value.isDiff) return []
+  return detectConflicts(activeFile.value.content)
+})
+
+const handleResolveConflicts = (choice: 'current' | 'incoming' | 'both') => {
+  if (!activeFile.value) return
+  const resolved = resolveAllConflicts(activeFile.value.content, choice)
+  updateContent(activeFile.value.id, resolved)
+  const label = choice === 'current' ? 'Accept Current' : choice === 'incoming' ? 'Accept Incoming' : 'Accept Both'
+  editorNotification.value = `Konflik merge diselesaikan (${label})`
+  setTimeout(() => {
+    editorNotification.value = null
+  }, 2500)
+}
+
+const isMarkdownPreviewOpen = ref(false)
+const isMarkdownFile = computed(() => Boolean(activeFile.value && !activeFile.value.isDiff && /\.(md|markdown)$/i.test(activeFile.value.name)))
+const renderedMarkdown = computed(() => isMarkdownFile.value && activeFile.value ? parseMarkdown(activeFile.value.content) : '')
 
 const lineCount = computed(() => {
   if (!activeFile.value?.content) return 1
@@ -260,21 +346,26 @@ const toggleFullscreenEditor = () => {
         @wheel="onTabStripWheel"
       >
         <UiTooltip
-          v-for="file in openFiles"
+          v-for="(file, index) in openFiles"
           :key="file.id"
           :text="file.path"
           side="bottom"
           class="contents"
         >
           <div
+            :data-editor-tab-index="index"
             :data-editor-tab-active="activeFileId === file.id ? 'true' : undefined"
             :class="[
-              'group flex shrink-0 items-center gap-1.5 px-3 py-1 text-xs rounded-t font-mono cursor-pointer border-t-2 transition-all select-none',
+              'group flex shrink-0 items-center gap-1.5 px-3 py-1 text-xs rounded-t font-mono cursor-pointer border-t-2 transition-all select-none relative touch-none',
               activeFileId === file.id
                 ? 'bg-[#181924] text-foreground border-primary font-medium shadow-sm'
-                : 'text-muted-foreground hover:bg-[#14151f] hover:text-foreground border-transparent'
+                : 'text-muted-foreground hover:bg-[#14151f] hover:text-foreground border-transparent',
+              isDraggingTab && currentDragIndex === index
+                ? 'ring-2 ring-primary bg-primary/20 scale-[1.02] z-20 shadow-md shadow-black/50'
+                : ''
             ]"
-            @click="activeFileId = file.id"
+            @pointerdown="handleTabPointerDown($event, index, file.id)"
+            @click="!hasMoved && (activeFileId = file.id)"
             @contextmenu="handleTabContextMenu($event, file)"
           >
             <component
@@ -282,6 +373,7 @@ const toggleFullscreenEditor = () => {
               :class="['w-3.5 h-3.5 flex-shrink-0', getFileIcon(file.name).color]"
             />
             <span class="truncate max-w-[140px]">{{ file.name }}</span>
+            <span v-if="file.isScratchpad" class="text-[9px] px-1 py-0.2 rounded bg-purple-500/20 text-purple-300 font-sans font-semibold flex-shrink-0">Draf</span>
 
             <!-- Dirty State Dot -->
             <UiTooltip v-if="file.isDirty" text="Ada perubahan belum disimpan" side="bottom" class="contents">
@@ -298,6 +390,16 @@ const toggleFullscreenEditor = () => {
               </button>
             </UiTooltip>
           </div>
+        </UiTooltip>
+
+        <!-- New Draft File Button -->
+        <UiTooltip text="File Draf / Scratchpad Baru (Ctrl+N)" side="bottom">
+          <button
+            class="p-1 rounded hover:bg-[#181924] text-muted-foreground hover:text-foreground transition-colors ml-0.5 flex-shrink-0"
+            @click="createScratchpadFile()"
+          >
+            <Plus class="w-3.5 h-3.5" />
+          </button>
         </UiTooltip>
 
         <div v-if="openFiles.length === 0" class="text-[11px] text-muted-foreground/60 px-2 italic font-mono">
@@ -341,6 +443,42 @@ const toggleFullscreenEditor = () => {
             @click="isWordWrap = !isWordWrap"
           >
             <WrapText class="w-3.5 h-3.5" />
+          </button>
+        </UiTooltip>
+
+        <!-- Toggle Minimap Button -->
+        <UiTooltip
+          v-if="!activeFile.isDiff"
+          :text="`Minimap Editor (${settings.editorMinimap !== false ? 'Aktif' : 'Nonaktif'})`"
+          side="bottom"
+          class="flex-shrink-0"
+        >
+          <button
+            :class="[
+              'p-1 rounded transition-colors',
+              settings.editorMinimap !== false ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+            ]"
+            @click="updateSettings({ editorMinimap: settings.editorMinimap === false ? true : false })"
+          >
+            <AlignJustify class="w-3.5 h-3.5" />
+          </button>
+        </UiTooltip>
+
+        <!-- Markdown Live Preview Toggle -->
+        <UiTooltip
+          v-if="isMarkdownFile"
+          :text="`Markdown Live Preview (${isMarkdownPreviewOpen ? 'Tutup Preview' : 'Buka Preview'})`"
+          side="bottom"
+          class="flex-shrink-0"
+        >
+          <button
+            :class="[
+              'p-1 rounded transition-colors',
+              isMarkdownPreviewOpen ? 'bg-primary text-primary-foreground font-semibold shadow-xs' : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+            ]"
+            @click="isMarkdownPreviewOpen = !isMarkdownPreviewOpen"
+          >
+            <Eye class="w-3.5 h-3.5" />
           </button>
         </UiTooltip>
 
@@ -490,10 +628,49 @@ const toggleFullscreenEditor = () => {
           <kbd class="px-1.5 py-0.5 rounded bg-muted/60 text-[10px] text-foreground">Ctrl + K</kbd>
         </div>
       </div>
+
+      <button
+        class="mt-4 flex items-center gap-1.5 px-3 py-1.5 rounded bg-primary/20 hover:bg-primary/30 text-primary font-medium text-xs transition-colors cursor-pointer"
+        @click="createScratchpadFile()"
+      >
+        <Plus class="w-3.5 h-3.5" />
+        <span>Buka File Draf / Catatan Baru (Ctrl+N)</span>
+      </button>
     </div>
 
     <!-- Monaco Code Editor Main Area (Single or Split 2-Pane) -->
     <template v-else>
+      <!-- Git Merge Conflict Quick Action Banner -->
+      <div
+        v-if="activeFileConflicts.length > 0"
+        class="bg-amber-950/80 border-b border-amber-600/60 px-3 py-1.5 flex items-center justify-between text-xs select-none backdrop-blur-md animate-in fade-in z-20 flex-shrink-0"
+      >
+        <div class="flex items-center gap-2 text-amber-300 font-medium">
+          <GitMerge class="w-4 h-4 text-amber-400 animate-pulse flex-shrink-0" />
+          <span>Terdeteksi {{ activeFileConflicts.length }} blok konflik merge git</span>
+        </div>
+        <div class="flex items-center gap-1.5 font-sans">
+          <button
+            class="px-2 py-0.5 rounded bg-emerald-600/80 hover:bg-emerald-500 text-white font-medium text-[11px] transition-colors cursor-pointer"
+            @click="handleResolveConflicts('current')"
+          >
+            Accept Current (HEAD)
+          </button>
+          <button
+            class="px-2 py-0.5 rounded bg-sky-600/80 hover:bg-sky-500 text-white font-medium text-[11px] transition-colors cursor-pointer"
+            @click="handleResolveConflicts('incoming')"
+          >
+            Accept Incoming ({{ activeFileConflicts[0]?.incomingBranch || 'Branch' }})
+          </button>
+          <button
+            class="px-2 py-0.5 rounded bg-purple-600/80 hover:bg-purple-500 text-white font-medium text-[11px] transition-colors cursor-pointer"
+            @click="handleResolveConflicts('both')"
+          >
+            Accept Both
+          </button>
+        </div>
+      </div>
+
       <div id="split-editor-container" class="flex-1 w-full h-full overflow-hidden bg-[#0d0e14] flex flex-row relative">
         <!-- Left / Primary Editor Pane -->
         <div
@@ -511,18 +688,27 @@ const toggleFullscreenEditor = () => {
             @save="saveFile"
           />
 
-          <!-- Regular Monaco Editor Mode -->
-          <MonacoEditor
-            v-else
-            ref="monacoRef"
-            :model-value="activeFile.content"
-            :filename="activeFile.name"
-            :word-wrap="isWordWrap"
-            @update:model-value="updateContent(activeFile.id, $event)"
-            @save="saveFile"
-            @format="handleFormat"
-            @toggle-word-wrap="isWordWrap = !isWordWrap"
-          />
+          <!-- Regular Monaco Editor Mode (with optional Markdown Live Preview) -->
+          <div v-else class="flex flex-row h-full w-full overflow-hidden">
+            <div :class="[isMarkdownPreviewOpen && isMarkdownFile ? 'w-1/2 border-r border-border' : 'w-full', 'h-full overflow-hidden relative']">
+              <MonacoEditor
+                ref="monacoRef"
+                :model-value="activeFile.content"
+                :filename="activeFile.name"
+                :file-path="activeFile.path"
+                :word-wrap="isWordWrap"
+                @update:model-value="updateContent(activeFile.id, $event)"
+                @save="saveFile"
+                @format="handleFormat"
+                @toggle-word-wrap="isWordWrap = !isWordWrap"
+              />
+            </div>
+            <div
+              v-if="isMarkdownPreviewOpen && isMarkdownFile"
+              class="w-1/2 h-full overflow-y-auto bg-[#0e0f17] p-5 prose prose-invert max-w-none text-foreground select-text"
+              v-html="renderedMarkdown"
+            />
+          </div>
         </div>
 
         <!-- Draggable Resizer between Left & Right Editor Panes -->
@@ -567,6 +753,7 @@ const toggleFullscreenEditor = () => {
                 ref="secondaryMonacoRef"
                 :model-value="secondaryFile.content"
                 :filename="secondaryFile.name"
+                :file-path="secondaryFile.path"
                 :word-wrap="isWordWrap"
                 @update:model-value="updateContent(secondaryFile.id, $event)"
                 @save="saveFile(secondaryFile.id)"

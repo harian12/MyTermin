@@ -118,6 +118,19 @@ export const useGitExtras = () => {
     )
   }
 
+  const undoLastCommit = () => {
+    const repo = root()
+    if (!repo) return Promise.resolve(null)
+    return run(
+      () => invoke<string>('git_reset_to_commit', { repoPath: repo, commitHash: 'HEAD~1', mode: 'soft' }),
+      'Commit terakhir dibatalkan (perubahan tersimpan di staging)'
+    ).then(async (res) => {
+      await refreshAheadBehind()
+      await refreshGitStatus()
+      return res
+    })
+  }
+
   const cherryPick = (commitHash: string) => {
     const repo = root()
     if (!repo) return Promise.resolve(null)
@@ -200,6 +213,7 @@ export const useGitExtras = () => {
     stashDrop,
     stashShow,
     amendCommit,
+    undoLastCommit,
     cherryPick,
     refreshTags,
     createTag,

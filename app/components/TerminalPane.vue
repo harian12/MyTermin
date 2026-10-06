@@ -22,7 +22,8 @@ import {
   X,
   CheckCircle2,
   XCircle,
-  GitBranch
+  GitBranch,
+  CopyPlus
 } from 'lucide-vue-next'
 import { TERMINAL_THEMES } from '~/composables/useThemes'
 import { winPathToWsl } from '~/utils/msysPath'
@@ -73,7 +74,7 @@ const {
 } = useTauriPty()
 const { settings, isShortcut, updateSettings } = useSettingsStore()
 const { openFileAtPosition } = useEditorStore()
-const { terminals, renameTerminal, updateTerminalCwd, updateTerminalLastCommand, setTerminalAlert, clearTerminalAlert, sessionReady } = useWorkspaceStore()
+const { terminals, renameTerminal, duplicateTerminal, updateTerminalCwd, updateTerminalLastCommand, setTerminalAlert, clearTerminalAlert, sessionReady, isBroadcastInput } = useWorkspaceStore()
 const { togglePalette, openPalette } = useCommandPalette()
 const { recordCommand } = useCommandHistory()
 const { reportIdle, trackOutput, evaluateRules, parsePayload, clearStatus, formatDuration, statuses } = useShellIntegration()
@@ -118,6 +119,7 @@ const isEditingTitle = ref(false)
 const newPaneTitle = ref(props.title)
 const paneStats = ref<PtyStats | null>(null)
 const isFileDraggingOver = ref(false)
+const isBellRinging = ref(false)
 
 const shellStatus = computed(() => statuses.value[props.paneId] || null)
 
@@ -181,6 +183,8 @@ const goToProjectFolder = async () => {
 const isSearchOpen = ref(false)
 const searchQuery = ref('')
 const searchMatchCase = ref(false)
+const searchWholeWord = ref(false)
+const searchRegex = ref(false)
 const searchFound = ref<boolean | null>(null)
 
 const currentTheme = computed(() => {
@@ -263,6 +267,8 @@ const searchNext = () => {
   if (!searchAddon || !searchQuery.value) return
   searchFound.value = searchAddon.findNext(searchQuery.value, {
     caseSensitive: searchMatchCase.value,
+    regex: searchRegex.value,
+    wholeWord: searchWholeWord.value,
     incremental: false
   })
 }
@@ -270,7 +276,9 @@ const searchNext = () => {
 const searchPrev = () => {
   if (!searchAddon || !searchQuery.value) return
   searchFound.value = searchAddon.findPrevious(searchQuery.value, {
-    caseSensitive: searchMatchCase.value
+    caseSensitive: searchMatchCase.value,
+    regex: searchRegex.value,
+    wholeWord: searchWholeWord.value
   })
 }
 
@@ -282,6 +290,8 @@ const onSearchInput = () => {
   }
   searchFound.value = searchAddon.findNext(searchQuery.value, {
     caseSensitive: searchMatchCase.value,
+    regex: searchRegex.value,
+    wholeWord: searchWholeWord.value,
     incremental: true
   })
 }
@@ -636,6 +646,16 @@ const initTerminal = async () => {
     }
   })
 
+  term.onBell(() => {
+    isBellRinging.value = true
+    setTimeout(() => {
+      isBellRinging.value = false
+    }, 250)
+    if (settings.value.audioBell) {
+      playAudioBell()
+    }
+  })
+
   term.open(terminalContainer.value)
   safeFit()
 
@@ -686,6 +706,13 @@ const initTerminal = async () => {
     // Listen to user input keystrokes & track executed commands
     term.onData((data) => {
       writePty(props.paneId, data)
+      if (isBroadcastInput.value && props.isActive) {
+        for (const other of terminals.value) {
+          if (other.id !== props.paneId) {
+            writePty(other.id, data)
+          }
+        }
+      }
       if (data === '\r' || data === '\n') {
         const cmd = inputLineBuffer.trim()
         if (cmd) {
@@ -792,6 +819,31 @@ const restartTerminalSession = async (silent = false) => {
 
 const clearTerminal = () => {
   term?.clear()
+}
+
+const resetTerminal = () => {
+  term?.reset()
+}
+
+const playAudioBell = () => {
+  if (typeof window === 'undefined') return
+  try {
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext
+    if (!AudioContextClass) return
+    const ctx = new AudioContextClass()
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.type = 'sine'
+    osc.frequency.setValueAtTime(440, ctx.currentTime)
+    gain.gain.setValueAtTime(0.08, ctx.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.12)
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.start()
+    osc.stop(ctx.currentTime + 0.12)
+  } catch {
+    // Ignore audio policy restriction
+  }
 }
 
 const copySelection = async () => {
@@ -926,6 +978,7 @@ defineExpose({
   copySelection,
   pasteClipboard,
   clearTerminal,
+  resetTerminal,
   openSearch,
   exportBufferToFile,
   searchInBuffer,
@@ -1112,6 +1165,7 @@ const handleTerminalAction = (e: any) => {
   if (act === 'search') openSearch()
   else if (act === 'export') exportBufferToFile()
   else if (act === 'clear') clearTerminal()
+  else if (act === 'reset') resetTerminal()
   else if (act === 'select-all') term?.selectAll()
 }
 
@@ -1179,7 +1233,11 @@ onBeforeUnmount(async () => {
   <div
     :class="[
       'flex flex-col h-full w-full bg-[#12131a] rounded-lg border overflow-hidden transition-all duration-200 relative group',
-      isActive ? 'border-primary ring-1 ring-primary/40' : 'border-border/60 hover:border-border'
+      isBellRinging
+        ? 'ring-2 ring-amber-400 border-amber-400 shadow-lg shadow-amber-500/30'
+        : isActive
+        ? 'border-primary ring-1 ring-primary/40'
+        : 'border-border/60 hover:border-border'
     ]"
     @click="handlePaneClick"
     @contextmenu="handleContextMenu"
@@ -1365,6 +1423,17 @@ onBeforeUnmount(async () => {
           </UiButton>
         </UiTooltip>
 
+        <UiTooltip text="Duplikat Terminal (Ctrl+Shift+D)" side="bottom" class="flex-shrink-0">
+          <UiButton
+            variant="ghost"
+            size="icon"
+            class="h-6 w-6 text-muted-foreground hover:text-foreground"
+            @click.stop="duplicateTerminal(props.paneId)"
+          >
+            <CopyPlus class="w-3 h-3 text-purple-400" />
+          </UiButton>
+        </UiTooltip>
+
         <UiTooltip text="Clear Buffer" side="bottom" class="flex-shrink-0">
           <UiButton
             variant="ghost"
@@ -1436,6 +1505,30 @@ onBeforeUnmount(async () => {
             @click.stop="searchMatchCase = !searchMatchCase; onSearchInput()"
           >
             Aa
+          </button>
+        </UiTooltip>
+
+        <UiTooltip text="Match Whole Word (\b)" side="bottom" class="flex-shrink-0">
+          <button
+            :class="[
+              'px-1.5 py-0.5 rounded text-[10px] font-mono transition-colors',
+              searchWholeWord ? 'bg-primary text-primary-foreground font-semibold' : 'hover:bg-accent text-muted-foreground hover:text-foreground'
+            ]"
+            @click.stop="searchWholeWord = !searchWholeWord; onSearchInput()"
+          >
+            \b
+          </button>
+        </UiTooltip>
+
+        <UiTooltip text="Use Regular Expression (.*)" side="bottom" class="flex-shrink-0">
+          <button
+            :class="[
+              'px-1.5 py-0.5 rounded text-[10px] font-mono transition-colors',
+              searchRegex ? 'bg-primary text-primary-foreground font-semibold' : 'hover:bg-accent text-muted-foreground hover:text-foreground'
+            ]"
+            @click.stop="searchRegex = !searchRegex; onSearchInput()"
+          >
+            .*
           </button>
         </UiTooltip>
 

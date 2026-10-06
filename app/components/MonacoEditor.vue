@@ -3,10 +3,13 @@ import { ref, onMounted, onBeforeUnmount, watch, computed, nextTick } from 'vue'
 import * as monaco from 'monaco-editor'
 import { useEditorStore } from '~/composables/useEditorStore'
 import { useSettingsStore } from '~/composables/useSettingsStore'
+import { useWorkspaceStore } from '~/composables/useWorkspaceStore'
+import { registerUniversalDefinitionProvider, setGlobalFileOpener } from '~/utils/monacoDefinitionProvider'
 
 interface Props {
   modelValue: string
   filename: string
+  filePath?: string
   readonly?: boolean
   wordWrap?: boolean
 }
@@ -24,7 +27,8 @@ const emit = defineEmits<{
   (e: 'toggle-word-wrap'): void
 }>()
 
-const { targetNavigatePosition } = useEditorStore()
+const { targetNavigatePosition, editorCursorPos, openFileAtPosition } = useEditorStore()
+const { activeWorkstation } = useWorkspaceStore()
 const { settings } = useSettingsStore()
 
 const containerRef = ref<HTMLDivElement | null>(null)
@@ -32,8 +36,28 @@ let editor: monaco.editor.IStandaloneCodeEditor | null = null
 let resizeObserver: ResizeObserver | null = null
 
 const getLanguageFromFilename = (filename: string): string => {
+  if (!filename) return 'plaintext'
+  const lowerName = filename.toLowerCase()
+
+  if (lowerName === 'dockerfile' || lowerName.endsWith('/dockerfile') || lowerName.endsWith('\\dockerfile')) return 'dockerfile'
+  if (lowerName.endsWith('.env')) return 'ini'
+  if (lowerName.endsWith('.gitignore')) return 'shell'
+
   const ext = filename.split('.').pop()?.toLowerCase() || ''
-  const mapping: Record<string, string> = {
+  const dotExt = `.${ext}`
+
+  // Monaco registry lookup untuk 80+ bahasa pemrograman
+  if (typeof monaco !== 'undefined' && monaco.languages?.getLanguages) {
+    const langs = monaco.languages.getLanguages()
+    const matched = langs.find(l =>
+      l.extensions?.includes(dotExt) ||
+      l.filenames?.includes(filename) ||
+      l.filenames?.includes(lowerName)
+    )
+    if (matched) return matched.id
+  }
+
+  const fallbackMap: Record<string, string> = {
     ts: 'typescript',
     tsx: 'typescript',
     js: 'javascript',
@@ -41,6 +65,8 @@ const getLanguageFromFilename = (filename: string): string => {
     mjs: 'javascript',
     cjs: 'javascript',
     vue: 'html',
+    svelte: 'html',
+    astro: 'html',
     html: 'html',
     htm: 'html',
     css: 'css',
@@ -55,6 +81,7 @@ const getLanguageFromFilename = (filename: string): string => {
     h: 'c',
     cpp: 'cpp',
     hpp: 'cpp',
+    cs: 'csharp',
     java: 'java',
     php: 'php',
     rb: 'ruby',
@@ -73,9 +100,21 @@ const getLanguageFromFilename = (filename: string): string => {
     svg: 'xml',
     md: 'markdown',
     markdown: 'markdown',
-    dockerfile: 'dockerfile'
+    dockerfile: 'dockerfile',
+    dart: 'dart',
+    kt: 'kotlin',
+    kts: 'kotlin',
+    swift: 'swift',
+    lua: 'lua',
+    sol: 'solidity',
+    proto: 'protobuf',
+    graphql: 'graphql',
+    gql: 'graphql',
+    ex: 'elixir',
+    exs: 'elixir',
+    r: 'r'
   }
-  return mapping[ext] || 'plaintext'
+  return fallbackMap[ext] || 'plaintext'
 }
 
 onMounted(() => {
@@ -118,10 +157,27 @@ onMounted(() => {
     }
   })
 
+  setGlobalFileOpener((filePath, line, col) => {
+    openFileAtPosition(filePath, line, col)
+  })
+  registerUniversalDefinitionProvider(() => activeWorkstation.value?.folderPath)
+
+  const resolvedPath = props.filePath || props.filename
   const language = getLanguageFromFilename(props.filename)
+  const uri = monaco.Uri.file(resolvedPath)
+
+  let model = monaco.editor.getModel(uri)
+  if (!model) {
+    model = monaco.editor.createModel(props.modelValue, language, uri)
+  } else {
+    if (model.getValue() !== props.modelValue) {
+      model.setValue(props.modelValue)
+    }
+    monaco.editor.setModelLanguage(model, language)
+  }
+
   editor = monaco.editor.create(containerRef.value, {
-    value: props.modelValue,
-    language,
+    model,
     theme: 'mytermin-dark',
     automaticLayout: true,
     fontSize: settings.value.editorFontSize || 13,
@@ -130,7 +186,7 @@ onMounted(() => {
     lineNumbers: 'on',
     wordWrap: props.wordWrap ? 'on' : 'off',
     minimap: {
-      enabled: true,
+      enabled: settings.value.editorMinimap !== false,
       maxColumn: 80,
       scale: 1
     },
@@ -154,6 +210,15 @@ onMounted(() => {
     const val = editor.getValue()
     if (val !== props.modelValue) {
       emit('update:modelValue', val)
+    }
+  })
+
+  editor.onDidChangeCursorPosition((e) => {
+    if (editorCursorPos) {
+      editorCursorPos.value = {
+        line: e.position.lineNumber,
+        column: e.position.column
+      }
     }
   })
 
@@ -213,13 +278,23 @@ watch(
 )
 
 watch(
-  () => props.filename,
-  (newFilename) => {
+  () => [props.filename, props.filePath],
+  ([newFilename, newPath]) => {
     if (!editor) return
-    const model = editor.getModel()
-    if (model) {
-      const newLang = getLanguageFromFilename(newFilename)
+    const resolvedPath = (newPath as string) || (newFilename as string)
+    const uri = monaco.Uri.file(resolvedPath)
+    const newLang = getLanguageFromFilename(newFilename as string)
+    let model = monaco.editor.getModel(uri)
+    if (!model) {
+      model = monaco.editor.createModel(props.modelValue, newLang, uri)
+    } else {
+      if (model.getValue() !== props.modelValue) {
+        model.setValue(props.modelValue)
+      }
       monaco.editor.setModelLanguage(model, newLang)
+    }
+    if (editor.getModel() !== model) {
+      editor.setModel(model)
     }
   }
 )
@@ -245,11 +320,12 @@ watch(
 )
 
 watch(
-  () => [settings.value.editorFontSize, settings.value.editorTabSize],
-  ([fontSize, tabSize]) => {
+  () => [settings.value.editorFontSize, settings.value.editorTabSize, settings.value.editorMinimap],
+  ([fontSize, tabSize, minimap]) => {
     editor?.updateOptions({
       fontSize: (fontSize as number) || 13,
-      tabSize: (tabSize as number) || 2
+      tabSize: (tabSize as number) || 2,
+      minimap: { enabled: minimap !== false }
     })
   }
 )

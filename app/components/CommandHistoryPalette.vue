@@ -5,7 +5,8 @@ import {
   Terminal as TerminalIcon,
   Copy,
   Play,
-  ClipboardType
+  ClipboardType,
+  Trash2
 } from 'lucide-vue-next'
 import { useCommandHistory } from '~/composables/useCommandHistory'
 import { filterByScope } from '~/utils/commandHistory'
@@ -95,6 +96,16 @@ const handleKeyDown = async (e: KeyboardEvent) => {
   } else if (e.key === 'Escape') {
     e.preventDefault()
     closePalette()
+  } else if (e.key === 'Delete') {
+    e.preventDefault()
+    const item = filteredEntries.value[selectedIndex.value]
+    if (item) {
+      removeEntry(item.id)
+      // Adjust selectedIndex if it goes out of bounds
+      if (selectedIndex.value >= filteredEntries.value.length && selectedIndex.value > 0) {
+        selectedIndex.value--
+      }
+    }
   } else if (e.key === 'c' && e.ctrlKey) {
     e.preventDefault()
     const item = filteredEntries.value[selectedIndex.value]
@@ -166,6 +177,13 @@ const copyItem = async (item: CommandHistoryEntry) => {
           class="flex-1 bg-transparent border-none text-sm text-foreground placeholder:text-muted-foreground outline-none font-medium"
         />
         <div class="flex items-center gap-1.5 ml-auto">
+          <button
+            @click="clearHistory"
+            class="mr-2 px-2 py-1 text-[10px] flex items-center gap-1 text-red-400 hover:text-red-300 hover:bg-red-400/10 rounded transition-colors"
+            title="Bersihkan Histori"
+          >
+            <Trash2 class="w-3 h-3" /> Bersihkan Histori
+          </button>
           <kbd class="px-2 py-0.5 rounded bg-muted/60 text-[10px] font-mono text-muted-foreground border border-border/40">Tab</kbd>
           <span class="text-xs text-muted-foreground mr-2">{{ scope === 'project' ? 'Project Ini' : 'Semua' }}</span>
           <kbd class="px-2 py-0.5 rounded bg-muted/60 text-[10px] font-mono text-muted-foreground border border-border/40">ESC</kbd>
@@ -218,6 +236,14 @@ const copyItem = async (item: CommandHistoryEntry) => {
               <span v-if="item.runCount > 1">&bull; {{ item.runCount }}x</span>
             </div>
           </div>
+
+          <button
+            @click.stop="removeEntry(item.id)"
+            class="opacity-0 group-hover:opacity-100 p-1.5 text-muted-foreground hover:text-red-400 hover:bg-red-400/10 rounded transition-all shrink-0"
+            title="Hapus Entry (Delete)"
+          >
+            <Trash2 class="w-3.5 h-3.5" />
+          </button>
         </div>
       </div>
 

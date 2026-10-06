@@ -536,11 +536,58 @@ export const useWorkspaceStore = () => {
     saveSession(false)
   }
 
-  const removeTerminal = (termId: string) => {
+  const closedTerminalsHistory = ref<{ terminal: TerminalTab; wsId: string }[]>([])
+  const isBroadcastInput = ref(false)
+
+  const toggleBroadcastInput = () => {
+    isBroadcastInput.value = !isBroadcastInput.value
+  }
+
+  const reopenClosedTerminal = () => {
+    if (closedTerminalsHistory.value.length === 0) return null
+    const item = closedTerminalsHistory.value.pop()
+    if (!item) return null
+    let ws = workstations.value.find(w => w.id === item.wsId)
+    if (!ws) {
+      ws = workstations.value.find(w => w.id === activeWorkstationId.value)
+    }
+    if (!ws) return null
+    const restoredTerm: TerminalTab = {
+      ...item.terminal,
+      id: generateUid('term')
+    }
+    ws.terminals.push(restoredTerm)
+    ws.activeTerminalId = restoredTerm.id
+    saveSession(false)
+    return restoredTerm
+  }
+
+  const togglePinTerminal = (termId: string) => {
+    const ws = workstations.value.find(w => w.id === activeWorkstationId.value)
+    if (!ws) return
+    const term = ws.terminals.find(t => t.id === termId)
+    if (term) {
+      term.isPinned = !term.isPinned
+      saveSession(false)
+    }
+  }
+
+  const removeTerminal = (termId: string, force = false) => {
     const ws = workstations.value.find(w => w.id === activeWorkstationId.value)
     if (!ws) return
     const idx = ws.terminals.findIndex(t => t.id === termId)
     if (idx !== -1) {
+      if (!force && ws.terminals[idx]?.isPinned) return
+      const removedTerm = ws.terminals[idx]
+      if (removedTerm) {
+        closedTerminalsHistory.value.push({
+          terminal: { ...removedTerm },
+          wsId: ws.id
+        })
+        if (closedTerminalsHistory.value.length > 20) {
+          closedTerminalsHistory.value.shift()
+        }
+      }
       const { killPty } = useTauriPty()
       killPty(termId).catch(() => {})
       ws.terminals.splice(idx, 1)
@@ -781,6 +828,11 @@ export const useWorkspaceStore = () => {
     backgroundAlerts,
     setTerminalAlert,
     clearTerminalAlert,
-    setTerminalColor
+    setTerminalColor,
+    togglePinTerminal,
+    isBroadcastInput,
+    toggleBroadcastInput,
+    reopenClosedTerminal,
+    closedTerminalsHistory
   }
 }
