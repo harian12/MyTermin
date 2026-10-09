@@ -563,6 +563,20 @@ const handleKeydown = (e: KeyboardEvent) => {
   }
 
   if (isShortcut(e, 'searchBuffer')) {
+    const activeEl = typeof document !== 'undefined' ? document.activeElement : null
+    const isDirectlyInTerminal = Boolean(activeEl?.closest('.xterm') || activeEl?.closest('#terminal-grid-container'))
+    const isDirectlyInEditor = Boolean(
+      activeEl?.closest('.monaco-editor') ||
+      activeEl?.closest('.monaco-diff-editor') ||
+      activeEl?.closest('#code-editor-pane')
+    )
+    const isEditorActive = isDirectlyInEditor || (!isDirectlyInTerminal && lastFocusedPane.value === 'editor')
+
+    if (isEditorActive && isEditorVisible.value && openFiles.value.length > 0) {
+      // Biarkan Monaco Editor menangani Ctrl+F untuk mencari di file aktif
+      return
+    }
+
     e.preventDefault()
     if (activeTerminalId.value && typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent(`terminal-action-${activeTerminalId.value}`, { detail: 'search' }))

@@ -1854,8 +1854,6 @@ fn open_path_default(path: String) -> Result<(), String> {
 #[tauri::command]
 fn get_listening_ports() -> Result<Vec<ListeningPortInfo>, String> {
     let mut ports = Vec::new();
-    let mut sys = sysinfo::System::new();
-    sys.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
 
     #[cfg(windows)]
     {
@@ -1867,6 +1865,9 @@ fn get_listening_ports() -> Result<Vec<ListeningPortInfo>, String> {
         if let Ok(output) = cmd.output() {
             if output.status.success() {
                 let text = String::from_utf8_lossy(&output.stdout);
+                let mut raw_items = Vec::new();
+                let mut pids = Vec::new();
+
                 for line in text.lines() {
                     let trimmed = line.trim();
                     if !trimmed.starts_with("TCP") {
@@ -1879,26 +1880,39 @@ fn get_listening_ports() -> Result<Vec<ListeningPortInfo>, String> {
                         if let Some(port_str) = local_addr.split(':').last() {
                             if let Ok(port) = port_str.parse::<u16>() {
                                 if let Ok(pid) = parts[4].parse::<u32>() {
-                                    // Process name resolution from sysinfo
-                                    let proc_pid = sysinfo::Pid::from_u32(pid);
-                                    let process_name = sys.process(proc_pid)
-                                        .map(|p| p.name().to_string_lossy().to_string())
-                                        .unwrap_or_else(|| "Unknown".to_string());
-
-                                    // Deduplicate same port & PID
-                                    if !ports.iter().any(|p: &ListeningPortInfo| p.port == port && p.pid == pid) {
-                                        ports.push(ListeningPortInfo {
-                                            protocol: "TCP".to_string(),
-                                            local_address: local_addr.to_string(),
-                                            port,
-                                            pid,
-                                            process_name,
-                                        });
+                                    if !raw_items.iter().any(|(p, pid_val, _)| *p == port && *pid_val == pid) {
+                                        raw_items.push((port, pid, local_addr.to_string()));
+                                        pids.push(sysinfo::Pid::from_u32(pid));
                                     }
                                 }
                             }
                         }
                     }
+                }
+
+                // Refresh HANYA proses yang sedang mendengarkan port TCP
+                let mut sys = sysinfo::System::new();
+                if !pids.is_empty() {
+                    sys.refresh_processes_specifics(
+                        sysinfo::ProcessesToUpdate::Some(&pids),
+                        true,
+                        sysinfo::ProcessRefreshKind::nothing().with_exe(sysinfo::UpdateKind::OnlyIfNotSet),
+                    );
+                }
+
+                for (port, pid, local_addr) in raw_items {
+                    let proc_pid = sysinfo::Pid::from_u32(pid);
+                    let process_name = sys.process(proc_pid)
+                        .map(|p| p.name().to_string_lossy().to_string())
+                        .unwrap_or_else(|| "Unknown".to_string());
+
+                    ports.push(ListeningPortInfo {
+                        protocol: "TCP".to_string(),
+                        local_address: local_addr,
+                        port,
+                        pid,
+                        process_name,
+                    });
                 }
             }
         }

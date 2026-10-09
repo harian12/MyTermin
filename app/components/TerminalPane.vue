@@ -87,7 +87,7 @@ const triggerGitRefresh = () => {
   if (gitRefreshTimer) clearTimeout(gitRefreshTimer)
   gitRefreshTimer = setTimeout(() => {
     refreshGitStatus()
-  }, 150)
+  }, 1000)
 }
 
 // Env project hanya dipakai terminal yang folder-nya cocok dengan pemilik
@@ -380,6 +380,11 @@ const handleIncomingData = (data: string) => {
 }
 
 const parseStreamForCwd = (rawChunk: string) => {
+  // Fast check: Lewati regex berat jika chunk tidak mengandung escape sequence atau prompt delimiter
+  if (!rawChunk.includes('\x1B') && !rawChunk.includes('>') && !rawChunk.includes('\n')) {
+    return
+  }
+
   // OSC 9;9 (Windows Terminal / ConEmu)
   const osc9Match = rawChunk.match(/\x1B\]9;9;"?([^"\x07\x1B]+)"?(?:\x07|\x1B\\)/)
   if (osc9Match && osc9Match[1]) {
@@ -1030,6 +1035,7 @@ watch(
   (isActive) => {
     if (isActive) {
       clearTerminalAlert(props.paneId)
+      fetchStats()
       nextTick(() => {
         setTimeout(() => {
           safeFit()
@@ -1124,6 +1130,8 @@ watch(
 
 const fetchStats = async () => {
   if (!isTauri.value || !isPtyReady.value || isPtyExited.value) return
+  // Jangan buang resource CPU untuk tab yang sedang tidak aktif di grid atau jendela yang diminimize
+  if (!props.isTabActive || (typeof document !== 'undefined' && document.hidden)) return
   const startedAt = Date.now()
   try {
     const all = await getAllPtyStats()
@@ -1212,7 +1220,7 @@ onMounted(() => {
     initTerminal()
   })
   if (isTauri.value) {
-    statsInterval = setInterval(fetchStats, 2000)
+    statsInterval = setInterval(fetchStats, 3000)
   }
   if (typeof window !== 'undefined') {
     window.addEventListener(`terminal-action-${props.paneId}`, handleTerminalAction)

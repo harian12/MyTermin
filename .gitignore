@@ -17,8 +17,11 @@ target/
 
 # Tauri updater signing keys (JANGAN pernah di-commit)
 .tauri/
+*.key
+*.key.pub
 
 # System & IDE files
+.mytermin/
 .DS_Store
 Thumbs.db
 .vscode/

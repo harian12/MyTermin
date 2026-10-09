@@ -433,9 +433,11 @@ impl PtyManager {
     }
 
     pub fn get_session_cwd(&self, id: &str) -> Option<String> {
-        let mut sessions = self.sessions.lock().ok()?;
-        let session = sessions.get_mut(id)?;
-        let raw_pid = session.pid;
+        let (raw_pid, fallback_cwd) = {
+            let sessions = self.sessions.lock().ok()?;
+            let session = sessions.get(id)?;
+            (session.pid, session.cwd.clone())
+        };
 
         if let Some(pid) = raw_pid {
             let parent_sys_pid = Pid::from_u32(pid);
@@ -443,9 +445,22 @@ impl PtyManager {
                 sys.refresh_processes_specifics(
                     ProcessesToUpdate::All,
                     true,
-                    ProcessRefreshKind::nothing()
-                        .with_exe(UpdateKind::OnlyIfNotSet)
-                        .with_cwd(UpdateKind::Always),
+                    ProcessRefreshKind::nothing().with_exe(UpdateKind::OnlyIfNotSet),
+                );
+
+                let mut relevant_pids = vec![parent_sys_pid];
+                for (p_id, p_info) in sys.processes() {
+                    if let Some(p_parent) = p_info.parent() {
+                        if p_parent == parent_sys_pid {
+                            relevant_pids.push(*p_id);
+                        }
+                    }
+                }
+
+                sys.refresh_processes_specifics(
+                    ProcessesToUpdate::Some(&relevant_pids),
+                    true,
+                    ProcessRefreshKind::nothing().with_cwd(UpdateKind::Always),
                 );
 
                 // Cek anak proses terlebih dahulu
@@ -455,7 +470,7 @@ impl PtyManager {
                             if let Some(child_cwd) = p_info.cwd() {
                                 let c_str = child_cwd.to_string_lossy().to_string();
                                 if !c_str.is_empty() {
-                                    session.cwd = Some(c_str.clone());
+                                    self.update_session_cwd(id, &c_str);
                                     return Some(c_str);
                                 }
                             }
@@ -468,7 +483,7 @@ impl PtyManager {
                     if let Some(c) = proc.cwd() {
                         let path_str = c.to_string_lossy().to_string();
                         if !path_str.is_empty() {
-                            session.cwd = Some(path_str.clone());
+                            self.update_session_cwd(id, &path_str);
                             return Some(path_str);
                         }
                     }
@@ -476,7 +491,7 @@ impl PtyManager {
             }
         }
 
-        session.cwd.clone()
+        fallback_cwd
     }
 
     pub fn get_all_stats(&self) -> HashMap<String, PtyStats> {
@@ -490,9 +505,17 @@ impl PtyManager {
             }
         }
 
-        let mut sessions = match self.sessions.lock() {
-            Ok(s) => s,
-            Err(_) => return HashMap::new(),
+        // Salin ID dan PID sesi dengan cepat lalu lepas sessions lock
+        // agar write_pty dan input user tidak terblokir selama sysinfo berjalan.
+        let session_targets: Vec<(String, Option<u32>, Option<String>)> = {
+            let sessions = match self.sessions.lock() {
+                Ok(s) => s,
+                Err(_) => return HashMap::new(),
+            };
+            sessions
+                .iter()
+                .map(|(id, s)| (id.clone(), s.pid, s.cwd.clone()))
+                .collect()
         };
 
         let mut sys = match self.sys.lock() {
@@ -500,21 +523,45 @@ impl PtyManager {
             Err(_) => return HashMap::new(),
         };
 
+        // 1. Refresh pohon proses ringan (tanpa CPU/Memory/CWD ke semua proses OS)
         sys.refresh_processes_specifics(
             ProcessesToUpdate::All,
             true,
-            ProcessRefreshKind::nothing()
-                .with_memory()
-                .with_cpu()
-                .with_disk_usage()
-                .with_exe(UpdateKind::OnlyIfNotSet)
-                .with_cwd(UpdateKind::Always),
+            ProcessRefreshKind::nothing().with_exe(UpdateKind::OnlyIfNotSet),
         );
+
+        // 2. Kumpulkan HANYA PID proses shell dan anak-anaknya
+        let mut relevant_pids: Vec<Pid> = Vec::new();
+        for (_, raw_pid, _) in &session_targets {
+            if let Some(pid) = raw_pid {
+                let parent_sys_pid = Pid::from_u32(*pid);
+                relevant_pids.push(parent_sys_pid);
+                for (p_id, p_info) in sys.processes() {
+                    if let Some(p_parent) = p_info.parent() {
+                        if p_parent == parent_sys_pid {
+                            relevant_pids.push(*p_id);
+                        }
+                    }
+                }
+            }
+        }
+
+        // 3. Refresh CPU, Memory, dan CWD HANYA untuk target yang relevan
+        if !relevant_pids.is_empty() {
+            sys.refresh_processes_specifics(
+                ProcessesToUpdate::Some(&relevant_pids),
+                true,
+                ProcessRefreshKind::nothing()
+                    .with_memory()
+                    .with_cpu()
+                    .with_cwd(UpdateKind::Always),
+            );
+        }
 
         let mut stats_map = HashMap::new();
 
-        for (id, session) in sessions.iter_mut() {
-            if let Some(raw_pid) = session.pid {
+        for (id, raw_pid_opt, cached_cwd) in session_targets {
+            if let Some(raw_pid) = raw_pid_opt {
                 let parent_sys_pid = Pid::from_u32(raw_pid);
                 let mut total_cpu = 0.0f32;
                 let mut is_running = false;
@@ -571,9 +618,9 @@ impl PtyManager {
                 let memory_mb = (effective_mem as f32) / (1024.0 * 1024.0);
 
                 if let Some(ref cwd_str) = detected_cwd {
-                    session.cwd = Some(cwd_str.clone());
-                } else if detected_cwd.is_none() && session.cwd.is_some() {
-                    detected_cwd = session.cwd.clone();
+                    self.update_session_cwd(&id, cwd_str);
+                } else if detected_cwd.is_none() && cached_cwd.is_some() {
+                    detected_cwd = cached_cwd;
                 }
 
                 stats_map.insert(
@@ -598,7 +645,7 @@ impl PtyManager {
                         memory_mb: 0.0,
                         is_running: true,
                         child_count: 0,
-                        cwd: session.cwd.clone(),
+                        cwd: cached_cwd,
                     },
                 );
             }

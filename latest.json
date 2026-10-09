@@ -1,15 +1,15 @@
 {
-  "version": "0.2.15",
-  "notes": "Release v0.2.15 - Penambahan fitur Auto-Save editor, Whitespace & Indent Guides toggle, shortcut Multi-Cursor & Column Selection, Git Stash Diff Preview berwarna & stats, Git Worktree Switcher terintegrasi workstation folder, perbaikan native window dragging & maximize double-click pada TitleBar.",
-  "pub_date": "2026-10-06T11:18:00.000Z",
+  "version": "0.2.16",
+  "notes": "Release v0.2.16 - Optimasi penggunaan CPU dan mutex lock sysinfo untuk mencegah freeze / not responding pada sesi PTY, netstat listener, dan Git polling background; perbaikan posisi tooltip Find Widget (Ctrl+F) di Monaco Editor agar tidak tertutup header breadcrumbs.",
+  "pub_date": "2026-10-10T02:00:00.000Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcjU5M1ZFMWtCZWN6Um82dUh6UDdLbUNJZ2NsQ216dmgrL1FicGpodkJ5VG5ldm9OOWhsQXMxUlFQYzdBcjNQakNZcjl2VzhtS2krWWZZaVlMWHZJeWQxeEhVLy9oWkFBPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxMjg1NDU2CWZpbGU6TXlUZXJtaW5fMC4yLjE1X3g2NC1zZXR1cC5leGUKYW11eGY3QzlwTkpXT2JnTnNCMjRjUWVyeUc0eHYrUHhXSXpFQllqb2cvamlqWDAxVzk4Wkw1QXdjcWZnMURoRTV6V25YWmY0WENoYnNMcnU3MTkxQ3c9PQo=",
-      "url": "https://github.com/harian12/MyTermin/releases/download/v0.2.15/MyTermin_0.2.15_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcjU5M1ZFMWtCZWZHakxXbWxnMzV6ZXI3ekpuQ1ZtVHpXTW1LVytoejF3RFd4Q0FrcFlPOGN2anRPTHBkNUtYRjZ3RCtndVdjWlRYV1VXZWdVQWZCYTVaNFNwNHgyTGdJPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxNTcwMzMwCWZpbGU6TXlUZXJtaW5fMC4yLjE2X3g2NC1zZXR1cC5leGUKZXZvUnYzQVltaE5NbkR2QVFQVHJOMWRBZlNtYnlTNGVJWjU3UHE0MHY0TUVNU2J6ZTFtNnNudis4UUJZaWd4SzRtc2Z6eWE3K0F3SXUyUzMwYzJNQVE9PQo=",
+      "url": "https://github.com/harian12/MyTermin/releases/download/v0.2.16/MyTermin_0.2.16_x64-setup.exe"
     },
     "windows-x86_64-nsis": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcjU5M1ZFMWtCZWN6Um82dUh6UDdLbUNJZ2NsQ216dmgrL1FicGpodkJ5VG5ldm9OOWhsQXMxUlFQYzdBcjNQakNZcjl2VzhtS2krWWZZaVlMWHZJeWQxeEhVLy9oWkFBPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxMjg1NDU2CWZpbGU6TXlUZXJtaW5fMC4yLjE1X3g2NC1zZXR1cC5leGUKYW11eGY3QzlwTkpXT2JnTnNCMjRjUWVyeUc0eHYrUHhXSXpFQllqb2cvamlqWDAxVzk4Wkw1QXdjcWZnMURoRTV6V25YWmY0WENoYnNMcnU3MTkxQ3c9PQo=",
-      "url": "https://github.com/harian12/MyTermin/releases/download/v0.2.15/MyTermin_0.2.15_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcjU5M1ZFMWtCZWZHakxXbWxnMzV6ZXI3ekpuQ1ZtVHpXTW1LVytoejF3RFd4Q0FrcFlPOGN2anRPTHBkNUtYRjZ3RCtndVdjWlRYV1VXZWdVQWZCYTVaNFNwNHgyTGdJPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxNTcwMzMwCWZpbGU6TXlUZXJtaW5fMC4yLjE2X3g2NC1zZXR1cC5leGUKZXZvUnYzQVltaE5NbkR2QVFQVHJOMWRBZlNtYnlTNGVJWjU3UHE0MHY0TUVNU2J6ZTFtNnNudis4UUJZaWd4SzRtc2Z6eWE3K0F3SXUyUzMwYzJNQVE9PQo=",
+      "url": "https://github.com/harian12/MyTermin/releases/download/v0.2.16/MyTermin_0.2.16_x64-setup.exe"
     }
   }
 }

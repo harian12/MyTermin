@@ -9,9 +9,12 @@ interface ShellIntegrationPayload {
 
 // Status command per terminal. Diisi dari OSC 1337 ; MyTermin=<base64 json>
 // yang dikirim prompt PowerShell/bash, jadi xterm.js tidak perlu parses ANSI prompt.
+// Gunakan plain object non-reaktif untuk buffer output mentah agar tidak memicu
+// render ulang Vue pada tiap chunk PTY data yang masuk.
+const internalOutputBuffers: Record<string, string> = {}
+
 export const useShellIntegration = () => {
   const statuses = useState<Record<string, ShellStatus>>('shell-integration-status', () => ({}))
-  const outputWatchers = useState<Record<string, { buffer: string; lastHitAt: number }>>('shell-integration-watchers', () => ({}))
   const lastNotificationAt = useState<Record<string, number>>('shell-integration-last-notify', () => ({}))
 
   const getStatus = (termId: string): ShellStatus | null => statuses.value[termId] || null
@@ -31,15 +34,14 @@ export const useShellIntegration = () => {
     }
   }
 
-  // Kumpulkan output terakhir per terminal supaya rule keyword/regex punya bahan.
+  // Kumpulkan output terakhir per terminal supaya rule keyword/regex punya bahan (non-reaktif).
   const trackOutput = (termId: string, chunk: string) => {
     const clean = chunk.replace(/\x1B\[[0-?]*[ -/]*[@-~]/g, '')
-    const prev = outputWatchers.value[termId]?.buffer || ''
-    const next = (prev + clean).slice(-4000)
-    outputWatchers.value = { ...outputWatchers.value, [termId]: { buffer: next, lastHitAt: Date.now() } }
+    const prev = internalOutputBuffers[termId] || ''
+    internalOutputBuffers[termId] = (prev + clean).slice(-4000)
   }
 
-  const getOutputBuffer = (termId: string): string => outputWatchers.value[termId]?.buffer || ''
+  const getOutputBuffer = (termId: string): string => internalOutputBuffers[termId] || ''
 
   const evaluateRules = (
     termId: string,

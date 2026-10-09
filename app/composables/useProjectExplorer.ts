@@ -41,6 +41,10 @@ export interface GitStatusOverview {
 const RECENT_PROJECTS_KEY = 'mytermin_recent_projects_v1'
 const EXPANDED_FOLDERS_STORAGE_KEY = 'mytermin_expanded_folders_v1'
 
+// Modul-level singleton agar polling Git tidak berlipat ganda
+let isRefreshingGit = false
+let gitPollInterval: any = null
+
 export const useProjectExplorer = () => {
   const { isTauri, writePty } = useTauriPty()
   const { activeWorkstation, saveSession, updateTerminalCwd } = useWorkspaceStore()
@@ -338,9 +342,6 @@ export const useProjectExplorer = () => {
     ]
   }
 
-  let isRefreshingGit = false
-  let gitPollInterval: any = null
-
   // Refresh Git Status & Branch & Detailed Overview
   const refreshGitStatus = async () => {
     const root = activeWorkstation.value.folderPath
@@ -358,16 +359,24 @@ export const useProjectExplorer = () => {
 
     try {
       const { invoke } = await import('@tauri-apps/api/core')
-      const [resMap, overview, aheadBehindRes] = await Promise.all([
-        invoke<Record<string, string>>('get_git_status', { repoPath: root }),
+      // Cukup panggil get_git_status_overview dan ahead_behind; resMap diturunkan langsung
+      // dari overview tanpa spawn subproses git status kedua.
+      const [overview, aheadBehindRes] = await Promise.all([
         invoke<GitStatusOverview>('get_git_status_overview', { repoPath: root }),
         invoke<any>('git_ahead_behind', { repoPath: root }).catch(() => null)
       ])
-      gitStatusMap.value = resMap || {}
+
+      const resMap: Record<string, string> = {}
       if (overview) {
+        for (const item of overview.untracked || []) resMap[item.path] = '?'
+        for (const item of overview.unstaged || []) resMap[item.path] = item.status
+        for (const item of overview.staged || []) resMap[item.path] = item.status
+
         gitOverview.value = overview
         gitBranch.value = overview.branch || ''
       }
+      gitStatusMap.value = resMap
+
       if (aheadBehindRes !== undefined) {
         const aheadBehind = useState<any>('git-ahead-behind', () => null)
         aheadBehind.value = aheadBehindRes
@@ -381,9 +390,11 @@ export const useProjectExplorer = () => {
     }
   }
 
-  const startGitPolling = (intervalMs = 3000) => {
+  const startGitPolling = (intervalMs = 6000) => {
     if (gitPollInterval) clearInterval(gitPollInterval)
     gitPollInterval = setInterval(() => {
+      // Jangan jalankan polling berat saat window di-minimize atau blur
+      if (typeof document !== 'undefined' && document.hidden) return
       if (activeWorkstation.value?.folderPath && !isRefreshingGit) {
         refreshGitStatus()
       }

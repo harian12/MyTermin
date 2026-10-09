@@ -3,13 +3,15 @@ import { invoke } from '@tauri-apps/api/core'
 import type { ListeningPortInfo } from '~/types/terminal'
 import { useTauriPty } from '~/composables/useTauriPty'
 
+// Modul-level singleton agar daftar port dan timer dibagi bersama oleh seluruh modal/footer
+const portsList = ref<ListeningPortInfo[]>([])
+const isLoading = ref(false)
+const isKilling = ref(false)
+const errorMsg = ref<string | null>(null)
+let pollInterval: any = null
+
 export const usePortManager = () => {
   const { isTauri } = useTauriPty()
-  const portsList = ref<ListeningPortInfo[]>([])
-  const isLoading = ref(false)
-  const isKilling = ref(false)
-  const errorMsg = ref<string | null>(null)
-  let pollInterval: any = null
 
   const fetchPorts = async () => {
     if (!isTauri.value) {
@@ -19,6 +21,10 @@ export const usePortManager = () => {
         { protocol: 'TCP', local_address: '127.0.0.1:5173', port: 5173, pid: 9840, process_name: 'vite.exe' },
         { protocol: 'TCP', local_address: '127.0.0.1:8080', port: 8080, pid: 1120, process_name: 'python.exe' }
       ]
+      return
+    }
+
+    if (typeof document !== 'undefined' && document.hidden) {
       return
     }
 
@@ -74,7 +80,7 @@ export const usePortManager = () => {
     }
   }
 
-  const startPolling = (intervalMs = 4000) => {
+  const startPolling = (intervalMs = 10000) => {
     stopPolling()
     fetchPorts()
     pollInterval = setInterval(fetchPorts, intervalMs)

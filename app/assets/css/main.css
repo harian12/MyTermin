@@ -156,3 +156,26 @@
   ) !important;
 }
 
+/* Monaco Find Widget Hover Tooltip Positioning Fix */
+.monaco-editor .context-view.top:has(.workbench-hover-container),
+.monaco-editor .context-view.top:has(.monaco-hover.workbench-hover) {
+  top: 42px !important;
+  z-index: 5000 !important;
+}
+
+.monaco-editor:has(.find-widget.replaceToggled) .context-view.top:has(.workbench-hover-container),
+.monaco-editor:has(.find-widget.replaceToggled) .context-view.top:has(.monaco-hover.workbench-hover) {
+  top: 74px !important;
+}
+
+.monaco-editor .context-view:has(.workbench-hover-container) .workbench-hover-pointer,
+.monaco-editor .context-view:has(.monaco-hover.workbench-hover) .workbench-hover-pointer {
+  top: -3px !important;
+  bottom: auto !important;
+}
+
+.monaco-editor .context-view:has(.workbench-hover-container) .workbench-hover-pointer:after,
+.monaco-editor .context-view:has(.monaco-hover.workbench-hover) .workbench-hover-pointer:after {
+  transform: rotate(225deg) !important;
+}
+
