@@ -7,9 +7,12 @@ interface Props {
   title?: string
   description?: string
   class?: HTMLAttributes['class']
+  zIndex?: string
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  zIndex: 'z-[150]'
+})
 const emit = defineEmits<{
   (e: 'update:open', val: boolean): void
 }>()
@@ -21,7 +24,7 @@ const close = () => {
 
 <template>
   <Teleport to="body">
-    <div v-if="open" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div v-if="open" :class="cn('fixed inset-0 flex items-center justify-center p-4', props.zIndex)">
       <!-- Backdrop -->
       <div
         class="fixed inset-0 bg-black/80 backdrop-blur-sm transition-opacity animate-in fade-in"
@@ -30,7 +33,8 @@ const close = () => {
       <!-- Modal Content -->
       <div
         :class="cn(
-          'relative z-50 flex flex-col w-full max-w-lg max-h-[85vh] overflow-hidden gap-4 border border-border bg-background p-6 shadow-lg sm:rounded-lg animate-in fade-in zoom-in-95',
+          'relative flex flex-col w-full max-w-lg max-h-[85vh] overflow-hidden gap-4 border border-border bg-background p-6 shadow-lg sm:rounded-lg animate-in fade-in zoom-in-95',
+          props.zIndex,
           props.class
         )"
       >
