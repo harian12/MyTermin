@@ -1,15 +1,15 @@
 {
-  "version": "0.2.18",
-  "notes": "Release v0.2.18 - Multi-Terminal & Code Editor Workspace with Auto Update Support.",
-  "pub_date": "2026-10-10T16:36:52.686Z",
+  "version": "0.2.19",
+  "notes": "Release v0.2.19 - Multi-Terminal & Code Editor Workspace with Auto Update Support.",
+  "pub_date": "2026-10-10T16:52:07.825Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcjU5M1ZFMWtCZWN2Z2lwUGxSb2JseEdSZzVIbU5mbXFhRHNWUWpOTEZQanIra1pCVWZ5TFcrc0V2VDN3djRwRXp3VjNTdjNCTFo2YVpNQm9aZlE3RVV4SUlIUXdNU0FNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxNjUwMjA0CWZpbGU6TXlUZXJtaW5fMC4yLjE4X3g2NC1zZXR1cC5leGUKcXQ3RDBGYmh1Y0NhUmpMa2RGbkVBQlo0WU96ZGVieUU1cXl4ZGhqRlVad0IvT1d3MExSNmdmWFR3eHpHNDFxT3VXWkJEMzdUdTVBZFFnaFNpRDZZQlE9PQo=",
-      "url": "https://github.com/harian12/MyTermin/releases/download/v0.2.18/MyTermin_0.2.18_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcjU5M1ZFMWtCZWQydURReFJFRFBhWXA5ZTVzWm1kemhUaE1RUjBRcHpUWUxBNkJqTHI2bkdsZFpGV0JYWlJDWmFHNXAvNU9yT3NYTUlHWGVxcVhtM2tsUkdsYll2elFNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxNjUxMTIyCWZpbGU6TXlUZXJtaW5fMC4yLjE5X3g2NC1zZXR1cC5leGUKbTNRQVd4WnZzN3lOMXZpQ2V4WWtQY05iSHdXanlYdVcxVEJjWHJpWGRJZmdiVkNkZERYcVl6Y3FsYWU4dFpFRjMyNEtKczNlQkM0MEJEUnJwMFo1RHc9PQo=",
+      "url": "https://github.com/harian12/MyTermin/releases/download/v0.2.19/MyTermin_0.2.19_x64-setup.exe"
     },
     "windows-x86_64-nsis": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcjU5M1ZFMWtCZWN2Z2lwUGxSb2JseEdSZzVIbU5mbXFhRHNWUWpOTEZQanIra1pCVWZ5TFcrc0V2VDN3djRwRXp3VjNTdjNCTFo2YVpNQm9aZlE3RVV4SUlIUXdNU0FNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxNjUwMjA0CWZpbGU6TXlUZXJtaW5fMC4yLjE4X3g2NC1zZXR1cC5leGUKcXQ3RDBGYmh1Y0NhUmpMa2RGbkVBQlo0WU96ZGVieUU1cXl4ZGhqRlVad0IvT1d3MExSNmdmWFR3eHpHNDFxT3VXWkJEMzdUdTVBZFFnaFNpRDZZQlE9PQo=",
-      "url": "https://github.com/harian12/MyTermin/releases/download/v0.2.18/MyTermin_0.2.18_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcjU5M1ZFMWtCZWQydURReFJFRFBhWXA5ZTVzWm1kemhUaE1RUjBRcHpUWUxBNkJqTHI2bkdsZFpGV0JYWlJDWmFHNXAvNU9yT3NYTUlHWGVxcVhtM2tsUkdsYll2elFNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxNjUxMTIyCWZpbGU6TXlUZXJtaW5fMC4yLjE5X3g2NC1zZXR1cC5leGUKbTNRQVd4WnZzN3lOMXZpQ2V4WWtQY05iSHdXanlYdVcxVEJjWHJpWGRJZmdiVkNkZERYcVl6Y3FsYWU4dFpFRjMyNEtKczNlQkM0MEJEUnJwMFo1RHc9PQo=",
+      "url": "https://github.com/harian12/MyTermin/releases/download/v0.2.19/MyTermin_0.2.19_x64-setup.exe"
     }
   }
 }

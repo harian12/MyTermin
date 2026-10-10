@@ -45,21 +45,16 @@ async function run() {
 
   const releaseBody = `## MyTermin ${tag} 🚀
 
-Pembaruan **MyTermin ${tag}** — perbaikan sinkronisasi live polling CI/CD & job status.
+Pembaruan **MyTermin ${tag}** — perbaikan z-index modal Pengaturan & kestabilan CI/CD.
 
 ---
 
 ### ✨ Apa yang Baru di ${tag}
-1. **Live Polling Realtime & Countdown Ticker**:
-   - Penghitung waktu mundur aktif per detik (\`Live (6s)\` -> \`5s\` -> \`4s\` -> \`Syncing...\`).
-   - Tombol refresh jobs langsung di header daftar jobs.
-2. **Sinkronisasi Otomatis Status Jobs & Steps**:
-   - Memperbaiki bug status job/step yang sempat membeku (misal: Docker step tetap "Running" padahal workflow run sudah "Success").
-   - Menambahkan cache-busting \`cache: no-store\` pada request API status pipeline.
-3. **Deteksi Otomatis Token dari Git Credential Manager**:
-   - Jika token GitHub/GitLab belum disetel manual di Settings, aplikasi otomatis menggunakan token yang tersimpan di sistem Git lokal.
-4. **Polling Background**:
-   - Status bar bawah secara berkala memeriksa pipeline yang sedang berjalan di background (tiap 25 detik).
+1. **Modal Pengaturan Selalu di Layer Teratas**:
+   - Memperbaiki modal Pengaturan yang sempat tertutup/berada di belakang modal CI/CD Actions saat mengklik tombol input token.
+   - Elevasi z-index UiDialog ke layer teratas sehingga navigasi setting selalu dapat diakses.
+2. **Kestabilan Live Countdown CI/CD**:
+   - Memastikan hitungan mundur dan auto-sync berjalan mulus tanpa freeze pada jobs runner.
 
 ---
 
