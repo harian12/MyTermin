@@ -45,16 +45,18 @@ async function run() {
 
   const releaseBody = `## MyTermin ${tag} 🚀
 
-Pembaruan **MyTermin ${tag}** — perbaikan z-index modal Pengaturan & kestabilan CI/CD.
+Pembaruan **MyTermin ${tag}** — resizable sidebar dan UI perbaikan tombol commit.
 
 ---
 
 ### ✨ Apa yang Baru di ${tag}
-1. **Modal Pengaturan Selalu di Layer Teratas**:
-   - Memperbaiki modal Pengaturan yang sempat tertutup/berada di belakang modal CI/CD Actions saat mengklik tombol input token.
-   - Elevasi z-index UiDialog ke layer teratas sehingga navigasi setting selalu dapat diakses.
-2. **Kestabilan Live Countdown CI/CD**:
-   - Memastikan hitungan mundur dan auto-sync berjalan mulus tanpa freeze pada jobs runner.
+1. **Draggable Resizer Sidebar Workstation**:
+   - Batas kanan sidebar kini dapat digeser (drag) untuk memperbesar atau memperkecil lebar sidebar secara fleksibel (190px - 600px).
+   - Lebar sidebar disimpan otomatis dan double-click pada handle resizer akan mereset ke lebar standar.
+2. **Proporsi Tombol Commit Perubahan**:
+   - Menata ulang tombol commit agar ringkas dan elegan, sejajar rata dengan tombol Amend dan Undo tanpa wrap teks.
+3. **Penyempurnaan Kontrol Auto-Refresh CI/CD**:
+   - Tampilan status auto-refresh yang jelas (State: On/Off) dan tombol kontrol Play/Pause intuitif.
 
 ---
 

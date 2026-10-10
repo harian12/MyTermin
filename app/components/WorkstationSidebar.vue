@@ -47,7 +47,8 @@ import {
   EyeOff,
   FolderMinus,
   FolderGit2,
-  PlayCircle
+  PlayCircle,
+  Loader2
 } from 'lucide-vue-next'
 import type { FileEntry } from '~/types/terminal'
 import type { GitTreeNode } from '~/components/GitFileTreeItem.vue'
@@ -640,14 +641,69 @@ const finishRename = (termId: string) => {
   }
   editingTermId.value = null
 }
+
+// Sidebar Resizing
+const SIDEBAR_WIDTH_KEY = 'mytermin_sidebar_width_v1'
+const DEFAULT_SIDEBAR_WIDTH = 264
+const MIN_SIDEBAR_WIDTH = 190
+const MAX_SIDEBAR_WIDTH = 600
+
+const sidebarWidth = useState<number>('sidebar-width', () => {
+  if (typeof localStorage !== 'undefined') {
+    const saved = localStorage.getItem(SIDEBAR_WIDTH_KEY)
+    if (saved) {
+      const val = Number(saved)
+      if (!isNaN(val) && val >= MIN_SIDEBAR_WIDTH && val <= MAX_SIDEBAR_WIDTH) {
+        return val
+      }
+    }
+  }
+  return DEFAULT_SIDEBAR_WIDTH
+})
+const isResizingSidebar = ref(false)
+
+const startSidebarResize = (e: MouseEvent) => {
+  e.preventDefault()
+  isResizingSidebar.value = true
+  const startX = e.clientX
+  const startWidth = sidebarWidth.value
+
+  const onMouseMove = (moveEvent: MouseEvent) => {
+    if (!isResizingSidebar.value) return
+    const deltaX = moveEvent.clientX - startX
+    const targetWidth = Math.min(Math.max(startWidth + deltaX, MIN_SIDEBAR_WIDTH), MAX_SIDEBAR_WIDTH)
+    sidebarWidth.value = Math.round(targetWidth)
+  }
+
+  const onMouseUp = () => {
+    isResizingSidebar.value = false
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(SIDEBAR_WIDTH_KEY, String(sidebarWidth.value))
+    }
+    window.removeEventListener('mousemove', onMouseMove)
+    window.removeEventListener('mouseup', onMouseUp)
+  }
+
+  window.addEventListener('mousemove', onMouseMove)
+  window.addEventListener('mouseup', onMouseUp)
+}
+
+const resetSidebarWidth = () => {
+  sidebarWidth.value = DEFAULT_SIDEBAR_WIDTH
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem(SIDEBAR_WIDTH_KEY, String(DEFAULT_SIDEBAR_WIDTH))
+  }
+}
 </script>
 
 <template>
   <aside
     :class="[
-      'h-full bg-[#12131a] border-r border-border flex flex-col transition-all duration-200 select-none z-20 flex-shrink-0 relative',
-      isSidebarOpen ? 'w-64' : 'w-12'
+      'h-full bg-[#12131a] border-r border-border flex flex-col select-none z-20 flex-shrink-0 relative',
+      isResizingSidebar ? 'transition-none' : 'transition-[width] duration-200',
+      !isSidebarOpen && 'w-12'
     ]"
+    :style="isSidebarOpen ? { width: `${sidebarWidth}px` } : {}"
   >
     <!-- Sidebar Top Header -->
     <div class="flex items-center justify-between h-10 px-2.5 border-b border-border bg-[#0f1016]">
@@ -1067,20 +1123,30 @@ const finishRename = (termId: string) => {
 
           <div class="flex items-center gap-1.5">
             <button
-              class="flex-1 py-1.5 px-3 rounded bg-primary hover:bg-primary/90 disabled:opacity-40 text-primary-foreground text-xs font-medium flex items-center justify-center gap-1.5 transition-colors shadow-sm"
+              class="flex-1 h-7.5 px-2.5 rounded bg-primary hover:bg-primary/90 disabled:opacity-40 text-primary-foreground text-xs font-medium flex items-center justify-center gap-1.5 transition-colors shadow-xs whitespace-nowrap cursor-pointer disabled:cursor-not-allowed"
               :disabled="!commitMessage.trim() || isCommitting"
+              title="Commit Perubahan (Ctrl+Enter)"
               @click="handleCommit"
             >
-              <GitCommit class="w-3.5 h-3.5" />
-              <span>{{ isCommitting ? 'Menyimpan...' : 'Commit Perubahan' }}</span>
+              <Loader2 v-if="isCommitting" class="w-3.5 h-3.5 animate-spin shrink-0" />
+              <GitCommit v-else class="w-3.5 h-3.5 shrink-0" />
+              <span class="truncate">{{ isCommitting ? 'Menyimpan...' : 'Commit' }}</span>
             </button>
             <UiTooltip text="Amend commit terakhir dengan pesan yang sama" side="bottom">
-              <button class="shrink-0 rounded border border-border/60 px-2 py-1.5 text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-40" :disabled="isAmending" @click="handleAmend">
+              <button
+                class="h-7.5 shrink-0 rounded border border-border/60 px-2.5 text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+                :disabled="isAmending"
+                @click="handleAmend"
+              >
                 Amend
               </button>
             </UiTooltip>
             <UiTooltip text="Batalkan commit terakhir tanpa menghapus perubahan kode (git reset --soft HEAD~1)" side="bottom">
-              <button class="shrink-0 rounded border border-border/60 px-2 py-1.5 text-[11px] text-muted-foreground transition-colors hover:bg-rose-500/20 hover:text-rose-300 hover:border-rose-500/40 disabled:opacity-40" :disabled="isUndoing" @click="handleUndoCommit">
+              <button
+                class="h-7.5 shrink-0 rounded border border-border/60 px-2.5 text-[11px] text-muted-foreground transition-colors hover:bg-rose-500/20 hover:text-rose-300 hover:border-rose-500/40 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+                :disabled="isUndoing"
+                @click="handleUndoCommit"
+              >
                 Undo
               </button>
             </UiTooltip>
@@ -1510,6 +1576,28 @@ const finishRename = (termId: string) => {
           <span>Hapus Permanen</span>
         </button>
       </div>
+    </Teleport>
+
+    <!-- Draggable Sidebar Resizer Handle -->
+    <div
+      v-if="isSidebarOpen"
+      class="absolute -right-1.5 top-0 bottom-0 w-3 z-30 cursor-col-resize select-none flex items-center justify-center group/resizer"
+      title="Geser untuk mengatur lebar sidebar (Double-click untuk reset)"
+      @mousedown="startSidebarResize"
+      @dblclick="resetSidebarWidth"
+    >
+      <div
+        class="w-0.5 h-full transition-colors rounded-full"
+        :class="isResizingSidebar ? 'bg-primary w-1' : 'bg-transparent group-hover/resizer:bg-primary/50'"
+      />
+    </div>
+
+    <!-- Fullscreen drag overlay to prevent iframe / editor mouse hijacking -->
+    <Teleport to="body">
+      <div
+        v-if="isResizingSidebar"
+        class="fixed inset-0 z-[9999] cursor-col-resize select-none"
+      />
     </Teleport>
   </aside>
 </template>
