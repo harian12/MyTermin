@@ -2651,6 +2651,43 @@ fn glab_pipeline_cancel(repo_path: String, pipeline_id: u64) -> Result<String, S
 }
 
 #[tauri::command]
+fn git_get_credential_token(host: String) -> Result<String, String> {
+    use std::io::Write;
+    let mut cmd = std::process::Command::new("git");
+    cmd.args(&["credential", "fill"]);
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x08000000);
+    }
+    cmd.stdin(std::process::Stdio::piped());
+    cmd.stdout(std::process::Stdio::piped());
+    cmd.stderr(std::process::Stdio::null());
+
+    let mut child = cmd.spawn().map_err(|e| e.to_string())?;
+    if let Some(mut stdin) = child.stdin.take() {
+        let input = format!("protocol=https\nhost={}\n\n", host.trim());
+        let _ = stdin.write_all(input.as_bytes());
+    }
+
+    let output = child.wait_with_output().map_err(|e| e.to_string())?;
+    if !output.status.success() {
+        return Err("Gagal mengambil credential dari git".into());
+    }
+
+    let text = String::from_utf8_lossy(&output.stdout);
+    for line in text.lines() {
+        if let Some(token) = line.strip_prefix("password=") {
+            let trimmed = token.trim();
+            if !trimmed.is_empty() {
+                return Ok(trimmed.to_string());
+            }
+        }
+    }
+    Err("Password tidak ditemukan di credential helper".into())
+}
+
+#[tauri::command]
 fn open_url(url: String) -> Result<(), String> {
     let trimmed = url.trim();
     if !(trimmed.starts_with("http://") || trimmed.starts_with("https://")) {
@@ -2956,6 +2993,7 @@ fn main() {
             glab_pipeline_view,
             glab_pipeline_retry,
             glab_pipeline_cancel,
+            git_get_credential_token,
             git_worktree_list,
             git_worktree_add,
             git_worktree_remove,

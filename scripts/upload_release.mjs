@@ -45,22 +45,21 @@ async function run() {
 
   const releaseBody = `## MyTermin ${tag} 🚀
 
-Pembaruan **MyTermin ${tag}** — integrasi CI/CD pipelines (GitHub Actions & GitLab CI) terpadu.
+Pembaruan **MyTermin ${tag}** — perbaikan sinkronisasi live polling CI/CD & job status.
 
 ---
 
 ### ✨ Apa yang Baru di ${tag}
-1. **Dukungan GitHub Actions & GitLab CI/CD**:
-   - Deteksi otomatis remote repository (GitHub vs GitLab, termasuk custom/self-hosted GitLab).
-   - Pantau riwayat pipeline, workflow run, jobs, dan step status langsung dari aplikasi.
-2. **Live Monitoring & Auto-Polling**:
-   - Filter khusus workflow yang sedang berjalan ("Running") dengan live badge berdenyut.
-   - Auto-refresh background tiap 6 detik dan indikator running di status bar bawah serta toolbar Git sidebar.
-3. **Kontrol Interaktif**:
-   - Retry / Re-run workflow dan pembatalan (cancel) langsung dari antarmuka aplikasi.
-   - Pintasan langsung membuka commit dan jobs di browser.
-4. **Konfigurasi Token**:
-   - Input Personal Access Token untuk GitHub dan GitLab di Pengaturan untuk repositori private.
+1. **Live Polling Realtime & Countdown Ticker**:
+   - Penghitung waktu mundur aktif per detik (\`Live (6s)\` -> \`5s\` -> \`4s\` -> \`Syncing...\`).
+   - Tombol refresh jobs langsung di header daftar jobs.
+2. **Sinkronisasi Otomatis Status Jobs & Steps**:
+   - Memperbaiki bug status job/step yang sempat membeku (misal: Docker step tetap "Running" padahal workflow run sudah "Success").
+   - Menambahkan cache-busting \`cache: no-store\` pada request API status pipeline.
+3. **Deteksi Otomatis Token dari Git Credential Manager**:
+   - Jika token GitHub/GitLab belum disetel manual di Settings, aplikasi otomatis menggunakan token yang tersimpan di sistem Git lokal.
+4. **Polling Background**:
+   - Status bar bawah secara berkala memeriksa pipeline yang sedang berjalan di background (tiap 25 detik).
 
 ---
 

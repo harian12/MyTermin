@@ -85,11 +85,33 @@ export const useGitHubActions = () => {
   const isCliAvailable = useState<boolean>('github-actions-cli-avail', () => false)
   const dataSource = useState<'cli' | 'api' | null>('github-actions-data-source', () => null)
 
+  const isPollingActive = useState<boolean>('github-actions-polling-active', () => true)
+  const isSyncingLive = useState<boolean>('github-actions-syncing-live', () => false)
+  const pollCountdown = useState<number>('github-actions-poll-countdown', () => 6)
+  const lastSyncTime = useState<string>('github-actions-last-sync-time', () => '')
+
   const currentRepoPath = () => activeWorkstation.value?.folderPath || ''
 
   const runningCount = computed(() => {
     return runs.value.filter((r) => r.status === 'in_progress' || r.status === 'queued').length
   })
+
+  const resolveToken = async (host: string, customToken?: string): Promise<string> => {
+    if (customToken && customToken.trim()) {
+      return customToken.trim()
+    }
+    if (isTauri()) {
+      try {
+        const autoToken = await invoke<string>('git_get_credential_token', { host })
+        if (autoToken && autoToken.trim()) {
+          return autoToken.trim()
+        }
+      } catch {
+        // Fallback
+      }
+    }
+    return ''
+  }
 
   const detectRepo = async (path?: string): Promise<RemoteRepoInfo | null> => {
     const targetPath = path || currentRepoPath()
@@ -216,7 +238,7 @@ export const useGitHubActions = () => {
         }
 
         if (!cliSuccess) {
-          let apiUrl = `https://api.github.com/repos/${repo.projectPath}/actions/runs?per_page=30`
+          let apiUrl = `https://api.github.com/repos/${repo.projectPath}/actions/runs?per_page=30&_t=${Date.now()}`
           if (branch && branch !== 'all') {
             apiUrl += `&branch=${encodeURIComponent(branch)}`
           }
@@ -225,11 +247,12 @@ export const useGitHubActions = () => {
             Accept: 'application/vnd.github+json',
             'User-Agent': 'MyTermin'
           }
-          if (settings.value.githubToken && settings.value.githubToken.trim()) {
-            headers['Authorization'] = `Bearer ${settings.value.githubToken.trim()}`
+          const token = await resolveToken(repo.host, settings.value.githubToken)
+          if (token) {
+            headers['Authorization'] = `Bearer ${token}`
           }
 
-          const res = await fetch(apiUrl, { headers })
+          const res = await fetch(apiUrl, { headers, cache: 'no-store' })
           if (!res.ok) {
             if (res.status === 404) {
               throw new Error(`Repositori ${repo.projectPath} tidak ditemukan atau private (masukkan GitHub Token di Pengaturan).`)
@@ -299,7 +322,7 @@ export const useGitHubActions = () => {
         }
 
         if (!cliSuccess) {
-          let apiUrl = `https://${repo.host}/api/v4/projects/${repo.encodedPath}/pipelines?per_page=30`
+          let apiUrl = `https://${repo.host}/api/v4/projects/${repo.encodedPath}/pipelines?per_page=30&_t=${Date.now()}`
           if (branch && branch !== 'all') {
             apiUrl += `&ref=${encodeURIComponent(branch)}`
           }
@@ -307,11 +330,12 @@ export const useGitHubActions = () => {
           const headers: Record<string, string> = {
             Accept: 'application/json'
           }
-          if (settings.value.gitlabToken && settings.value.gitlabToken.trim()) {
-            headers['PRIVATE-TOKEN'] = settings.value.gitlabToken.trim()
+          const token = await resolveToken(repo.host, settings.value.gitlabToken)
+          if (token) {
+            headers['PRIVATE-TOKEN'] = token
           }
 
-          const res = await fetch(apiUrl, { headers })
+          const res = await fetch(apiUrl, { headers, cache: 'no-store' })
           if (!res.ok) {
             if (res.status === 404) {
               throw new Error(`Project GitLab ${repo.projectPath} tidak ditemukan atau private (masukkan GitLab Token di Pengaturan).`)
@@ -350,11 +374,13 @@ export const useGitHubActions = () => {
 
       // Auto-pilih run pertama atau sinkronkan run yang terpilih
       if (runs.value.length > 0 && !selectedRun.value) {
-        selectRun(runs.value[0] || null, silent)
+        await selectRun(runs.value[0] || null, silent)
       } else if (selectedRun.value) {
         const found = runs.value.find((r) => r.id === selectedRun.value?.id)
         if (found) {
           selectedRun.value = found
+          // KUNCI: Selalu perbarui status jobs pada run terpilih agar step tidak membeku di status lama
+          await selectRun(found, true)
         }
       }
     } catch (e: any) {
@@ -373,11 +399,11 @@ export const useGitHubActions = () => {
     selectedRun.value = run
     if (!silent) {
       jobs.value = []
-    }
-    if (!run) return
-
-    if (!silent) {
       isLoadingJobs.value = true
+    }
+    if (!run) {
+      if (!silent) isLoadingJobs.value = false
+      return
     }
 
     try {
@@ -425,12 +451,14 @@ export const useGitHubActions = () => {
             Accept: 'application/vnd.github+json',
             'User-Agent': 'MyTermin'
           }
-          if (settings.value.githubToken && settings.value.githubToken.trim()) {
-            headers['Authorization'] = `Bearer ${settings.value.githubToken.trim()}`
+          const token = await resolveToken(repo.host, settings.value.githubToken)
+          if (token) {
+            headers['Authorization'] = `Bearer ${token}`
           }
 
-          const res = await fetch(`https://api.github.com/repos/${repo.projectPath}/actions/runs/${run.id}/jobs`, {
-            headers
+          const res = await fetch(`https://api.github.com/repos/${repo.projectPath}/actions/runs/${run.id}/jobs?_t=${Date.now()}`, {
+            headers,
+            cache: 'no-store'
           })
           if (res.ok) {
             const data = await res.json()
@@ -459,12 +487,14 @@ export const useGitHubActions = () => {
         const headers: Record<string, string> = {
           Accept: 'application/json'
         }
-        if (settings.value.gitlabToken && settings.value.gitlabToken.trim()) {
-          headers['PRIVATE-TOKEN'] = settings.value.gitlabToken.trim()
+        const token = await resolveToken(repo.host, settings.value.gitlabToken)
+        if (token) {
+          headers['PRIVATE-TOKEN'] = token
         }
 
-        const res = await fetch(`https://${repo.host}/api/v4/projects/${repo.encodedPath}/pipelines/${run.id}/jobs`, {
-          headers
+        const res = await fetch(`https://${repo.host}/api/v4/projects/${repo.encodedPath}/pipelines/${run.id}/jobs?_t=${Date.now()}`, {
+          headers,
+          cache: 'no-store'
         })
         if (res.ok) {
           const data = await res.json()
@@ -496,16 +526,40 @@ export const useGitHubActions = () => {
     }
   }
 
-  const startPolling = (intervalMs = 6000) => {
+  const startPolling = (intervalSec = 6) => {
     stopPolling()
+    isPollingActive.value = true
+    pollCountdown.value = intervalSec
+
     pollTimer = setInterval(async () => {
-      if (typeof document !== 'undefined' && document.hidden) return
-      if (!currentRepoPath()) return
-      await fetchRuns(activeBranchFilter.value, true)
-      if (selectedRun.value && (selectedRun.value.status === 'in_progress' || selectedRun.value.status === 'queued')) {
-        await selectRun(selectedRun.value, true)
+      const path = currentRepoPath()
+      if (!path) return
+
+      if (pollCountdown.value > 1) {
+        pollCountdown.value--
+        return
       }
-    }, intervalMs)
+
+      // Hit countdown 1 -> 0: Fetch fresh runs & jobs
+      pollCountdown.value = intervalSec
+      isSyncingLive.value = true
+      try {
+        await fetchRuns(activeBranchFilter.value, true)
+        if (selectedRun.value) {
+          await selectRun(selectedRun.value, true)
+        }
+        const now = new Date()
+        lastSyncTime.value = now.toLocaleTimeString(undefined, {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit'
+        })
+      } catch {
+        // silent
+      } finally {
+        isSyncingLive.value = false
+      }
+    }, 1000)
   }
 
   const stopPolling = () => {
@@ -513,6 +567,7 @@ export const useGitHubActions = () => {
       clearInterval(pollTimer)
       pollTimer = null
     }
+    isPollingActive.value = false
   }
 
   const rerunRun = async (runId: number): Promise<boolean> => {
@@ -532,13 +587,14 @@ export const useGitHubActions = () => {
           return true
         }
 
-        if (settings.value.githubToken) {
+        const token = await resolveToken(repo.host, settings.value.githubToken)
+        if (token) {
           const res = await fetch(`https://api.github.com/repos/${repo.projectPath}/actions/runs/${runId}/rerun`, {
             method: 'POST',
             headers: {
               Accept: 'application/vnd.github+json',
               'User-Agent': 'MyTermin',
-              Authorization: `Bearer ${settings.value.githubToken.trim()}`
+              Authorization: `Bearer ${token}`
             }
           })
           if (res.ok) {
@@ -553,12 +609,13 @@ export const useGitHubActions = () => {
           return true
         }
 
-        if (settings.value.gitlabToken) {
+        const token = await resolveToken(repo.host, settings.value.gitlabToken)
+        if (token) {
           const res = await fetch(`https://${repo.host}/api/v4/projects/${repo.encodedPath}/pipelines/${runId}/retry`, {
             method: 'POST',
             headers: {
               Accept: 'application/json',
-              'PRIVATE-TOKEN': settings.value.gitlabToken.trim()
+              'PRIVATE-TOKEN': token
             }
           })
           if (res.ok) {
@@ -592,13 +649,14 @@ export const useGitHubActions = () => {
           return true
         }
 
-        if (settings.value.githubToken) {
+        const token = await resolveToken(repo.host, settings.value.githubToken)
+        if (token) {
           const res = await fetch(`https://api.github.com/repos/${repo.projectPath}/actions/runs/${runId}/cancel`, {
             method: 'POST',
             headers: {
               Accept: 'application/vnd.github+json',
               'User-Agent': 'MyTermin',
-              Authorization: `Bearer ${settings.value.githubToken.trim()}`
+              Authorization: `Bearer ${token}`
             }
           })
           if (res.ok) {
@@ -613,12 +671,13 @@ export const useGitHubActions = () => {
           return true
         }
 
-        if (settings.value.gitlabToken) {
+        const token = await resolveToken(repo.host, settings.value.gitlabToken)
+        if (token) {
           const res = await fetch(`https://${repo.host}/api/v4/projects/${repo.encodedPath}/pipelines/${runId}/cancel`, {
             method: 'POST',
             headers: {
               Accept: 'application/json',
-              'PRIVATE-TOKEN': settings.value.gitlabToken.trim()
+              'PRIVATE-TOKEN': token
             }
           })
           if (res.ok) {
@@ -662,6 +721,10 @@ export const useGitHubActions = () => {
     isCliAvailable,
     dataSource,
     runningCount,
+    isPollingActive,
+    isSyncingLive,
+    pollCountdown,
+    lastSyncTime,
     detectRepo,
     fetchRuns,
     selectRun,

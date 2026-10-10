@@ -58,7 +58,7 @@ const {
 } = useEditorStore()
 const { gitBranch, gitOverview, refreshGitStatus, startGitPolling, stopGitPolling, fetchBranches, pullGit, pushGit } = useProjectExplorer()
 const { aheadBehind, fetchAll } = useGitExtras()
-const { runningCount: actionsRunningCount } = useGitHubActions()
+const { runningCount: actionsRunningCount, detectRepo, fetchRuns: fetchCiRuns } = useGitHubActions()
 const sidebarActiveTab = useState<'explorer' | 'git' | 'terminals'>('sidebar-active-tab', () => 'explorer')
 const { isTauri, writePty, pasteFromClipboard, copyToClipboard } = useTauriPty()
 const { isShortcut, requestDesktopNotification, settings, updateSettings } = useSettingsStore()
@@ -782,12 +782,29 @@ onMounted(async () => {
   startPortPolling(5000)
   startGitPolling(3000)
 
+  // Background check CI/CD pipeline runs (setiap 25 detik jika ada git repo)
+  let cicdTimer: any = null
+  if (isTauri.value) {
+    setTimeout(async () => {
+      if (activeWorkstation.value?.folderPath) {
+        await detectRepo()
+        await fetchCiRuns(undefined, true)
+      }
+    }, 4000)
+    cicdTimer = setInterval(async () => {
+      if (activeWorkstation.value?.folderPath) {
+        await fetchCiRuns(undefined, true)
+      }
+    }, 25000)
+  }
+
   window.addEventListener('beforeunload', () => {
     saveSession(false)
     saveEditorSession()
     persistWindowState()
     stopPortPolling()
     stopGitPolling()
+    if (cicdTimer) clearInterval(cicdTimer)
   })
   window.addEventListener('error', handleGlobalError)
   window.addEventListener('unhandledrejection', handleUnhandledRejection)

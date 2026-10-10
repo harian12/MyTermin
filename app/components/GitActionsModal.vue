@@ -50,6 +50,10 @@ const {
   activeBranchFilter,
   dataSource,
   runningCount,
+  isPollingActive,
+  isSyncingLive,
+  pollCountdown,
+  lastSyncTime,
   detectRepo,
   fetchRuns,
   selectRun,
@@ -66,7 +70,6 @@ const { showAppConfirm, showAppAlert } = useAppDialog()
 
 const searchQuery = ref('')
 const statusFilter = ref<'all' | 'running' | 'success' | 'failure'>('all')
-const isLivePolling = ref(true)
 const expandedJobs = ref<Record<string | number, boolean>>({})
 
 const toggleJobExpand = (jobId: string | number) => {
@@ -86,8 +89,11 @@ watch(
         activeBranchFilter.value = 'all'
       }
       await fetchRuns(activeBranchFilter.value)
-      if (isLivePolling.value) {
-        startPolling(6000)
+      if (selectedRun.value) {
+        await selectRun(selectedRun.value)
+      }
+      if (isPollingActive.value) {
+        startPolling(6)
       }
     } else {
       stopPolling()
@@ -96,11 +102,10 @@ watch(
 )
 
 const toggleLivePolling = () => {
-  isLivePolling.value = !isLivePolling.value
-  if (isLivePolling.value) {
-    startPolling(6000)
-  } else {
+  if (isPollingActive.value) {
     stopPolling()
+  } else {
+    startPolling(6)
   }
 }
 
@@ -112,10 +117,22 @@ const handleBranchChange = async (event: Event) => {
   const target = event.target as HTMLSelectElement
   activeBranchFilter.value = target.value
   await fetchRuns(activeBranchFilter.value)
+  if (selectedRun.value) {
+    await selectRun(selectedRun.value)
+  }
 }
 
 const handleRefresh = async () => {
   await fetchRuns(activeBranchFilter.value)
+  if (selectedRun.value) {
+    await selectRun(selectedRun.value, false)
+  }
+  const now = new Date()
+  lastSyncTime.value = now.toLocaleTimeString(undefined, {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  })
 }
 
 const filteredRuns = computed(() => {
@@ -300,26 +317,29 @@ const handleCancel = async () => {
               </select>
             </div>
 
-            <!-- Live Polling Toggle -->
+            <!-- Live Polling Toggle & Countdown -->
             <button
-              class="flex items-center gap-1 px-2 py-1 rounded text-xs border transition-colors cursor-pointer"
-              :class="isLivePolling ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : 'bg-background/40 text-muted-foreground border-border/50 hover:text-foreground'"
-              title="Toggle Live Auto-Refresh (setiap 6 detik)"
+              class="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs border transition-colors cursor-pointer"
+              :class="isPollingActive ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : 'bg-background/40 text-muted-foreground border-border/50 hover:text-foreground'"
+              :title="isPollingActive ? 'Live auto-refresh aktif. Klik untuk jeda (pause).' : 'Live auto-refresh dijeda. Klik untuk aktifkan.'"
               @click="toggleLivePolling"
             >
-              <Radio class="w-3 h-3" :class="isLivePolling && 'animate-pulse text-emerald-400'" />
-              <span class="text-[11px] font-medium">{{ isLivePolling ? 'Live (6s)' : 'Pause' }}</span>
+              <RefreshCw v-if="isSyncingLive" class="w-3 h-3 animate-spin text-emerald-400" />
+              <Radio v-else class="w-3 h-3" :class="isPollingActive ? 'animate-pulse text-emerald-400' : 'text-muted-foreground'" />
+              <span class="text-[11px] font-mono font-medium">
+                {{ isSyncingLive ? 'Syncing...' : isPollingActive ? `Live (${pollCountdown}s)` : 'Paused' }}
+              </span>
             </button>
 
             <!-- Refresh Button -->
             <button
-              class="p-1.5 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+              class="p-1.5 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors cursor-pointer flex items-center gap-1"
               :class="isLoadingRuns && 'opacity-60 cursor-not-allowed'"
-              title="Refresh Runs Sekarang"
+              :title="lastSyncTime ? `Terakhir diperbarui: ${lastSyncTime}. Klik untuk refresh sekarang.` : 'Refresh Runs Sekarang'"
               :disabled="isLoadingRuns"
               @click="handleRefresh"
             >
-              <RefreshCw class="w-4 h-4" :class="isLoadingRuns && 'animate-spin text-primary'" />
+              <RefreshCw class="w-4 h-4" :class="(isLoadingRuns || isSyncingLive) && 'animate-spin text-primary'" />
             </button>
 
             <!-- Close Button -->
@@ -574,10 +594,20 @@ const handleCancel = async () => {
                     <Layers class="w-3.5 h-3.5 text-indigo-400" />
                     <span>Jobs & Steps ({{ jobs.length }})</span>
                   </div>
-                  <span v-if="isLoadingJobs || selectedRun.status === 'in_progress'" class="text-[11px] text-sky-400 animate-pulse flex items-center gap-1">
-                    <Loader2 class="w-3 h-3 animate-spin" />
-                    {{ selectedRun.status === 'in_progress' ? 'Live updating jobs...' : 'Memuat status jobs...' }}
-                  </span>
+                  <div class="flex items-center gap-2">
+                    <span v-if="isLoadingJobs || isSyncingLive" class="text-[11px] text-sky-400 animate-pulse flex items-center gap-1">
+                      <Loader2 class="w-3 h-3 animate-spin" />
+                      {{ isSyncingLive ? 'Syncing...' : 'Memuat status jobs...' }}
+                    </span>
+                    <button
+                      class="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                      title="Perbarui status jobs sekarang"
+                      :disabled="isLoadingJobs"
+                      @click="selectedRun && selectRun(selectedRun)"
+                    >
+                      <RefreshCw class="w-3 h-3" :class="isLoadingJobs && 'animate-spin text-primary'" />
+                    </button>
+                  </div>
                 </div>
 
                 <div v-if="!isLoadingJobs && jobs.length === 0" class="p-6 text-center text-muted-foreground text-xs">
