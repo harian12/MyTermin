@@ -23,7 +23,8 @@ import {
   AppWindow,
   ListTodo,
   Search as SearchIcon,
-  FileEdit
+  FileEdit,
+  PlayCircle
 } from 'lucide-vue-next'
 import { TERMINAL_THEMES } from '~/composables/useThemes'
 import { useEditorStore } from '~/composables/useEditorStore'
@@ -31,6 +32,7 @@ import { useEditorStore } from '~/composables/useEditorStore'
 const emit = defineEmits<{
   (e: 'open-settings'): void
   (e: 'open-presets'): void
+  (e: 'open-git-actions'): void
 }>()
 
 const {
@@ -287,6 +289,14 @@ const allCommands = computed<CommandItem[]>(() => {
       category: 'System',
       icon: Settings,
       action: () => emit('open-settings')
+    },
+    {
+      id: 'open-git-actions',
+      title: 'CI/CD Pipelines: GitHub Actions & GitLab CI',
+      subtitle: 'Pantau status pipeline, jobs, dan riwayat CI/CD GitHub & GitLab',
+      category: 'System',
+      icon: PlayCircle,
+      action: () => emit('open-git-actions')
     },
     {
       id: 'toggle-task-panel',

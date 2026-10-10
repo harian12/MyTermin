@@ -45,19 +45,22 @@ async function run() {
 
   const releaseBody = `## MyTermin ${tag} 🚀
 
-Pembaruan **MyTermin ${tag}** — perbaikan stabilitas terminal & persistensi workspace.
+Pembaruan **MyTermin ${tag}** — integrasi CI/CD pipelines (GitHub Actions & GitLab CI) terpadu.
 
 ---
 
 ### ✨ Apa yang Baru di ${tag}
-1. **Terminal tetap hidup saat pindah workstation**:
-   - Proses yang berjalan di terminal (mis. \`bun run dev\`, \`opencode\`, server lokal) tidak restart lagi saat berpindah antar workstation lalu kembali.
-   - Isi terminal, scrollback, tab aktif, dan layout tiap workstation tetap persis seperti saat ditinggalkan.
-   - Empty state workstation kosong kini ditampilkan sebagai overlay — grid terminal tidak lagi unmount.
-2. **Posisi split terminal per-workstation**:
-   - Garis pembagian split (split-h / split-v) disimpan per-workstation, bukan global.
-3. **Cegah kebocoran proses PTY**:
-   - Sesi PTY lama dengan id yang sama otomatis dimatikan saat dibuat ulang — tidak ada proses yatim yang menumpuk.
+1. **Dukungan GitHub Actions & GitLab CI/CD**:
+   - Deteksi otomatis remote repository (GitHub vs GitLab, termasuk custom/self-hosted GitLab).
+   - Pantau riwayat pipeline, workflow run, jobs, dan step status langsung dari aplikasi.
+2. **Live Monitoring & Auto-Polling**:
+   - Filter khusus workflow yang sedang berjalan ("Running") dengan live badge berdenyut.
+   - Auto-refresh background tiap 6 detik dan indikator running di status bar bawah serta toolbar Git sidebar.
+3. **Kontrol Interaktif**:
+   - Retry / Re-run workflow dan pembatalan (cancel) langsung dari antarmuka aplikasi.
+   - Pintasan langsung membuka commit dan jobs di browser.
+4. **Konfigurasi Token**:
+   - Input Personal Access Token untuk GitHub dan GitLab di Pengaturan untuk repositori private.
 
 ---
 

@@ -46,7 +46,8 @@ import {
   Archive,
   EyeOff,
   FolderMinus,
-  FolderGit2
+  FolderGit2,
+  PlayCircle
 } from 'lucide-vue-next'
 import type { FileEntry } from '~/types/terminal'
 import type { GitTreeNode } from '~/components/GitFileTreeItem.vue'
@@ -110,10 +111,13 @@ const {
 
 const { openFile, openGitDiffTab } = useEditorStore()
 const { showAppAlert, showAppConfirm, showAppPrompt } = useAppDialog()
+const { runningCount: actionsRunningCount } = useGitHubActions()
 
 const emit = defineEmits<{
   (e: 'open-presets'): void
   (e: 'open-palette'): void
+  (e: 'open-settings', tab?: string): void
+  (e: 'open-git-actions'): void
 }>()
 
 const activeTab = useState<'explorer' | 'git' | 'terminals'>('sidebar-active-tab', () => 'explorer')
@@ -132,6 +136,7 @@ const commitResultMsg = ref<string | null>(null)
 const showBranchPicker = ref(false)
 const showGitGraphModal = ref(false)
 const showBranchCompareModal = ref(false)
+const showGitActionsModal = ref(false)
 const showCommitHistory = ref(false)
 const gitViewMode = ref<'tree' | 'list'>('tree')
 
@@ -996,6 +1001,20 @@ const finishRename = (termId: string) => {
               </button>
             </UiTooltip>
 
+            <!-- GitHub / GitLab CI/CD Button -->
+            <UiTooltip :text="`Buka CI/CD Pipelines (GitHub & GitLab)${actionsRunningCount > 0 ? ` (${actionsRunningCount} running)` : ''}`" side="bottom">
+              <button
+                class="p-1 rounded hover:bg-accent text-muted-foreground hover:text-indigo-400 transition-colors cursor-pointer relative"
+                @click="showGitActionsModal = true"
+              >
+                <PlayCircle class="w-3.5 h-3.5" :class="actionsRunningCount > 0 ? 'text-sky-400' : 'text-indigo-400'" />
+                <span v-if="actionsRunningCount > 0" class="absolute -top-0.5 -right-0.5 flex h-2 w-2 z-10 pointer-events-none">
+                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75"></span>
+                  <span class="relative inline-flex rounded-full h-2 w-2 bg-sky-500"></span>
+                </span>
+              </button>
+            </UiTooltip>
+
             <!-- Toggle Tree vs List View -->
             <UiTooltip :text="gitViewMode === 'tree' ? 'Ganti ke Tampilan Daftar (List View)' : 'Ganti ke Tampilan Pohon Folder (Tree View)'" side="bottom">
               <button class="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors" @click="gitViewMode = gitViewMode === 'tree' ? 'list' : 'tree'">
@@ -1403,6 +1422,9 @@ const finishRename = (termId: string) => {
 
     <!-- Visual Branch Compare & Diff Modal -->
     <BranchCompareModal v-model:open="showBranchCompareModal" />
+
+    <!-- GitHub Actions Modal -->
+    <GitActionsModal v-model:open="showGitActionsModal" @open-settings="(tab?: string) => emit('open-settings', tab)" />
 
     <!-- Tree Node Right-Click Context Menu -->
     <Teleport to="body">

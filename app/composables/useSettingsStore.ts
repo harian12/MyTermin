@@ -48,7 +48,9 @@ const defaultSettings: TerminalSettings = {
   editorRenderWhitespace: 'selection',
   editorRenderIndentGuides: true,
   closeToTray: false,
-  audioBell: false
+  audioBell: false,
+  githubToken: '',
+  gitlabToken: ''
 }
 
 const MODIFIER_LABELS: Record<string, string> = {

@@ -2461,6 +2461,195 @@ fn git_create_tag(repo_path: String, tag_name: String, message: Option<String>) 
     }
 }
 
+// ===== Utilitas GitHub CLI & Remote =====
+fn run_gh_output(root: &Path, args: &[&str]) -> Result<String, String> {
+    let mut cmd = std::process::Command::new("gh");
+    cmd.args(args).current_dir(root);
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x08000000);
+    }
+    let output = cmd.output().map_err(|e| format!("GH CLI error: {}", e))?;
+    if !output.status.success() {
+        let err = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        let out = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        return Err(if err.is_empty() {
+            if out.is_empty() { format!("gh {} gagal", args.join(" ")) } else { out }
+        } else {
+            err
+        });
+    }
+    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+}
+
+#[tauri::command]
+fn git_get_remote_url(repo_path: String) -> Result<String, String> {
+    let root = Path::new(&repo_path);
+    if !root.exists() {
+        return Err("Path tidak ditemukan".into());
+    }
+    run_git_output(root, &["config", "--get", "remote.origin.url"])
+        .or_else(|_| run_git_output(root, &["remote", "get-url", "origin"]))
+}
+
+#[tauri::command]
+fn gh_is_available() -> bool {
+    let mut cmd = std::process::Command::new("gh");
+    cmd.arg("--version");
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x08000000);
+    }
+    cmd.output().map(|o| o.status.success()).unwrap_or(false)
+}
+
+#[tauri::command]
+fn gh_run_list(repo_path: String, branch: Option<String>, limit: Option<usize>) -> Result<String, String> {
+    let root = Path::new(&repo_path);
+    if !root.exists() {
+        return Err("Path tidak ditemukan".into());
+    }
+    let limit_str = limit.unwrap_or(20).to_string();
+    let mut args = vec![
+        "run", "list",
+        "--json", "databaseId,name,headBranch,headSha,status,conclusion,event,createdAt,updatedAt,url,number,workflowName,displayTitle",
+        "-L", &limit_str,
+    ];
+    let branch_str;
+    if let Some(b) = &branch {
+        if !b.trim().is_empty() {
+            branch_str = b.trim();
+            args.push("-b");
+            args.push(branch_str);
+        }
+    }
+    run_gh_output(root, &args)
+}
+
+#[tauri::command]
+fn gh_run_view_jobs(repo_path: String, run_id: u64) -> Result<String, String> {
+    let root = Path::new(&repo_path);
+    if !root.exists() {
+        return Err("Path tidak ditemukan".into());
+    }
+    let id_str = run_id.to_string();
+    run_gh_output(root, &["run", "view", &id_str, "--json", "jobs"])
+}
+
+#[tauri::command]
+fn gh_run_rerun(repo_path: String, run_id: u64) -> Result<String, String> {
+    let root = Path::new(&repo_path);
+    if !root.exists() {
+        return Err("Path tidak ditemukan".into());
+    }
+    let id_str = run_id.to_string();
+    run_gh_output(root, &["run", "rerun", &id_str])
+}
+
+#[tauri::command]
+fn gh_run_cancel(repo_path: String, run_id: u64) -> Result<String, String> {
+    let root = Path::new(&repo_path);
+    if !root.exists() {
+        return Err("Path tidak ditemukan".into());
+    }
+    let id_str = run_id.to_string();
+    run_gh_output(root, &["run", "cancel", &id_str])
+}
+
+#[tauri::command]
+fn gh_workflow_run(repo_path: String, workflow: String, branch: Option<String>) -> Result<String, String> {
+    let root = Path::new(&repo_path);
+    if !root.exists() {
+        return Err("Path tidak ditemukan".into());
+    }
+    let mut args = vec!["workflow", "run", workflow.trim()];
+    let branch_str;
+    if let Some(b) = &branch {
+        if !b.trim().is_empty() {
+            branch_str = b.trim();
+            args.push("--ref");
+            args.push(branch_str);
+        }
+    }
+    run_gh_output(root, &args)
+}
+
+// ===== Utilitas GitLab CLI =====
+fn run_glab_output(root: &Path, args: &[&str]) -> Result<String, String> {
+    let mut cmd = std::process::Command::new("glab");
+    cmd.args(args).current_dir(root);
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x08000000);
+    }
+    let output = cmd.output().map_err(|e| format!("GLab CLI error: {}", e))?;
+    if !output.status.success() {
+        let err = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        let out = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        return Err(if err.is_empty() {
+            if out.is_empty() { format!("glab {} gagal", args.join(" ")) } else { out }
+        } else {
+            err
+        });
+    }
+    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+}
+
+#[tauri::command]
+fn glab_is_available() -> bool {
+    let mut cmd = std::process::Command::new("glab");
+    cmd.arg("--version");
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x08000000);
+    }
+    cmd.output().map(|o| o.status.success()).unwrap_or(false)
+}
+
+#[tauri::command]
+fn glab_pipeline_list(repo_path: String, limit: Option<usize>) -> Result<String, String> {
+    let root = Path::new(&repo_path);
+    if !root.exists() {
+        return Err("Path tidak ditemukan".into());
+    }
+    let limit_str = limit.unwrap_or(20).to_string();
+    run_glab_output(root, &["pipeline", "list", "--output", "json", "-p", "1", "-P", &limit_str])
+}
+
+#[tauri::command]
+fn glab_pipeline_view(repo_path: String, pipeline_id: u64) -> Result<String, String> {
+    let root = Path::new(&repo_path);
+    if !root.exists() {
+        return Err("Path tidak ditemukan".into());
+    }
+    let id_str = pipeline_id.to_string();
+    run_glab_output(root, &["ci", "view", &id_str, "--output", "json"])
+}
+
+#[tauri::command]
+fn glab_pipeline_retry(repo_path: String, pipeline_id: u64) -> Result<String, String> {
+    let root = Path::new(&repo_path);
+    if !root.exists() {
+        return Err("Path tidak ditemukan".into());
+    }
+    let id_str = pipeline_id.to_string();
+    run_glab_output(root, &["ci", "retry", &id_str])
+}
+
+#[tauri::command]
+fn glab_pipeline_cancel(repo_path: String, pipeline_id: u64) -> Result<String, String> {
+    let root = Path::new(&repo_path);
+    if !root.exists() {
+        return Err("Path tidak ditemukan".into());
+    }
+    let id_str = pipeline_id.to_string();
+    run_glab_output(root, &["ci", "cancel", &id_str])
+}
+
 #[tauri::command]
 fn open_url(url: String) -> Result<(), String> {
     let trimmed = url.trim();
@@ -2755,6 +2944,18 @@ fn main() {
             git_cherry_pick,
             git_get_tags,
             git_create_tag,
+            git_get_remote_url,
+            gh_is_available,
+            gh_run_list,
+            gh_run_view_jobs,
+            gh_run_rerun,
+            gh_run_cancel,
+            gh_workflow_run,
+            glab_is_available,
+            glab_pipeline_list,
+            glab_pipeline_view,
+            glab_pipeline_retry,
+            glab_pipeline_cancel,
             git_worktree_list,
             git_worktree_add,
             git_worktree_remove,

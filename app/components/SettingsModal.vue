@@ -22,7 +22,9 @@ import {
   Eraser,
   Copy,
   Info,
-  Key
+  Key,
+  Eye,
+  EyeOff
 } from 'lucide-vue-next'
 import { DEFAULT_KEYBINDINGS, type KeybindingConfig, type ShellOption, type CustomTheme } from '~/types/terminal'
 import { requestDesktopNotification } from '~/composables/useSettingsStore'
@@ -95,6 +97,8 @@ watch(
 // Form state untuk tambah quick command baru
 const newLabel = ref('')
 const newCommand = ref('')
+const showGithubToken = ref(false)
+const showGitlabToken = ref(false)
 
 const handleAddQuickCmd = () => {
   if (!newLabel.value.trim() || !newCommand.value.trim()) return
@@ -939,6 +943,61 @@ onMounted(async () => {
               </UiButton>
             </div>
           </div>
+        </UiSettingsGroup>
+
+        <!-- GitHub & GitLab Integration -->
+        <UiSettingsGroup
+          title="GitHub & GitLab Integration (CI/CD & API)"
+          description="Akses GitHub Actions dan GitLab CI/CD pipelines serta repositori private tanpa limit"
+        >
+          <template #icon><Key class="h-3.5 w-3.5 text-indigo-400" /></template>
+          <UiSettingRow
+            label="GitHub Personal Access Token"
+            hint="Token PAT (repo/workflow scope). Opsional jika sudah login via gh auth login"
+          >
+            <div class="flex items-center gap-1.5 w-72">
+              <UiInput
+                :model-value="settings.githubToken || ''"
+                :type="showGithubToken ? 'text' : 'password'"
+                placeholder="ghp_... atau github_pat_..."
+                class="h-7 text-xs font-mono flex-1"
+                @update:model-value="(val) => updateSettings({ githubToken: String(val) })"
+              />
+              <UiButton
+                variant="ghost"
+                size="sm"
+                class="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+                @click="showGithubToken = !showGithubToken"
+              >
+                <EyeOff v-if="showGithubToken" class="h-3.5 w-3.5" />
+                <Eye v-else class="h-3.5 w-3.5" />
+              </UiButton>
+            </div>
+          </UiSettingRow>
+
+          <UiSettingRow
+            label="GitLab Personal Access Token"
+            hint="Token PAT (api / read_api scope). Diperlukan untuk akses pipeline GitLab private"
+          >
+            <div class="flex items-center gap-1.5 w-72">
+              <UiInput
+                :model-value="settings.gitlabToken || ''"
+                :type="showGitlabToken ? 'text' : 'password'"
+                placeholder="glpat-... atau token kustom"
+                class="h-7 text-xs font-mono flex-1"
+                @update:model-value="(val) => updateSettings({ gitlabToken: String(val) })"
+              />
+              <UiButton
+                variant="ghost"
+                size="sm"
+                class="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+                @click="showGitlabToken = !showGitlabToken"
+              >
+                <EyeOff v-if="showGitlabToken" class="h-3.5 w-3.5" />
+                <Eye v-else class="h-3.5 w-3.5" />
+              </UiButton>
+            </div>
+          </UiSettingRow>
         </UiSettingsGroup>
       </div>
 

@@ -174,6 +174,8 @@ export interface TerminalSettings {
   aiTool?: string
   aiCommand?: string
   copyOnSelect?: boolean
+  githubToken?: string
+  gitlabToken?: string
 }
 
 export type NotificationRuleKind = 'keyword' | 'regex' | 'exit-code' | 'terminal-name' | 'duration'
@@ -385,3 +387,39 @@ export interface ListeningPortInfo {
   pid: number
   process_name: string
 }
+
+export interface GitHubActionStep {
+  name: string
+  status: string
+  conclusion: string | null
+  number: number
+}
+
+export interface GitHubActionJob {
+  id: number | string
+  name: string
+  status: string
+  conclusion: string | null
+  startedAt?: string
+  completedAt?: string
+  url?: string
+  steps?: GitHubActionStep[]
+}
+
+export interface GitHubActionRun {
+  id: number
+  name: string
+  displayTitle: string
+  headBranch: string
+  headSha: string
+  event: string
+  status: string
+  conclusion: string | null
+  createdAt: string
+  updatedAt: string
+  url: string
+  runNumber: number
+  actorName?: string
+  actorAvatar?: string
+}
+

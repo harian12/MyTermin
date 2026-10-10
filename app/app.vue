@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { GitBranch, GitCommit, FolderOpen, Rows2, Columns2, Sparkles, ArrowDown, ArrowUp, FileEdit, RefreshCw } from 'lucide-vue-next'
+import { GitBranch, GitCommit, FolderOpen, Rows2, Columns2, Sparkles, ArrowDown, ArrowUp, FileEdit, RefreshCw, Loader2 } from 'lucide-vue-next'
 import { useWorkspaceStore } from '~/composables/useWorkspaceStore'
 import { useEditorStore } from '~/composables/useEditorStore'
 import { useProjectExplorer } from '~/composables/useProjectExplorer'
 import { useGitExtras } from '~/composables/useGitExtras'
+import { useGitHubActions } from '~/composables/useGitHubActions'
 import { useUpdater } from '~/composables/useUpdater'
 
 const {
@@ -57,6 +58,7 @@ const {
 } = useEditorStore()
 const { gitBranch, gitOverview, refreshGitStatus, startGitPolling, stopGitPolling, fetchBranches, pullGit, pushGit } = useProjectExplorer()
 const { aheadBehind, fetchAll } = useGitExtras()
+const { runningCount: actionsRunningCount } = useGitHubActions()
 const sidebarActiveTab = useState<'explorer' | 'git' | 'terminals'>('sidebar-active-tab', () => 'explorer')
 const { isTauri, writePty, pasteFromClipboard, copyToClipboard } = useTauriPty()
 const { isShortcut, requestDesktopNotification, settings, updateSettings } = useSettingsStore()
@@ -89,6 +91,12 @@ const {
 const isPresetModalOpen = ref(false)
 const isSettingsModalOpen = ref(false)
 const settingsInitialTab = ref<'appearance' | 'session' | 'shortcuts' | 'cli' | 'diagnostics'>('appearance')
+const handleOpenSettingsTab = (tab?: string) => {
+  if (tab) {
+    settingsInitialTab.value = tab as any
+  }
+  isSettingsModalOpen.value = true
+}
 const isQuickPickerOpen = ref(false)
 const isGlobalSearchOpen = ref(false)
 const isShortcutsOpen = ref(false)
@@ -96,6 +104,7 @@ const isUpdateModalOpen = ref(false)
 const isBranchModalOpen = ref(false)
 const isGitGraphModalOpen = ref(false)
 const isBranchCompareModalOpen = ref(false)
+const isGitActionsModalOpen = ref(false)
 const isPortManagerModalOpen = ref(false)
 const isAiPanelOpen = ref(false)
 const isOnboardingOpen = ref(false)
@@ -817,6 +826,8 @@ onBeforeUnmount(() => {
       <WorkstationSidebar
         @open-presets="isPresetModalOpen = true"
         @open-palette="isCommandPaletteOpen = true"
+        @open-settings="handleOpenSettingsTab"
+        @open-git-actions="isGitActionsModalOpen = true"
       />
       <!-- Right Content Area (Editor + Terminal Layout) -->
       <div
@@ -958,6 +969,22 @@ onBeforeUnmount(() => {
           </button>
         </UiTooltip>
 
+        <!-- CI/CD Pipelines Button (GitHub & GitLab) -->
+        <UiTooltip v-if="gitBranch" :text="`Buka CI/CD Pipelines (GitHub & GitLab)${actionsRunningCount > 0 ? ` (${actionsRunningCount} sedang berjalan)` : ''}`" side="top" class="flex-shrink-0">
+          <button
+            class="flex items-center gap-1.5 px-2 py-0.5 rounded transition-colors cursor-pointer"
+            :class="actionsRunningCount > 0 ? 'bg-sky-500/20 text-sky-300 border border-sky-500/40' : 'hover:bg-[#1c1d2b] text-muted-foreground hover:text-foreground'"
+            @click="isGitActionsModalOpen = true"
+          >
+            <span v-if="actionsRunningCount > 0" class="relative flex h-2 w-2 shrink-0">
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-2 w-2 bg-sky-500"></span>
+            </span>
+            <span class="text-[10px] bg-purple-500/10 text-purple-300 border border-purple-500/20 px-1 py-0.2 rounded font-mono font-medium">CI/CD</span>
+            <span v-if="actionsRunningCount > 0" class="text-[10px] font-semibold text-sky-400">{{ actionsRunningCount }} live</span>
+          </button>
+        </UiTooltip>
+
         <UiTooltip v-if="activeWorkstation.folderPath" :text="activeWorkstation.folderPath" side="top" class="flex-shrink-0 min-w-0">
           <div class="flex items-center gap-1.5 text-muted-foreground truncate">
             <FolderOpen class="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
@@ -1080,6 +1107,7 @@ onBeforeUnmount(() => {
     <CommandPalette
       @open-presets="isPresetModalOpen = true"
       @open-settings="isSettingsModalOpen = true"
+      @open-git-actions="isGitActionsModalOpen = true"
     />
     <CommandHistoryPalette />
     <PresetModal v-model:open="isPresetModalOpen" />
@@ -1088,6 +1116,10 @@ onBeforeUnmount(() => {
     <GitBranchModal v-model:open="isBranchModalOpen" />
     <GitGraphModal v-model:open="isGitGraphModalOpen" />
     <BranchCompareModal v-model:open="isBranchCompareModalOpen" />
+    <GitActionsModal
+      v-model:open="isGitActionsModalOpen"
+      @open-settings="handleOpenSettingsTab"
+    />
     <PortManagerModal v-model:open="isPortManagerModalOpen" />
     <AiPanelModal v-model:open="isAiPanelOpen" />
     <OnboardingModal v-model:open="isOnboardingOpen" />
