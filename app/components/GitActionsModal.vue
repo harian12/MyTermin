@@ -2,6 +2,8 @@
 import { ref, computed, watch, onUnmounted } from 'vue'
 import {
   PlayCircle,
+  Play,
+  Pause,
   Activity,
   CheckCircle2,
   XCircle,
@@ -123,16 +125,22 @@ const handleBranchChange = async (event: Event) => {
 }
 
 const handleRefresh = async () => {
-  await fetchRuns(activeBranchFilter.value)
-  if (selectedRun.value) {
-    await selectRun(selectedRun.value, false)
+  isSyncingLive.value = true
+  try {
+    await fetchRuns(activeBranchFilter.value)
+    if (selectedRun.value) {
+      await selectRun(selectedRun.value, false)
+    }
+    const now = new Date()
+    lastSyncTime.value = now.toLocaleTimeString(undefined, {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    })
+  } finally {
+    isSyncingLive.value = false
+    pollCountdown.value = 6
   }
-  const now = new Date()
-  lastSyncTime.value = now.toLocaleTimeString(undefined, {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit'
-  })
 }
 
 const filteredRuns = computed(() => {
@@ -317,19 +325,42 @@ const handleCancel = async () => {
               </select>
             </div>
 
-            <!-- Live Polling Toggle & Countdown -->
-            <button
-              class="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs border transition-colors cursor-pointer"
-              :class="isPollingActive ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : 'bg-background/40 text-muted-foreground border-border/50 hover:text-foreground'"
-              :title="isPollingActive ? 'Live auto-refresh aktif. Klik untuk jeda (pause).' : 'Live auto-refresh dijeda. Klik untuk aktifkan.'"
-              @click="toggleLivePolling"
+            <!-- Auto-Refresh Status & Control -->
+            <div
+              class="flex items-center gap-1.5 px-2 py-1 rounded text-xs border bg-background/50 border-border/60"
             >
-              <RefreshCw v-if="isSyncingLive" class="w-3 h-3 animate-spin text-emerald-400" />
-              <Radio v-else class="w-3 h-3" :class="isPollingActive ? 'animate-pulse text-emerald-400' : 'text-muted-foreground'" />
-              <span class="text-[11px] font-mono font-medium">
-                {{ isSyncingLive ? 'Syncing...' : isPollingActive ? `Live (${pollCountdown}s)` : 'Paused' }}
+              <span class="text-[11px] text-muted-foreground select-none">Auto-refresh:</span>
+              <span
+                v-if="isSyncingLive"
+                class="flex items-center gap-1 font-mono text-[11px] text-sky-400 font-medium"
+              >
+                <RefreshCw class="w-3 h-3 animate-spin" />
+                Syncing
               </span>
-            </button>
+              <span
+                v-else-if="isPollingActive"
+                class="flex items-center gap-1 font-mono text-[11px] text-emerald-400 font-medium"
+              >
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                {{ pollCountdown }}s
+              </span>
+              <span
+                v-else
+                class="font-mono text-[11px] text-muted-foreground/70"
+              >
+                Off
+              </span>
+
+              <button
+                type="button"
+                class="p-0.5 ml-0.5 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                :title="isPollingActive ? 'Klik untuk jeda (pause) auto-refresh' : 'Klik untuk aktifkan auto-refresh'"
+                @click="toggleLivePolling"
+              >
+                <Pause v-if="isPollingActive" class="w-3 h-3 text-emerald-400 hover:text-emerald-300" />
+                <Play v-else class="w-3 h-3 text-muted-foreground hover:text-foreground" />
+              </button>
+            </div>
 
             <!-- Refresh Button -->
             <button

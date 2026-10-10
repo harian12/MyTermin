@@ -532,16 +532,20 @@ export const useGitHubActions = () => {
     pollCountdown.value = intervalSec
 
     pollTimer = setInterval(async () => {
+      if (!isPollingActive.value) return
       const path = currentRepoPath()
       if (!path) return
+
+      // Jangan kurangi countdown saat proses sinkronisasi sedang berjalan
+      if (isSyncingLive.value) return
 
       if (pollCountdown.value > 1) {
         pollCountdown.value--
         return
       }
 
-      // Hit countdown 1 -> 0: Fetch fresh runs & jobs
-      pollCountdown.value = intervalSec
+      // Hit countdown 1 -> 0: Mulai proses sinkronisasi fresh
+      pollCountdown.value = 0
       isSyncingLive.value = true
       try {
         await fetchRuns(activeBranchFilter.value, true)
@@ -558,6 +562,8 @@ export const useGitHubActions = () => {
         // silent
       } finally {
         isSyncingLive.value = false
+        // Mulai hitung mundur HANYA setelah proses refresh selesai sepenuhnya
+        pollCountdown.value = intervalSec
       }
     }, 1000)
   }
