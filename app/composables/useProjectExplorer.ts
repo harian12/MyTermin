@@ -62,6 +62,7 @@ export const useProjectExplorer = () => {
   const gitCommitLogs = useState<GitCommitLogItem[]>('project-git-logs', () => [])
 
   const projectFileList = useState<string[]>('project-all-files-list', () => [])
+  const lastScannedFolder = useState<string>('project-last-scanned-folder', () => '')
   const isScanningFiles = useState<boolean>('project-is-scanning-files', () => false)
   const recentProjects = useState<RecentProject[]>('project-recent-list', () => [])
 
@@ -539,7 +540,7 @@ export const useProjectExplorer = () => {
       const { invoke } = await import('@tauri-apps/api/core')
       await invoke('git_discard', { repoPath: root, relPath, isUntracked })
       await refreshGitStatus()
-      await scanProjectFiles()
+      scanProjectFiles(true).catch(() => {})
       return true
     } catch (e: any) {
       await showAppAlert(`Gagal membatalkan perubahan: ${e?.message || e}`, 'Git Error')
@@ -569,7 +570,7 @@ export const useProjectExplorer = () => {
       const { invoke } = await import('@tauri-apps/api/core')
       const output = await invoke<string>('git_pull', { repoPath: root })
       await refreshGitStatus()
-      await scanProjectFiles()
+      scanProjectFiles(true).catch(() => {})
       return { success: true, output }
     } catch (e: any) {
       return { success: false, error: e?.message || e || 'Pull error' }
@@ -590,10 +591,15 @@ export const useProjectExplorer = () => {
   }
 
   // Scan all project files for Quick Open (Ctrl+P)
-  const scanProjectFiles = async () => {
-    const root = activeWorkstation.value.folderPath
+  const scanProjectFiles = async (force = false) => {
+    const root = activeWorkstation.value?.folderPath
     if (!root || !isTauri.value) {
       projectFileList.value = []
+      lastScannedFolder.value = ''
+      return
+    }
+
+    if (!force && lastScannedFolder.value === root && projectFileList.value.length > 0) {
       return
     }
 
@@ -602,9 +608,11 @@ export const useProjectExplorer = () => {
       const { invoke } = await import('@tauri-apps/api/core')
       const files = await invoke<string[]>('list_all_files', { rootPath: root, maxFiles: 3000 })
       projectFileList.value = files || []
+      lastScannedFolder.value = root
     } catch (e) {
       console.warn('scanProjectFiles error:', e)
       projectFileList.value = []
+      lastScannedFolder.value = ''
     } finally {
       isScanningFiles.value = false
     }
@@ -713,7 +721,7 @@ export const useProjectExplorer = () => {
       const { invoke } = await import('@tauri-apps/api/core')
       await invoke('create_file', { path: filePath })
       await refreshGitStatus()
-      await scanProjectFiles()
+      scanProjectFiles(true).catch(() => {})
       return true
     } catch (e: any) {
       await showAppAlert(e?.message || e || 'Gagal membuat file', 'File Error')
@@ -741,7 +749,7 @@ export const useProjectExplorer = () => {
       const { invoke } = await import('@tauri-apps/api/core')
       await invoke('rename_path', { oldPath, newPath })
       await refreshGitStatus()
-      await scanProjectFiles()
+      scanProjectFiles(true).catch(() => {})
       return true
     } catch (e: any) {
       await showAppAlert(e?.message || e || 'Gagal mengubah nama', 'Rename Error')
@@ -756,7 +764,7 @@ export const useProjectExplorer = () => {
       const { invoke } = await import('@tauri-apps/api/core')
       await invoke('delete_path', { path: targetPath })
       await refreshGitStatus()
-      await scanProjectFiles()
+      scanProjectFiles(true).catch(() => {})
       return true
     } catch (e: any) {
       await showAppAlert(e?.message || e || 'Gagal menghapus target', 'Delete Error')
@@ -811,7 +819,7 @@ export const useProjectExplorer = () => {
     await refreshGitStatus()
     await fetchBranches()
     await fetchCommitLogs()
-    await scanProjectFiles()
+    lastScannedFolder.value = ''
   }
 
   return {

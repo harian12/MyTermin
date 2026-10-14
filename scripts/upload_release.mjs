@@ -45,18 +45,18 @@ async function run() {
 
   const releaseBody = `## MyTermin ${tag} 🚀
 
-Pembaruan **MyTermin ${tag}** — resizable sidebar dan UI perbaikan tombol commit.
+Pembaruan **MyTermin ${tag}** — optimasi performa pergantian workstation bebas lag dan perbaikan auto-save session.
 
 ---
 
 ### ✨ Apa yang Baru di ${tag}
-1. **Draggable Resizer Sidebar Workstation**:
-   - Batas kanan sidebar kini dapat digeser (drag) untuk memperbesar atau memperkecil lebar sidebar secara fleksibel (190px - 600px).
-   - Lebar sidebar disimpan otomatis dan double-click pada handle resizer akan mereset ke lebar standar.
-2. **Proporsi Tombol Commit Perubahan**:
-   - Menata ulang tombol commit agar ringkas dan elegan, sejajar rata dengan tombol Amend dan Undo tanpa wrap teks.
-3. **Penyempurnaan Kontrol Auto-Refresh CI/CD**:
-   - Tampilan status auto-refresh yang jelas (State: On/Off) dan tombol kontrol Play/Pause intuitif.
+1. **Optimasi Pergantian Workstation Cepat & Ringan**:
+   - Pemindaian berkas (\`scanProjectFiles\`) kini bersifat lazy, hanya dijalankan saat Quick Open (\`Ctrl + P\`) dibuka sehingga tidak membebani I/O saat berganti workstation.
+   - Pengecekan Git status dijalankan secara asinkron di latar belakang tanpa menghalangi render tampilan file tree.
+2. **Debounce Terminal Reflow & Filter IPC**:
+   - \`safeFit()\` terminal dibungkus \`requestAnimationFrame\` dan hanya mengirim IPC resize ke Rust bila kolom/baris benar-benar berubah.
+3. **Debounced Session Persistence**:
+   - Penyimpanan sesi workstation ke penyimpanan lokal (\`saveSession\`) kini didebounce untuk mencegah freeze/not-responding saat navigasi cepat.
 
 ---
 

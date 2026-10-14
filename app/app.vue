@@ -799,7 +799,7 @@ onMounted(async () => {
   }
 
   window.addEventListener('beforeunload', () => {
-    saveSession(false)
+    saveSession(false, true)
     saveEditorSession()
     persistWindowState()
     stopPortPolling()
@@ -811,7 +811,7 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
-  saveSession(false)
+  saveSession(false, true)
   saveEditorSession()
   if (windowStateTimer) clearTimeout(windowStateTimer)
   unlistenResize?.()

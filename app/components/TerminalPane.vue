@@ -196,20 +196,46 @@ const currentTheme = computed(() => {
   return TERMINAL_THEMES[settings.value.theme]?.theme || TERMINAL_THEMES['tokyoNight']?.theme || {}
 })
 
-const safeFit = () => {
-  if (!fitAddon || !term || !terminalContainer.value) return
+let lastCols = 0
+let lastRows = 0
+let fitRafId: number | null = null
+
+const performFit = () => {
+  if (!props.isTabActive || !fitAddon || !term || !terminalContainer.value) return
   const el = terminalContainer.value
   if (el.clientWidth > 40 && el.clientHeight > 40) {
     try {
       fitAddon.fit()
-      if (term.cols && term.rows && term.cols > 10 && term.rows > 2) {
-        resizePty(props.paneId, term.cols, term.rows)
+      const cols = term.cols
+      const rows = term.rows
+      if (cols && rows && cols > 10 && rows > 2) {
+        if (cols !== lastCols || rows !== lastRows) {
+          lastCols = cols
+          lastRows = rows
+          resizePty(props.paneId, cols, rows)
+        }
       }
       term.scrollToBottom()
     } catch (e) {
       console.warn('safeFit skipped:', e)
     }
   }
+}
+
+const safeFit = (immediate = false) => {
+  if (immediate) {
+    if (fitRafId !== null) {
+      cancelAnimationFrame(fitRafId)
+      fitRafId = null
+    }
+    performFit()
+    return
+  }
+  if (fitRafId !== null) return
+  fitRafId = requestAnimationFrame(() => {
+    fitRafId = null
+    performFit()
+  })
 }
 
 const startRename = () => {
@@ -1035,14 +1061,11 @@ watch(
   (isActive) => {
     if (isActive) {
       clearTerminalAlert(props.paneId)
-      fetchStats()
       nextTick(() => {
-        setTimeout(() => {
-          safeFit()
-          if (props.isActive) {
-            term?.focus()
-          }
-        }, 50)
+        safeFit()
+        if (props.isActive) {
+          term?.focus()
+        }
       })
     }
   }
@@ -1231,6 +1254,10 @@ onMounted(() => {
 })
 
 onBeforeUnmount(async () => {
+  if (fitRafId !== null) {
+    cancelAnimationFrame(fitRafId)
+    fitRafId = null
+  }
   if (gitRefreshTimer) clearTimeout(gitRefreshTimer)
   if (typeof window !== 'undefined') {
     window.removeEventListener(`terminal-action-${props.paneId}`, handleTerminalAction)

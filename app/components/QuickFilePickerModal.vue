@@ -80,7 +80,7 @@ watch(
     if (val) {
       searchQuery.value = ''
       selectedIndex.value = 0
-      if (projectFileList.value.length === 0 && activeWorkstation.value.folderPath) {
+      if (activeWorkstation.value.folderPath) {
         scanProjectFiles()
       }
       nextTick(() => {

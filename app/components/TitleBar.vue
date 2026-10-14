@@ -120,7 +120,7 @@ const handleTabPointerDown = (e: PointerEvent, index: number, wsId: string) => {
 }
 
 const handleTabClick = (wsId: string) => {
-  if (!hasMoved.value) {
+  if (!hasMoved.value && wsId !== activeWorkstationId.value) {
     switchWorkstation(wsId)
   }
 }

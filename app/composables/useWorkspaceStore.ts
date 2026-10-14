@@ -89,7 +89,9 @@ export const useWorkspaceStore = () => {
   })
 
   // Save session
-  const saveSession = (showNotification = false) => {
+  let saveSessionTimer: any = null
+
+  const doSaveSession = (showNotification = false) => {
     if (typeof window === 'undefined') return
     try {
       const data = {
@@ -111,6 +113,24 @@ export const useWorkspaceStore = () => {
         saveNotification.value = 'Gagal menyimpan sesi.'
       }
     }
+  }
+
+  // Save session (debounced untuk auto-save rutin agar UI tidak lag saat switch workstation)
+  const saveSession = (showNotification = false, immediate = false) => {
+    if (showNotification || immediate) {
+      if (saveSessionTimer) {
+        clearTimeout(saveSessionTimer)
+        saveSessionTimer = null
+      }
+      doSaveSession(showNotification)
+      return
+    }
+
+    if (saveSessionTimer) clearTimeout(saveSessionTimer)
+    saveSessionTimer = setTimeout(() => {
+      saveSessionTimer = null
+      doSaveSession(false)
+    }, 400)
   }
 
   // Load custom presets
@@ -156,6 +176,7 @@ export const useWorkspaceStore = () => {
   }
 
   const switchWorkstation = (wsId: string) => {
+    if (activeWorkstationId.value === wsId) return
     if (workstations.value.some(w => w.id === wsId)) {
       activeWorkstationId.value = wsId
       saveSession(false)

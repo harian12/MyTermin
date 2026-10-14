@@ -267,25 +267,33 @@ onBeforeUnmount(() => {
   window.removeEventListener('focus', onWindowFocus)
 })
 
+let lastLoadedFolder = ''
+
 const loadProjectFiles = async () => {
-  if (!activeWorkstation.value?.folderPath) {
+  const currentPath = activeWorkstation.value?.folderPath
+  if (!currentPath) {
     rootEntries.value = []
+    lastLoadedFolder = ''
     return
   }
   isLoadingRoot.value = true
   try {
-    await refreshGitStatus()
-    rootEntries.value = await readDirectory(activeWorkstation.value.folderPath)
-    await scanProjectFiles()
+    rootEntries.value = await readDirectory(currentPath)
     refreshExplorerTree()
   } finally {
     isLoadingRoot.value = false
   }
+  // Refresh git status di background tanpa memblokir render pohon berkas
+  refreshGitStatus().catch(() => {})
 }
 
 watch(
   () => activeWorkstation.value?.folderPath,
   async (newPath) => {
+    if (newPath && newPath === lastLoadedFolder) {
+      return
+    }
+    lastLoadedFolder = newPath || ''
     if (newPath) {
       await loadExpandedFolders(newPath)
     }
@@ -297,6 +305,7 @@ watch(
 const handleOpenFolder = async () => {
   const folder = await pickFolder()
   if (folder) {
+    lastLoadedFolder = ''
     await setWorkstationFolder(folder)
     await loadProjectFiles()
   }
