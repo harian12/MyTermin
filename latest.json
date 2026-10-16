@@ -1,15 +1,15 @@
 {
-  "version": "0.2.21",
-  "notes": "Release v0.2.21 - Multi-Terminal & Code Editor Workspace with Auto Update Support.",
-  "pub_date": "2026-10-14T12:31:59.095Z",
+  "version": "0.2.22",
+  "notes": "Release v0.2.22 - Optimasi performa editor, perbaikan latency tutup tab (Ctrl+W), pembersihan memori Monaco, dan sinkronisasi otomatis reload file dari disk.",
+  "pub_date": "2026-10-16T06:20:53.190Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcjU5M1ZFMWtCZVZ3eUI3ZDYwSHpRc1RkbEVMcXZCT2FyWGUyUW02VTYxejhwekxNemtvbFkxbUtPRlJlQStTRmN2RVk4MEJUbEVhVFF3RUxKQy9KKzJvS1RrNStxSEFZPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxOTgxMTExCWZpbGU6TXlUZXJtaW5fMC4yLjIxX3g2NC1zZXR1cC5leGUKTk91dzU4dE9TV1B6WG1Jei8rNlBMcy9hVFNMaktOSHdPdWFBQkNpbXRhNVpVUUx0YWtuMFlXdDJyVS9TM1pRRlNoQ2RCcmx0Z3FGdHNUMjZ2NlZPQlE9PQo=",
-      "url": "https://github.com/harian12/MyTermin/releases/download/v0.2.21/MyTermin_0.2.21_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcjU5M1ZFMWtCZVZKK2VmRzhNdkJBb1ZrK3BZV09nQ3pncy96UmJ0eDNubDNBK0svYzVETDloWWE1Rmlha09QczhET21BYUFHVUsxNDc0cFRiUjZhWGk2SVl3TlJkSEFJPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyMTMxNjQ2CWZpbGU6TXlUZXJtaW5fMC4yLjIyX3g2NC1zZXR1cC5leGUKOGRmU3RxVXR1eERsTjRoL3lVdFlaVUxOenZYU2RHNDhPcjZtNG15Wjg4REJlYitvcDl4M3pCZFlLczMxb0d4TUw2TDYyMk1VS1pKV1pyWmtDUjRUQlE9PQo=",
+      "url": "https://github.com/harian12/MyTermin/releases/download/v0.2.22/MyTermin_0.2.22_x64-setup.exe"
     },
     "windows-x86_64-nsis": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcjU5M1ZFMWtCZVZ3eUI3ZDYwSHpRc1RkbEVMcXZCT2FyWGUyUW02VTYxejhwekxNemtvbFkxbUtPRlJlQStTRmN2RVk4MEJUbEVhVFF3RUxKQy9KKzJvS1RrNStxSEFZPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxOTgxMTExCWZpbGU6TXlUZXJtaW5fMC4yLjIxX3g2NC1zZXR1cC5leGUKTk91dzU4dE9TV1B6WG1Jei8rNlBMcy9hVFNMaktOSHdPdWFBQkNpbXRhNVpVUUx0YWtuMFlXdDJyVS9TM1pRRlNoQ2RCcmx0Z3FGdHNUMjZ2NlZPQlE9PQo=",
-      "url": "https://github.com/harian12/MyTermin/releases/download/v0.2.21/MyTermin_0.2.21_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcjU5M1ZFMWtCZVZKK2VmRzhNdkJBb1ZrK3BZV09nQ3pncy96UmJ0eDNubDNBK0svYzVETDloWWE1Rmlha09QczhET21BYUFHVUsxNDc0cFRiUjZhWGk2SVl3TlJkSEFJPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyMTMxNjQ2CWZpbGU6TXlUZXJtaW5fMC4yLjIyX3g2NC1zZXR1cC5leGUKOGRmU3RxVXR1eERsTjRoL3lVdFlaVUxOenZYU2RHNDhPcjZtNG15Wjg4REJlYitvcDl4M3pCZFlLczMxb0d4TUw2TDYyMk1VS1pKV1pyWmtDUjRUQlE9PQo=",
+      "url": "https://github.com/harian12/MyTermin/releases/download/v0.2.22/MyTermin_0.2.22_x64-setup.exe"
     }
   }
 }
