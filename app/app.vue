@@ -54,6 +54,7 @@ const {
   activeLineBlame,
   initEditorSession,
   saveEditorSession,
+  reloadOpenFilesFromDisk,
   saveAll
 } = useEditorStore()
 const { gitBranch, gitOverview, refreshGitStatus, startGitPolling, stopGitPolling, fetchBranches, pullGit, pushGit } = useProjectExplorer()
@@ -109,7 +110,7 @@ const isPortManagerModalOpen = ref(false)
 const isAiPanelOpen = ref(false)
 const isOnboardingOpen = ref(false)
 
-const { portsList: activePortsList, startPolling: startPortPolling, stopPolling: stopPortPolling } = usePortManager()
+const { portsList: activePortsList, fetchPorts, startPolling: startPortPolling, stopPolling: stopPortPolling } = usePortManager()
 
 const openFooterBranchPicker = async () => {
   await fetchBranches()
@@ -778,11 +779,22 @@ onMounted(async () => {
     }, 2500)
   }
 
-  // Poll listening ports in background for footer status
-  startPortPolling(5000)
-  startGitPolling(3000)
+  let onWindowFocus: (() => void) | null = null
+  // Background poller santai untuk hemat CPU/baterai di spek rendah (4GB RAM)
+  startPortPolling(15000)
+  startGitPolling(8000)
 
-  // Background check CI/CD pipeline runs (setiap 25 detik jika ada git repo)
+  // Saat window kembali aktif (alt-tab), sinkronisasi instan tanpa tunggu interval
+  onWindowFocus = () => {
+    if (activeWorkstation.value?.folderPath) {
+      refreshGitStatus()
+    }
+    fetchPorts()
+    reloadOpenFilesFromDisk()
+  }
+  window.addEventListener('focus', onWindowFocus)
+
+  // Background check CI/CD pipeline runs (setiap 45 detik jika ada git repo dan jendela tidak hidden)
   let cicdTimer: any = null
   if (isTauri.value) {
     setTimeout(async () => {
@@ -792,10 +804,11 @@ onMounted(async () => {
       }
     }, 4000)
     cicdTimer = setInterval(async () => {
+      if (typeof document !== 'undefined' && document.hidden) return
       if (activeWorkstation.value?.folderPath) {
         await fetchCiRuns(undefined, true)
       }
-    }, 25000)
+    }, 45000)
   }
 
   window.addEventListener('beforeunload', () => {
@@ -804,6 +817,7 @@ onMounted(async () => {
     persistWindowState()
     stopPortPolling()
     stopGitPolling()
+    if (onWindowFocus) window.removeEventListener('focus', onWindowFocus)
     if (cicdTimer) clearInterval(cicdTimer)
   })
   window.addEventListener('error', handleGlobalError)
@@ -819,6 +833,7 @@ onBeforeUnmount(() => {
   stopPortPolling()
   stopGitPolling()
   window.removeEventListener('keydown', handleKeydown, true)
+  if (onWindowFocus) window.removeEventListener('focus', onWindowFocus)
   window.removeEventListener('error', handleGlobalError)
   window.removeEventListener('unhandledrejection', handleUnhandledRejection)
 })

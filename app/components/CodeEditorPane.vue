@@ -28,7 +28,8 @@ import {
   ChevronRight,
   Folder,
   ExternalLink,
-  Pilcrow
+  Pilcrow,
+  RotateCw
 } from 'lucide-vue-next'
 import { useWorkspaceStore } from '~/composables/useWorkspaceStore'
 import { useEditorStore, type OpenFileItem } from '~/composables/useEditorStore'
@@ -71,6 +72,7 @@ const {
   moveFileTab,
   copyRelativePath,
   reloadOpenFilesFromDisk,
+  reloadFile,
   handleFocusLoss
 } = useEditorStore()
 
@@ -237,7 +239,10 @@ const onTabStripWheel = (e: WheelEvent) => {
 
 // Tab aktif harus tetap terlihat saat strip tab digeser (bisa banyak tab).
 // scrollIntoView dengan inline:'nearest' hanya menggeser seperlunya.
-watch(activeFileId, async () => {
+watch(activeFileId, async (newId) => {
+  if (newId) {
+    reloadOpenFilesFromDisk()
+  }
   await nextTick()
   const strip = tabStripRef.value
   if (!strip) return
@@ -246,7 +251,7 @@ watch(activeFileId, async () => {
   const stripRect = strip.getBoundingClientRect()
   const tabRect = active.getBoundingClientRect()
   if (tabRect.left < stripRect.left || tabRect.right > stripRect.right) {
-    active.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' })
+    active.scrollIntoView({ behavior: 'auto', block: 'nearest', inline: 'nearest' })
   }
 })
 const monacoRef = ref<InstanceType<typeof MonacoEditor> | null>(null)
@@ -430,6 +435,10 @@ const toggleFullscreenEditor = () => {
     viewportMode.value = 'editor-full'
   }
 }
+const handleEditorPaneFocus = () => {
+  lastFocusedPane.value = 'editor'
+  reloadOpenFilesFromDisk()
+}
 </script>
 
 <template>
@@ -437,8 +446,8 @@ const toggleFullscreenEditor = () => {
     v-if="isEditorVisible"
     id="code-editor-pane"
     class="flex flex-col h-full w-full bg-[#12131a] border-r border-border/80 select-none overflow-hidden relative"
-    @click="lastFocusedPane = 'editor'"
-    @focusin="lastFocusedPane = 'editor'"
+    @click="handleEditorPaneFocus"
+    @focusin="handleEditorPaneFocus"
   >
     <!-- Top Tabs Bar for Open Files -->
     <div class="flex items-center justify-between h-9 bg-[#0d0e14] border-b border-border px-1">
@@ -633,6 +642,21 @@ const toggleFullscreenEditor = () => {
             @click="toggleEditorPaneSplit"
           >
             <Columns2 class="w-3.5 h-3.5" />
+          </button>
+        </UiTooltip>
+
+        <!-- Reload File from Disk Button -->
+        <UiTooltip
+          v-if="!activeFile.isDiff && !activeFile.isScratchpad"
+          text="Muat Ulang File dari Disk (Reload / Sinkronkan)"
+          side="bottom"
+          class="flex-shrink-0"
+        >
+          <button
+            class="p-1 rounded text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+            @click="reloadFile(activeFile.id)"
+          >
+            <RotateCw class="w-3.5 h-3.5" />
           </button>
         </UiTooltip>
 
@@ -983,6 +1007,14 @@ const toggleFullscreenEditor = () => {
         >
           <Copy class="w-3.5 h-3.5 text-muted-foreground" />
           <span>Salin Path Relatif</span>
+        </button>
+        <button
+          v-if="!tabContextMenu.file?.isDiff && !tabContextMenu.file?.isScratchpad"
+          class="w-full flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-accent text-left transition-colors"
+          @click="reloadFile(tabContextMenu.file?.id); closeTabContextMenu()"
+        >
+          <RotateCw class="w-3.5 h-3.5 text-muted-foreground" />
+          <span>Muat Ulang dari Disk</span>
         </button>
         <div class="my-1 border-t border-border/50" />
         <button

@@ -217,6 +217,9 @@ export const useWorkspaceStore = () => {
       killPty(t.id).catch(() => {})
     }
 
+    const { removeWorkstationEditor } = useEditorStore()
+    removeWorkstationEditor(wsId)
+
     workstations.value.splice(idx, 1)
     if (workstations.value.length === 0) {
       const fresh = createDefaultWorkstation()

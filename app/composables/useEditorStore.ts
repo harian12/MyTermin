@@ -1,3 +1,5 @@
+import { disposeMonacoModel, disposeAllMonacoModels, updateMonacoModelContent } from '~/utils/monacoModelManager'
+
 export interface OpenFileItem {
   id: string
   name: string
@@ -43,36 +45,52 @@ export const useEditorStore = () => {
   )
   const { isTauri } = useTauriPty()
 
-  // Save editor state to localStorage
-  const saveEditorSession = () => {
-    if (typeof window === 'undefined') return
-    try {
-      const dataToSave: Record<string, {
-        filePaths: string[]
-        activePath: string | null
-        secondaryPath: string | null
-        isEditorPaneSplit: boolean
-        splitRatio: number
-      }> = {}
+  let saveSessionTimer: ReturnType<typeof setTimeout> | null = null
 
-      for (const wsId of Object.keys(workstationEditors.value)) {
-        const state = workstationEditors.value[wsId]
-        if (state) {
-          const activeItem = state.openFiles.find(f => f.id === state.activeFileId)
-          const secondaryItem = state.openFiles.find(f => f.id === state.secondaryFileId)
-          dataToSave[wsId] = {
-            filePaths: state.openFiles.filter(f => !f.isDiff && !f.isScratchpad).map(f => f.path),
-            activePath: (activeItem && !activeItem.isScratchpad) ? activeItem.path : null,
-            secondaryPath: (secondaryItem && !secondaryItem.isScratchpad) ? secondaryItem.path : null,
-            isEditorPaneSplit: state.isEditorPaneSplit,
-            splitRatio: state.splitRatio
+  // Save editor state to localStorage (debounced agar tidak blocking saat buka/tutup tab cepat)
+  const saveEditorSession = (immediate = false) => {
+    if (typeof window === 'undefined') return
+
+    const doSave = () => {
+      try {
+        const dataToSave: Record<string, {
+          filePaths: string[]
+          activePath: string | null
+          secondaryPath: string | null
+          isEditorPaneSplit: boolean
+          splitRatio: number
+        }> = {}
+
+        for (const wsId of Object.keys(workstationEditors.value)) {
+          const state = workstationEditors.value[wsId]
+          if (state) {
+            const activeItem = state.openFiles.find(f => f.id === state.activeFileId)
+            const secondaryItem = state.openFiles.find(f => f.id === state.secondaryFileId)
+            dataToSave[wsId] = {
+              filePaths: state.openFiles.filter(f => !f.isDiff && !f.isScratchpad).map(f => f.path),
+              activePath: (activeItem && !activeItem.isScratchpad) ? activeItem.path : null,
+              secondaryPath: (secondaryItem && !secondaryItem.isScratchpad) ? secondaryItem.path : null,
+              isEditorPaneSplit: state.isEditorPaneSplit,
+              splitRatio: state.splitRatio
+            }
           }
         }
-      }
 
-      localStorage.setItem(EDITOR_SESSION_KEY, JSON.stringify(dataToSave))
-    } catch (e) {
-      console.warn('Failed to save editor session:', e)
+        localStorage.setItem(EDITOR_SESSION_KEY, JSON.stringify(dataToSave))
+      } catch (e) {
+        console.warn('Failed to save editor session:', e)
+      }
+    }
+
+    if (immediate) {
+      if (saveSessionTimer) {
+        clearTimeout(saveSessionTimer)
+        saveSessionTimer = null
+      }
+      doSave()
+    } else {
+      if (saveSessionTimer) clearTimeout(saveSessionTimer)
+      saveSessionTimer = setTimeout(doSave, 250)
     }
   }
 
@@ -129,6 +147,19 @@ export const useEditorStore = () => {
     } catch (e) {
       console.warn('Failed to restore editor session:', e)
     }
+  }
+
+  const removeWorkstationEditor = (wsId: string) => {
+    const state = workstationEditors.value[wsId]
+    if (state?.openFiles) {
+      for (const f of state.openFiles) {
+        if (f.path) {
+          disposeMonacoModel(f.path)
+        }
+      }
+    }
+    delete workstationEditors.value[wsId]
+    saveEditorSession(true)
   }
 
   const currentEditorState = computed<WorkstationEditorState>(() => {
@@ -357,26 +388,77 @@ export const useEditorStore = () => {
     return newItem
   }
 
+  let lastReloadTime = 0
+
   // Auto-reload non-dirty files from disk if modified externally
-  const reloadOpenFilesFromDisk = async () => {
+  const reloadOpenFilesFromDisk = async (force = false) => {
     if (!isTauri.value || openFiles.value.length === 0) return
+    const now = Date.now()
+    if (!force && now - lastReloadTime < 800) return
+    lastReloadTime = now
+
     try {
       const { invoke } = await import('@tauri-apps/api/core')
+      let anyUpdated = false
       for (const file of openFiles.value) {
-        if (!file.isDirty && !file.isDiff) {
+        if (!file.isDirty && !file.isDiff && !file.isScratchpad && file.path) {
           try {
             const diskContent = await invoke<string>('read_file_content', { path: file.path })
             if (diskContent !== file.content) {
               file.content = diskContent
               file.originalContent = diskContent
+              updateMonacoModelContent(file.path, diskContent)
+              anyUpdated = true
             }
           } catch {
-            // File might have been deleted
+            // File might have been deleted or inaccessible
           }
         }
       }
+      if (anyUpdated) {
+        editorNotification.value = 'File disinkronkan dengan disk'
+        setTimeout(() => {
+          editorNotification.value = null
+        }, 1800)
+      }
     } catch {
       // Silent
+    }
+  }
+
+  // Muat ulang file tertentu dari disk (dengan opsi konfirmasi jika isDirty)
+  const reloadFile = async (fileId?: string, force = false) => {
+    const targetId = fileId || activeFileId.value
+    const file = openFiles.value.find((f) => f.id === targetId)
+    if (!file || !file.path || file.isDiff || file.isScratchpad) return
+
+    if (file.isDirty && !force) {
+      const { showAppConfirm } = useAppDialog()
+      const ok = await showAppConfirm(
+        `File "${file.name}" memiliki perubahan lokal yang belum disimpan. Muat ulang dari disk dan buang perubahan lokal?`,
+        'Muat Ulang dari Disk',
+        'warning',
+        'Muat Ulang'
+      )
+      if (!ok) return
+    }
+
+    try {
+      const { invoke } = await import('@tauri-apps/api/core')
+      const diskContent = await invoke<string>('read_file_content', { path: file.path })
+      file.content = diskContent
+      file.originalContent = diskContent
+      file.isDirty = false
+      updateMonacoModelContent(file.path, diskContent)
+      editorNotification.value = `${file.name} dimuat ulang dari disk`
+      setTimeout(() => {
+        editorNotification.value = null
+      }, 2000)
+    } catch (e: any) {
+      editorNotification.value = `Gagal memuat ulang: ${e?.message || e}`
+      setTimeout(() => {
+        editorNotification.value = null
+      }, 2500)
     }
   }
 
@@ -502,8 +584,6 @@ export const useEditorStore = () => {
     }
   }
 
-  let lastCloseTime = 0
-
   const performClose = (fileId: string) => {
     const idx = openFiles.value.findIndex((f) => f.id === fileId)
     if (idx !== -1) {
@@ -528,17 +608,29 @@ export const useEditorStore = () => {
       if (secondaryFileId.value === fileId) {
         secondaryFileId.value = activeFileId.value
       }
+
+      // Bersihkan model Monaco dari memory jika tidak dibuka di workstation lain
+      if (closedFile?.path) {
+        const path = closedFile.path
+        setTimeout(() => {
+          let stillOpen = false
+          for (const wsId of Object.keys(workstationEditors.value)) {
+            const ws = workstationEditors.value[wsId]
+            if (ws?.openFiles?.some(f => f.path === path)) {
+              stillOpen = true
+              break
+            }
+          }
+          if (!stillOpen) {
+            disposeMonacoModel(path)
+          }
+        }, 50)
+      }
     }
     saveEditorSession()
   }
 
   const closeFile = (fileId: string, force = false) => {
-    const now = Date.now()
-    if (now - lastCloseTime < 80) {
-      return
-    }
-    lastCloseTime = now
-
     const file = openFiles.value.find((f) => f.id === fileId)
     if (!file) return
 
@@ -579,12 +671,12 @@ export const useEditorStore = () => {
   const closeOtherTabs = (keepFileId: string) => {
     const toClose = openFiles.value.filter((f) => f.id !== keepFileId)
     for (const f of toClose) {
-      closeFile(f.id, true)
+      performClose(f.id)
     }
     activeFileId.value = keepFileId
     secondaryFileId.value = null
     isEditorPaneSplit.value = false
-    saveEditorSession()
+    saveEditorSession(true)
   }
 
   const closeTabsToTheRight = (targetFileId: string) => {
@@ -592,9 +684,9 @@ export const useEditorStore = () => {
     if (idx === -1) return
     const toClose = openFiles.value.slice(idx + 1)
     for (const f of toClose) {
-      closeFile(f.id, true)
+      performClose(f.id)
     }
-    saveEditorSession()
+    saveEditorSession(true)
   }
 
   const closeAllTabs = () => {
@@ -602,7 +694,10 @@ export const useEditorStore = () => {
     activeFileId.value = null
     secondaryFileId.value = null
     isEditorPaneSplit.value = false
-    saveEditorSession()
+    setTimeout(() => {
+      disposeAllMonacoModels()
+    }, 50)
+    saveEditorSession(true)
   }
 
   const closeActiveFile = () => {
@@ -705,7 +800,9 @@ export const useEditorStore = () => {
     targetNavigatePosition,
     initEditorSession,
     saveEditorSession,
+    removeWorkstationEditor,
     reloadOpenFilesFromDisk,
+    reloadFile,
     openFile,
     createScratchpadFile,
     openGitDiffTab,

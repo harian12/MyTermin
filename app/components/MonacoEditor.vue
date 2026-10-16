@@ -5,6 +5,7 @@ import { useEditorStore } from '~/composables/useEditorStore'
 import { useSettingsStore } from '~/composables/useSettingsStore'
 import { useWorkspaceStore } from '~/composables/useWorkspaceStore'
 import { registerUniversalDefinitionProvider, setGlobalFileOpener } from '~/utils/monacoDefinitionProvider'
+import { saveMonacoViewState, getMonacoViewState } from '~/utils/monacoModelManager'
 
 interface Props {
   modelValue: string
@@ -36,6 +37,7 @@ const { settings } = useSettingsStore()
 const containerRef = ref<HTMLDivElement | null>(null)
 let editor: monaco.editor.IStandaloneCodeEditor | null = null
 let resizeObserver: ResizeObserver | null = null
+let currentModelUri = ''
 
 const getLanguageFromFilename = (filename: string): string => {
   if (!filename) return 'plaintext'
@@ -167,6 +169,7 @@ onMounted(() => {
   const resolvedPath = props.filePath || props.filename
   const language = getLanguageFromFilename(props.filename)
   const uri = monaco.Uri.file(resolvedPath)
+  currentModelUri = uri.toString()
 
   let model = monaco.editor.getModel(uri)
   if (!model) {
@@ -181,7 +184,7 @@ onMounted(() => {
   editor = monaco.editor.create(containerRef.value, {
     model,
     theme: 'mytermin-dark',
-    automaticLayout: true,
+    automaticLayout: false,
     fontSize: settings.value.editorFontSize || 13,
     fontFamily: '"JetBrains Mono", "Fira Code", Consolas, Menlo, monospace',
     fontLigatures: true,
@@ -303,36 +306,54 @@ onMounted(() => {
   }
 })
 
-watch(
-  () => props.modelValue,
-  (newVal) => {
-    if (editor && editor.getValue() !== newVal) {
-      const pos = editor.getPosition()
-      editor.setValue(newVal)
-      if (pos) editor.setPosition(pos)
+const syncEditorModel = (newPath: string | undefined, newFilename: string | undefined, newVal: string) => {
+  if (!editor) return
+  const resolvedPath = newPath || newFilename || ''
+  if (!resolvedPath) return
+
+  const targetUri = monaco.Uri.file(resolvedPath)
+  const targetUriStr = targetUri.toString()
+
+  // 1. Berpindah file (tab ditutup/diganti/dibuka): switch model langsung tanpa re-parse model lama
+  if (currentModelUri !== targetUriStr) {
+    if (currentModelUri && editor.getModel()) {
+      saveMonacoViewState(currentModelUri, editor.saveViewState())
     }
+
+    const language = getLanguageFromFilename(newFilename || '')
+    let model = monaco.editor.getModel(targetUri)
+    if (!model) {
+      model = monaco.editor.createModel(newVal, language, targetUri)
+    } else {
+      if (model.getValue() !== newVal) {
+        model.setValue(newVal)
+      }
+      monaco.editor.setModelLanguage(model, language)
+    }
+
+    editor.setModel(model)
+    currentModelUri = targetUriStr
+
+    const savedViewState = getMonacoViewState(targetUriStr)
+    if (savedViewState) {
+      editor.restoreViewState(savedViewState)
+    }
+    return
   }
-)
+
+  // 2. File sama, tapi konten berubah dari luar (format prettier, revert git, dll.)
+  const currentModel = editor.getModel()
+  if (currentModel && currentModel.getValue() !== newVal) {
+    const pos = editor.getPosition()
+    editor.setValue(newVal)
+    if (pos) editor.setPosition(pos)
+  }
+}
 
 watch(
-  () => [props.filename, props.filePath],
-  ([newFilename, newPath]) => {
-    if (!editor) return
-    const resolvedPath = (newPath as string) || (newFilename as string)
-    const uri = monaco.Uri.file(resolvedPath)
-    const newLang = getLanguageFromFilename(newFilename as string)
-    let model = monaco.editor.getModel(uri)
-    if (!model) {
-      model = monaco.editor.createModel(props.modelValue, newLang, uri)
-    } else {
-      if (model.getValue() !== props.modelValue) {
-        model.setValue(props.modelValue)
-      }
-      monaco.editor.setModelLanguage(model, newLang)
-    }
-    if (editor.getModel() !== model) {
-      editor.setModel(model)
-    }
+  () => [props.filePath, props.filename, props.modelValue] as const,
+  ([newPath, newFilename, newVal]) => {
+    syncEditorModel(newPath, newFilename, newVal)
   }
 )
 
@@ -384,6 +405,9 @@ onBeforeUnmount(() => {
     resizeObserver = null
   }
   if (editor) {
+    if (currentModelUri && editor.getModel()) {
+      saveMonacoViewState(currentModelUri, editor.saveViewState())
+    }
     editor.dispose()
     editor = null
   }

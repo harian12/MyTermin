@@ -183,7 +183,7 @@ onMounted(() => {
 
   diffEditor = monaco.editor.createDiffEditor(containerRef.value, {
     theme: 'mytermin-dark',
-    automaticLayout: true,
+    automaticLayout: false,
     fontSize: 13,
     fontFamily: '"JetBrains Mono", "Fira Code", Consolas, Menlo, monospace',
     fontLigatures: true,

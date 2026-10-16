@@ -73,7 +73,7 @@ const {
   openUrl
 } = useTauriPty()
 const { settings, isShortcut, updateSettings } = useSettingsStore()
-const { openFileAtPosition } = useEditorStore()
+const { openFileAtPosition, reloadOpenFilesFromDisk } = useEditorStore()
 const { terminals, renameTerminal, duplicateTerminal, updateTerminalCwd, updateTerminalLastCommand, setTerminalAlert, clearTerminalAlert, sessionReady, isBroadcastInput } = useWorkspaceStore()
 const { togglePalette, openPalette } = useCommandPalette()
 const { recordCommand } = useCommandHistory()
@@ -87,6 +87,7 @@ const triggerGitRefresh = () => {
   if (gitRefreshTimer) clearTimeout(gitRefreshTimer)
   gitRefreshTimer = setTimeout(() => {
     refreshGitStatus()
+    reloadOpenFilesFromDisk()
   }, 1000)
 }
 
