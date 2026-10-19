@@ -60,7 +60,8 @@ export class DetailedLineRangeMapping {
 }
 
 /**
- * Standard LCS line difference computer that runs synchronously in-process
+ * Optimized LCS line difference computer that runs synchronously in-process
+ * Includes common prefix & suffix trimming and a safety ceiling to prevent main thread freezes
  */
 export function computeLineDiff(
   originalLines: string[],
@@ -78,16 +79,52 @@ export function computeLineDiff(
     return { identical: true, quitEarly: false, changes: [], moves: [] }
   }
 
-  // LCS Matrix table
-  const dp: number[][] = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0))
+  // 1. Trim common prefix (O(prefix) shortcut)
+  let prefix = 0
+  while (prefix < n && prefix < m && originalLines[prefix] === modifiedLines[prefix]) {
+    prefix++
+  }
+
+  // 2. Trim common suffix (O(suffix) shortcut)
+  let suffix = 0
+  while (
+    suffix < (n - prefix) &&
+    suffix < (m - prefix) &&
+    originalLines[n - 1 - suffix] === modifiedLines[m - 1 - suffix]
+  ) {
+    suffix++
+  }
+
+  const subOrigLen = n - prefix - suffix
+  const subModLen = m - prefix - suffix
+
+  if (subOrigLen === 0 && subModLen === 0) {
+    return { identical: true, quitEarly: false, changes: [], moves: [] }
+  }
+
+  // ponytail: fallback whole-chunk diff jika matrix > 1.000.000 sel agar tidak membekukan UI thread
+  if (subOrigLen * subModLen > 1_000_000) {
+    const origRange = new LineRange(prefix + 1, n - suffix + 1)
+    const modRange = new LineRange(prefix + 1, m - suffix + 1)
+    return {
+      identical: false,
+      quitEarly: true,
+      changes: [new DetailedLineRangeMapping(origRange, modRange)],
+      moves: []
+    }
+  }
+
+  // LCS Matrix table pada sub-array yang sudah dipangkas
+  const dp: number[][] = Array.from({ length: subOrigLen + 1 }, () => new Array(subModLen + 1).fill(0))
   const cell = (i: number, j: number): number => dp[i]?.[j] ?? 0
 
-  for (let i = 1; i <= n; i++) {
+  for (let i = 1; i <= subOrigLen; i++) {
     const row = dp[i]
     const prevRow = dp[i - 1]
     if (!row || !prevRow) continue
-    for (let j = 1; j <= m; j++) {
-      if (originalLines[i - 1] === modifiedLines[j - 1]) {
+    const origLine = originalLines[prefix + i - 1]
+    for (let j = 1; j <= subModLen; j++) {
+      if (origLine === modifiedLines[prefix + j - 1]) {
         row[j] = cell(i - 1, j - 1) + 1
       } else {
         row[j] = Math.max(cell(i - 1, j), cell(i, j - 1))
@@ -98,19 +135,19 @@ export function computeLineDiff(
   // Backtrack to find edit operations
   type DiffOp = { type: 'equal' | 'delete' | 'insert'; oIdx: number; mIdx: number }
   const ops: DiffOp[] = []
-  let i = n
-  let j = m
+  let i = subOrigLen
+  let j = subModLen
 
   while (i > 0 || j > 0) {
-    if (i > 0 && j > 0 && originalLines[i - 1] === modifiedLines[j - 1]) {
-      ops.push({ type: 'equal', oIdx: i - 1, mIdx: j - 1 })
+    if (i > 0 && j > 0 && originalLines[prefix + i - 1] === modifiedLines[prefix + j - 1]) {
+      ops.push({ type: 'equal', oIdx: prefix + i - 1, mIdx: prefix + j - 1 })
       i--
       j--
     } else if (j > 0 && (i === 0 || cell(i, j - 1) >= cell(i - 1, j))) {
-      ops.push({ type: 'insert', oIdx: i, mIdx: j - 1 })
+      ops.push({ type: 'insert', oIdx: prefix + i, mIdx: prefix + j - 1 })
       j--
     } else if (i > 0 && (j === 0 || cell(i, j - 1) < cell(i - 1, j))) {
-      ops.push({ type: 'delete', oIdx: i - 1, mIdx: j })
+      ops.push({ type: 'delete', oIdx: prefix + i - 1, mIdx: prefix + j })
       i--
     }
   }

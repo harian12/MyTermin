@@ -30,6 +30,14 @@ let resizeObserver: ResizeObserver | null = null
 
 let oldOriginalDecorationIds: string[] = []
 let oldModifiedDecorationIds: string[] = []
+let diffDebounceTimer: ReturnType<typeof setTimeout> | null = null
+
+const debouncedUpdateDiffDecorations = (delay = 75) => {
+  if (diffDebounceTimer) clearTimeout(diffDebounceTimer)
+  diffDebounceTimer = setTimeout(() => {
+    updateDiffDecorations()
+  }, delay)
+}
 
 const getLanguageFromFilename = (filename: string): string => {
   const clean = filename.replace(/\s*\(Diff\)$/i, '')
@@ -89,7 +97,7 @@ const ensureTheme = () => {
 }
 
 const updateDiffDecorations = () => {
-  if (!originalModel || !modifiedModel) return
+  if (!originalModel || !modifiedModel || originalModel.isDisposed() || modifiedModel.isDisposed()) return
 
   const originalLines = originalModel.getLinesContent()
   const modifiedLines = modifiedModel.getLinesContent()
@@ -213,18 +221,23 @@ onMounted(() => {
   })
 
   modifiedModel.onDidChangeContent(() => {
-    if (modifiedModel) {
+    if (modifiedModel && !modifiedModel.isDisposed()) {
       const val = modifiedModel.getValue()
       if (val !== props.modifiedValue) {
         emit('update:modifiedValue', val)
       }
-      updateDiffDecorations()
+      debouncedUpdateDiffDecorations()
     }
   })
 
   // Ctrl+S / Cmd+S save command on modified editor
   diffEditor.getModifiedEditor().addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
     emit('save')
+  })
+
+  // Ctrl+/ Toggle Line Comment on modified editor
+  diffEditor.getModifiedEditor().addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Slash, () => {
+    diffEditor?.getModifiedEditor().getAction('editor.action.commentLine')?.run()
   })
 
   resizeObserver = new ResizeObserver(() => {
@@ -236,9 +249,9 @@ onMounted(() => {
 watch(
   () => props.modifiedValue,
   (newVal) => {
-    if (modifiedModel && modifiedModel.getValue() !== newVal) {
+    if (modifiedModel && !modifiedModel.isDisposed() && modifiedModel.getValue() !== newVal) {
       modifiedModel.setValue(newVal)
-      nextTick(() => updateDiffDecorations())
+      debouncedUpdateDiffDecorations()
     }
   }
 )
@@ -246,9 +259,9 @@ watch(
 watch(
   () => props.originalValue,
   (newVal) => {
-    if (originalModel && originalModel.getValue() !== newVal) {
+    if (originalModel && !originalModel.isDisposed() && originalModel.getValue() !== newVal) {
       originalModel.setValue(newVal)
-      nextTick(() => updateDiffDecorations())
+      debouncedUpdateDiffDecorations()
     }
   }
 )
@@ -264,21 +277,25 @@ watch(
   () => props.filename,
   (newFilename) => {
     const lang = getLanguageFromFilename(newFilename)
-    if (originalModel) monaco.editor.setModelLanguage(originalModel, lang)
-    if (modifiedModel) monaco.editor.setModelLanguage(modifiedModel, lang)
-    nextTick(() => updateDiffDecorations())
+    if (originalModel && !originalModel.isDisposed()) monaco.editor.setModelLanguage(originalModel, lang)
+    if (modifiedModel && !modifiedModel.isDisposed()) monaco.editor.setModelLanguage(modifiedModel, lang)
+    debouncedUpdateDiffDecorations(0)
   }
 )
 
 onBeforeUnmount(() => {
+  if (diffDebounceTimer) {
+    clearTimeout(diffDebounceTimer)
+    diffDebounceTimer = null
+  }
   if (resizeObserver) {
     resizeObserver.disconnect()
     resizeObserver = null
   }
-  if (originalModel && oldOriginalDecorationIds.length > 0) {
+  if (originalModel && !originalModel.isDisposed() && oldOriginalDecorationIds.length > 0) {
     originalModel.deltaDecorations(oldOriginalDecorationIds, [])
   }
-  if (modifiedModel && oldModifiedDecorationIds.length > 0) {
+  if (modifiedModel && !modifiedModel.isDisposed() && oldModifiedDecorationIds.length > 0) {
     modifiedModel.deltaDecorations(oldModifiedDecorationIds, [])
   }
   oldOriginalDecorationIds = []

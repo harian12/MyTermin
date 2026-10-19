@@ -52,6 +52,7 @@ import {
 } from 'lucide-vue-next'
 import type { FileEntry } from '~/types/terminal'
 import type { GitTreeNode } from '~/components/GitFileTreeItem.vue'
+import SidebarSearchPane from '~/components/SidebarSearchPane.vue'
 
 const {
   activeWorkstation,
@@ -121,7 +122,7 @@ const emit = defineEmits<{
   (e: 'open-git-actions'): void
 }>()
 
-const activeTab = useState<'explorer' | 'git' | 'terminals'>('sidebar-active-tab', () => 'explorer')
+const activeTab = useState<'explorer' | 'search' | 'git' | 'terminals'>('sidebar-active-tab', () => 'explorer')
 const rootEntries = ref<FileEntry[]>([])
 const isLoadingRoot = ref(false)
 const searchQuery = ref('')
@@ -600,6 +601,21 @@ const handleAddToGitignore = async (entry?: FileEntry | null) => {
   }
 }
 
+const handleSearchInFolder = (entry?: FileEntry | null) => {
+  if (!entry) return
+  const root = activeWorkstation.value.folderPath || ''
+  const rootNorm = root.replace(/\\/g, '/').replace(/\/+$/, '')
+  const entryNorm = entry.path.replace(/\\/g, '/')
+  let rel = entryNorm.startsWith(rootNorm)
+    ? entryNorm.substring(rootNorm.length).replace(/^\/+/, '')
+    : entry.name
+
+  activeTab.value = 'search'
+  nextTick(() => {
+    window.dispatchEvent(new CustomEvent('search-in-folder', { detail: `./${rel}` }))
+  })
+}
+
 const handleTreeContextAction = (payload: { action: string; entry: FileEntry; x: number; y: number }) => {
   treeContextMenu.value = {
     visible: true,
@@ -717,15 +733,20 @@ const resetSidebarWidth = () => {
     <!-- Sidebar Top Header -->
     <div class="flex items-center justify-between h-10 px-2.5 border-b border-border bg-[#0f1016]">
       <div v-if="isSidebarOpen" class="flex items-center gap-1.5 overflow-hidden">
-        <FolderKanban class="w-4 h-4 text-primary flex-shrink-0" />
+        <FolderKanban v-if="activeTab === 'explorer'" class="w-4 h-4 text-primary flex-shrink-0" />
+        <Search v-else-if="activeTab === 'search'" class="w-4 h-4 text-primary flex-shrink-0" />
+        <GitBranch v-else-if="activeTab === 'git'" class="w-4 h-4 text-primary flex-shrink-0" />
+        <Terminal v-else class="w-4 h-4 text-primary flex-shrink-0" />
         <span class="text-xs font-bold uppercase tracking-wider text-muted-foreground truncate">
-          {{ activeTab === 'explorer' ? 'Explorer' : activeTab === 'git' ? 'Source Control' : 'Terminals' }}
+          {{ activeTab === 'explorer' ? 'Explorer' : activeTab === 'search' ? 'Search' : activeTab === 'git' ? 'Source Control' : 'Terminals' }}
         </span>
       </div>
 
       <div v-else class="w-full flex justify-center">
-        <UiTooltip :text="activeWorkstation.name" side="right">
-          <FolderKanban class="w-4 h-4 text-primary" />
+        <UiTooltip text="Buka Sidebar" side="right">
+          <button class="p-1 hover:bg-accent rounded text-primary transition-colors cursor-pointer" @click="toggleSidebar">
+            <FolderKanban class="w-4 h-4 text-primary" />
+          </button>
         </UiTooltip>
       </div>
 
@@ -786,6 +807,19 @@ const resetSidebarWidth = () => {
         Files
       </button>
 
+      <!-- Search Tab -->
+      <button
+        :class="[
+          'flex-1 py-1.5 text-[11px] font-medium transition-colors border-b-2 text-center',
+          activeTab === 'search'
+            ? 'border-primary text-foreground bg-[#14151f]'
+            : 'border-transparent text-muted-foreground hover:text-foreground'
+        ]"
+        @click="activeTab = 'search'"
+      >
+        Search
+      </button>
+
       <!-- Git Tab -->
       <button
         :class="[
@@ -826,25 +860,25 @@ const resetSidebarWidth = () => {
     <!-- Mini Mode Icon Bar (Collapsed Sidebar) -->
     <div v-else class="flex flex-col items-center gap-2 py-3">
       <UiTooltip text="File Explorer" side="right">
-
         <button :class="[ 'p-2 rounded-md transition-colors', activeTab === 'explorer' ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:text-foreground' ]" @click="activeTab = 'explorer'; toggleSidebar()">
-        <FolderOpen class="w-4 h-4" />
-      </button>
+          <FolderOpen class="w-4 h-4" />
+        </button>
+      </UiTooltip>
 
+      <UiTooltip text="Search (Ctrl+Shift+F)" side="right">
+        <button :class="[ 'p-2 rounded-md transition-colors', activeTab === 'search' ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:text-foreground' ]" @click="activeTab = 'search'; toggleSidebar()">
+          <Search class="w-4 h-4" />
+        </button>
       </UiTooltip>
 
       <UiTooltip text="Source Control (Git)" side="right">
-
-
         <button :class="[ 'p-2 rounded-md transition-colors relative', activeTab === 'git' ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:text-foreground' ]" @click="activeTab = 'git'; toggleSidebar()">
-        <GitBranch class="w-4 h-4" />
-        <span
-          v-if="changedFilesList.length > 0"
-          class="absolute top-1 right-1 w-2 h-2 rounded-full bg-primary"
-        />
-      </button>
-
-
+          <GitBranch class="w-4 h-4" />
+          <span
+            v-if="changedFilesList.length > 0"
+            class="absolute top-1 right-1 w-2 h-2 rounded-full bg-primary"
+          />
+        </button>
       </UiTooltip>
 
       <UiTooltip text="Terminals" side="right">
@@ -1017,7 +1051,12 @@ const resetSidebarWidth = () => {
       </div>
     </div>
 
-    <!-- Tab 2: Source Control (Git) View -->
+    <!-- Tab 2: VS Code-Style Search & Replace -->
+    <div v-if="isSidebarOpen && activeTab === 'search'" class="flex-1 overflow-hidden flex flex-col">
+      <SidebarSearchPane />
+    </div>
+
+    <!-- Tab 3: Source Control (Git) View -->
     <div v-if="isSidebarOpen && activeTab === 'git'" class="flex-1 overflow-hidden flex flex-col p-2 space-y-3 font-sans min-h-0">
       <div v-if="!activeWorkstation.folderPath" class="p-4 text-center text-xs text-muted-foreground">
         Buka folder project untuk menggunakan Git.
@@ -1530,6 +1569,13 @@ const resetSidebarWidth = () => {
           >
             <Terminal class="w-3.5 h-3.5 text-primary" />
             <span>Buka Terminal di Sini</span>
+          </button>
+          <button
+            class="w-full flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-accent text-left transition-colors"
+            @click="handleSearchInFolder(treeContextMenu.entry); closeTreeContextMenu()"
+          >
+            <Search class="w-3.5 h-3.5 text-primary" />
+            <span>Cari di Folder Ini... (Find in Folder)</span>
           </button>
           <div class="my-1 border-t border-border/50" />
         </template>

@@ -55,6 +55,7 @@ const {
   initEditorSession,
   saveEditorSession,
   reloadOpenFilesFromDisk,
+  reloadFile,
   saveAll
 } = useEditorStore()
 const { gitBranch, gitOverview, refreshGitStatus, startGitPolling, stopGitPolling, fetchBranches, pullGit, pushGit } = useProjectExplorer()
@@ -448,8 +449,19 @@ const openSettingsToKeybindings = () => {
 
 // Global Keybindings
 const handleKeydown = (e: KeyboardEvent) => {
-  // Keyboard Shortcuts Cheatsheet: F1 or Ctrl+/
+  // Keyboard Shortcuts Cheatsheet: F1 or Ctrl+/ (hanya di luar editor kode)
   if (e.key === 'F1' || ((e.ctrlKey || e.metaKey) && e.key === '/')) {
+    const activeEl = typeof document !== 'undefined' ? document.activeElement : null
+    const isDirectlyInEditor = Boolean(
+      activeEl?.closest('.monaco-editor') ||
+      activeEl?.closest('.monaco-diff-editor') ||
+      activeEl?.closest('#code-editor-pane')
+    )
+    const isEditorActive = isDirectlyInEditor || (isEditorVisible.value && lastFocusedPane.value === 'editor')
+    if (isEditorActive && (e.ctrlKey || e.metaKey) && e.key === '/') {
+      // Biarkan Monaco Editor menangani Ctrl+/ untuk toggle komentar baris
+      return
+    }
     e.preventDefault()
     isShortcutsOpen.value = !isShortcutsOpen.value
     return
@@ -466,10 +478,17 @@ const handleKeydown = (e: KeyboardEvent) => {
     }
   }
 
-  // Global Search in Files: Ctrl+Shift+F / Cmd+Shift+F
+  // Global Search in Files: Ctrl+Shift+F / Cmd+Shift+F (Buka tab Search di Sidebar persis VS Code)
   if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'f' || e.key === 'F')) {
     e.preventDefault()
-    isGlobalSearchOpen.value = !isGlobalSearchOpen.value
+    if (!isSidebarOpen.value) {
+      isSidebarOpen.value = true
+    }
+    const sidebarTab = useState<string>('sidebar-active-tab')
+    sidebarTab.value = 'search'
+    nextTick(() => {
+      window.dispatchEvent(new CustomEvent('focus-sidebar-search'))
+    })
     return
   }
 
@@ -565,7 +584,31 @@ const handleKeydown = (e: KeyboardEvent) => {
     return
   }
 
+  // Deteksi fokus editor vs terminal untuk shortcut kontekstual
+  const activeEl = typeof document !== 'undefined' ? document.activeElement : null
+  const isDirectlyInTerminal = Boolean(activeEl?.closest('.xterm') || activeEl?.closest('#terminal-grid-container'))
+  const isDirectlyInEditor = Boolean(
+    activeEl?.closest('.monaco-editor') ||
+    activeEl?.closest('.monaco-diff-editor') ||
+    activeEl?.closest('#code-editor-pane')
+  )
+  const isEditorActive = isDirectlyInEditor || (!isDirectlyInTerminal && lastFocusedPane.value === 'editor')
+
+  // Di editor: Ctrl+R memuat ulang file aktif dari disk
+  const isCtrlR = (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && (e.key === 'r' || e.key === 'R')
+  if (isEditorActive && isEditorVisible.value && isCtrlR) {
+    e.preventDefault()
+    if (activeFileId.value) {
+      reloadFile()
+    }
+    return
+  }
+
   if (isShortcut(e, 'commandHistory')) {
+    if (isEditorActive && isEditorVisible.value) {
+      // Abaikan histori perintah terminal bila sedang berada di editor
+      return
+    }
     e.preventDefault()
     const { togglePalette: toggleHistoryPalette } = useCommandHistory()
     toggleHistoryPalette()
@@ -573,15 +616,6 @@ const handleKeydown = (e: KeyboardEvent) => {
   }
 
   if (isShortcut(e, 'searchBuffer')) {
-    const activeEl = typeof document !== 'undefined' ? document.activeElement : null
-    const isDirectlyInTerminal = Boolean(activeEl?.closest('.xterm') || activeEl?.closest('#terminal-grid-container'))
-    const isDirectlyInEditor = Boolean(
-      activeEl?.closest('.monaco-editor') ||
-      activeEl?.closest('.monaco-diff-editor') ||
-      activeEl?.closest('#code-editor-pane')
-    )
-    const isEditorActive = isDirectlyInEditor || (!isDirectlyInTerminal && lastFocusedPane.value === 'editor')
-
     if (isEditorActive && isEditorVisible.value && openFiles.value.length > 0) {
       // Biarkan Monaco Editor menangani Ctrl+F untuk mencari di file aktif
       return

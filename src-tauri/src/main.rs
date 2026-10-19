@@ -1621,18 +1621,32 @@ fn search_in_files(
     let mut stack = vec![root.to_path_buf()];
 
     let ignored_names: std::collections::HashSet<&str> = [
-        ".git", "node_modules", "target", ".nuxt", ".output", "dist", ".cargo", ".idea", ".vscode", "package-lock.json", "Cargo.lock"
+        ".git", "node_modules", "target", ".nuxt", ".output", "dist", ".cargo", ".idea", ".vscode",
+        "package-lock.json", "Cargo.lock", "build", ".next", ".svelte-kit", "vendor", "__pycache__",
+        ".venv", "venv", "env", ".turbo", ".cache", "coverage"
+    ].into_iter().collect();
+
+    let ignored_extensions: std::collections::HashSet<&str> = [
+        "png", "jpg", "jpeg", "gif", "ico", "webp", "bmp", "tiff", "mp4", "mp3", "wav", "ogg",
+        "zip", "tar", "gz", "7z", "rar", "exe", "dll", "so", "dylib", "bin", "iso", "pdf",
+        "woff", "woff2", "ttf", "eot", "pyc", "class", "o", "obj", "map"
     ].into_iter().collect();
 
     let query_lower = if match_case { query.clone() } else { query.to_lowercase() };
+    let mut scanned_files = 0usize;
+    const MAX_SCANNED_FILES: usize = 25_000;
 
     while let Some(dir) = stack.pop() {
-        if results.len() >= limit {
+        if results.len() >= limit || scanned_files >= MAX_SCANNED_FILES {
             break;
         }
 
         if let Ok(entries) = std::fs::read_dir(&dir) {
             for entry in entries.flatten() {
+                if results.len() >= limit || scanned_files >= MAX_SCANNED_FILES {
+                    break;
+                }
+
                 let path = entry.path();
                 let file_name = entry.file_name();
                 let name_str = file_name.to_string_lossy();
@@ -1644,11 +1658,19 @@ fn search_in_files(
                 if path.is_dir() {
                     stack.push(path);
                 } else if path.is_file() {
+                    if let Some(ext) = path.extension().and_then(|s| s.to_str()) {
+                        if ignored_extensions.contains(ext.to_ascii_lowercase().as_str()) {
+                            continue;
+                        }
+                    }
+
                     if let Ok(metadata) = path.metadata() {
                         if metadata.len() > 1024 * 1024 {
                             continue; // Skip files > 1MB for fast search
                         }
                     }
+
+                    scanned_files += 1;
 
                     if let Ok(content) = std::fs::read_to_string(&path) {
                         let rel_str = path.strip_prefix(root)

@@ -292,6 +292,16 @@ onMounted(() => {
     editor?.getAction('editor.action.startFindReplaceAction')?.run()
   })
 
+  // Ctrl+/ Toggle Line Comment
+  editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Slash, () => {
+    editor?.getAction('editor.action.commentLine')?.run()
+  })
+
+  // Shift+Alt+A Toggle Block Comment
+  editor.addCommand(monaco.KeyMod.Shift | monaco.KeyMod.Alt | monaco.KeyCode.KeyA, () => {
+    editor?.getAction('editor.action.blockComment')?.run()
+  })
+
   // Auto resize observer
   resizeObserver = new ResizeObserver(() => {
     editor?.layout()
@@ -316,13 +326,14 @@ const syncEditorModel = (newPath: string | undefined, newFilename: string | unde
 
   // 1. Berpindah file (tab ditutup/diganti/dibuka): switch model langsung tanpa re-parse model lama
   if (currentModelUri !== targetUriStr) {
-    if (currentModelUri && editor.getModel()) {
+    const prevModel = editor.getModel()
+    if (currentModelUri && prevModel && !prevModel.isDisposed()) {
       saveMonacoViewState(currentModelUri, editor.saveViewState())
     }
 
     const language = getLanguageFromFilename(newFilename || '')
     let model = monaco.editor.getModel(targetUri)
-    if (!model) {
+    if (!model || model.isDisposed()) {
       model = monaco.editor.createModel(newVal, language, targetUri)
     } else {
       if (model.getValue() !== newVal) {
@@ -343,7 +354,7 @@ const syncEditorModel = (newPath: string | undefined, newFilename: string | unde
 
   // 2. File sama, tapi konten berubah dari luar (format prettier, revert git, dll.)
   const currentModel = editor.getModel()
-  if (currentModel && currentModel.getValue() !== newVal) {
+  if (currentModel && !currentModel.isDisposed() && currentModel.getValue() !== newVal) {
     const pos = editor.getPosition()
     editor.setValue(newVal)
     if (pos) editor.setPosition(pos)
@@ -405,7 +416,8 @@ onBeforeUnmount(() => {
     resizeObserver = null
   }
   if (editor) {
-    if (currentModelUri && editor.getModel()) {
+    const model = editor.getModel()
+    if (currentModelUri && model && !model.isDisposed()) {
       saveMonacoViewState(currentModelUri, editor.saveViewState())
     }
     editor.dispose()

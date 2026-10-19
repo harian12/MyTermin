@@ -53,13 +53,15 @@ const groups = computed<ShortcutGroup[]>(() => [
       { keys: [kb('unifiedSearch', 'Ctrl+Shift+U')], label: 'Unified Search (Terminal + File)', customizable: true },
       { keys: ['Ctrl+Shift+N'], label: 'Buka Jendela Baru (Blank Workspace)' },
       { keys: [kb('toggleSidebar', 'Ctrl+B')], label: 'Toggle Sidebar', customizable: true },
-      { keys: ['F1', 'Ctrl+/'], label: 'Buka Cheatsheet Shortcut Ini' },
+      { keys: ['F1', 'Ctrl+/ (Luar Editor)'], label: 'Buka Cheatsheet Shortcut Ini' },
       { keys: ['Ctrl+Shift+P'], label: 'Buka Presets Workspace' }
     ]
   },
   {
     title: 'Editor Kode',
     items: [
+      { keys: ['Ctrl+/'], label: 'Toggle Komentar Baris (Comment)' },
+      { keys: ['Shift+Alt+A'], label: 'Toggle Komentar Blok' },
       { keys: ['Ctrl+N'], label: 'File Draf Baru (Tanpa Save)' },
       { keys: ['Ctrl+S'], label: 'Simpan File' },
       { keys: ['Ctrl+Shift+S'], label: 'Simpan Semua File' },
@@ -71,6 +73,7 @@ const groups = computed<ShortcutGroup[]>(() => [
       { keys: ['Shift+Alt+I'], label: 'Kursor di Akhir Tiap Baris' },
       { keys: ['Ctrl+F'], label: 'Cari di File' },
       { keys: ['Ctrl+H'], label: 'Cari & Ganti di File' },
+      { keys: ['Ctrl+R'], label: 'Muat Ulang File dari Disk (Reload)' },
       { keys: ['Ctrl+W'], label: 'Tutup Tab File' }
     ]
   },

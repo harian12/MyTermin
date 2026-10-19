@@ -121,9 +121,10 @@ export function registerUniversalDefinitionProvider(
 
       const declRegex = getDeclarationRegex(word)
 
-      // 1. Cari deklarasi di file yang sama
-      const lineCount = model.getLineCount()
+      // 1. Cari deklarasi di file yang sama (batasi 10.000 baris agar tidak freeze)
+      const lineCount = Math.min(model.getLineCount(), 10000)
       for (let i = 1; i <= lineCount; i++) {
+        if (_token?.isCancellationRequested) return null
         if (i === position.lineNumber) continue
         const lineContent = model.getLineContent(i)
         if (declRegex.test(lineContent)) {
@@ -139,6 +140,8 @@ export function registerUniversalDefinitionProvider(
           }
         }
       }
+
+      if (_token?.isCancellationRequested) return null
 
       // 2. Periksa apakah simbol di-import dari file relatif
       const currentFilePath = model.uri.fsPath || model.uri.path || ''
@@ -205,11 +208,12 @@ export function registerUniversalDefinitionProvider(
         }
 
         // 3. Fallback pencarian deklarasi di seluruh workspace proyek
-        if (getProjectRoot) {
+        if (getProjectRoot && !_token?.isCancellationRequested) {
           const rootPath = getProjectRoot()
           if (rootPath) {
             try {
               const { invoke } = await import('@tauri-apps/api/core')
+              if (_token?.isCancellationRequested) return null
               const searchResults = await invoke<SearchResultItem[]>('search_in_files', {
                 rootPath,
                 query: word,
