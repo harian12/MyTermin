@@ -45,18 +45,24 @@ async function run() {
 
   const releaseBody = `## MyTermin ${tag} 🚀
 
-Pembaruan **MyTermin ${tag}** — optimasi performa pergantian workstation bebas lag dan perbaikan auto-save session.
+Pembaruan **MyTermin ${tag}** — fitur Sidebar Search & Replace ala VS Code, perbaikan Monaco web worker, dan optimalisasi anti not-responding.
 
 ---
 
 ### ✨ Apa yang Baru di ${tag}
-1. **Optimasi Pergantian Workstation Cepat & Ringan**:
-   - Pemindaian berkas (\`scanProjectFiles\`) kini bersifat lazy, hanya dijalankan saat Quick Open (\`Ctrl + P\`) dibuka sehingga tidak membebani I/O saat berganti workstation.
-   - Pengecekan Git status dijalankan secara asinkron di latar belakang tanpa menghalangi render tampilan file tree.
-2. **Debounce Terminal Reflow & Filter IPC**:
-   - \`safeFit()\` terminal dibungkus \`requestAnimationFrame\` dan hanya mengirim IPC resize ke Rust bila kolom/baris benar-benar berubah.
-3. **Debounced Session Persistence**:
-   - Penyimpanan sesi workstation ke penyimpanan lokal (\`saveSession\`) kini didebounce untuk mencegah freeze/not-responding saat navigasi cepat.
+1. **Sidebar Search & Replace (VS Code Style)**:
+   - Panel pencarian & penggantian teks lengkap di sidebar dengan opsi Case Sensitive (\`Aa\`), Whole Word (\`ab\`), dan Regular Expression (\`.*\`).
+   - Filter *files to include* dan *files to exclude*.
+   - Fitur **"Cari di Folder Ini... (Find in Folder)"** via klik kanan folder di File Explorer.
+   - Hasil pencarian dikelompokkan per berkas dengan highlight teks dan tombol ganti satuan / ganti semua.
+   - Shortcut \`Ctrl + Shift + F\` otomatis membuka tab Search di sidebar.
+2. **Perbaikan Monaco Web Worker**:
+   - Inisialisasi Vite worker bundler (\`?worker\`) khusus untuk Monaco Editor (Editor, JSON, HTML, CSS, TypeScript) menghilangkan error \`webWorkerBootstrap.js\`.
+3. **Pintasan Komentar & Positioning Tooltip**:
+   - Pintasan \`Ctrl + /\` kini mengomentari baris kode di editor tanpa salah memicu Cheatsheet modal.
+   - Perbaikan selektor CSS pada tooltip find widget agar tidak terpotong container editor.
+4. **Optimalisasi Anti Not-Responding**:
+   - Algoritma pencarian berkas dan diff computer dilengkapi trimming prefix/suffix, skipping file biner, dan safety break agar tidak membekukan UI thread pada proyek besar.
 
 ---
 
