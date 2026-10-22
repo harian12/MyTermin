@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { TERMINAL_THEMES } from '~/composables/useThemes'
 import {
+  Check,
   Plus,
   Trash2,
   RotateCcw,
@@ -192,9 +193,21 @@ const handleSaveProjectConfig = async () => {
   }
 }
 
+const isCopiedDebugInfo = ref(false)
+let copiedTimer: ReturnType<typeof setTimeout> | null = null
+
 const handleCopyDebugInfo = async () => {
   await copyToClipboard(collectDebugInfo())
+  isCopiedDebugInfo.value = true
+  if (copiedTimer) clearTimeout(copiedTimer)
+  copiedTimer = setTimeout(() => {
+    isCopiedDebugInfo.value = false
+  }, 2000)
 }
+
+onBeforeUnmount(() => {
+  if (copiedTimer) clearTimeout(copiedTimer)
+})
 
 const handleExportSettings = async () => {
   const json = exportSettingsJson()
@@ -1036,14 +1049,29 @@ onMounted(async () => {
           </UiSettingRow>
 
           <UiSettingRow label="Copy debug info" hint="Clipboard berisi versi, workstation, terminal, keybinding, dan 50 log terakhir">
-            <div class="flex w-full items-center justify-end gap-1.5">
+            <div class="flex w-full items-center justify-end gap-2">
+              <span
+                v-if="isCopiedDebugInfo"
+                class="flex items-center gap-1 text-[11px] font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full animate-in fade-in slide-in-from-right-2 duration-150"
+              >
+                <Check class="h-3 w-3" />
+                <span>Berhasil disalin!</span>
+              </span>
+
               <UiButton variant="ghost" size="sm" class="h-7 shrink-0 gap-1 px-2 text-[11px] text-muted-foreground hover:text-foreground" @click="clearLogs">
                 <Eraser class="h-3 w-3" />
                 <span>Bersihkan Log</span>
               </UiButton>
-              <UiButton size="sm" class="h-7 shrink-0 gap-1 px-2.5 text-[11px]" @click="handleCopyDebugInfo">
-                <Copy class="h-3 w-3" />
-                <span>Copy</span>
+              <UiButton
+                size="sm"
+                :variant="isCopiedDebugInfo ? 'outline' : 'default'"
+                class="h-7 shrink-0 gap-1 px-2.5 text-[11px] transition-all duration-200"
+                :class="isCopiedDebugInfo ? 'border-emerald-500/40 text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20' : ''"
+                @click="handleCopyDebugInfo"
+              >
+                <Check v-if="isCopiedDebugInfo" class="h-3 w-3 text-emerald-400 animate-in zoom-in-75 duration-150" />
+                <Copy v-else class="h-3 w-3" />
+                <span>{{ isCopiedDebugInfo ? 'Tersalin' : 'Copy' }}</span>
               </UiButton>
             </div>
           </UiSettingRow>

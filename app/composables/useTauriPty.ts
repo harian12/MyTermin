@@ -77,17 +77,29 @@ export const useTauriPty = () => {
     if (!isTauri.value) {
       return
     }
-    await invoke('write_pty', { id, data })
+    try {
+      await invoke('write_pty', { id, data })
+    } catch (_) {
+      // Ignore: pipe closed or session ended
+    }
   }
 
   const resizePty = async (id: string, cols: number, rows: number) => {
     if (!isTauri.value) return
-    await invoke('resize_pty', { id, cols, rows })
+    try {
+      await invoke('resize_pty', { id, cols, rows })
+    } catch (_) {
+      // Ignore: pipe closed or session ended
+    }
   }
 
   const killPty = async (id: string) => {
     if (!isTauri.value) return
-    await invoke('kill_pty', { id })
+    try {
+      await invoke('kill_pty', { id })
+    } catch (_) {
+      // Ignore: session already closed
+    }
   }
 
   const onPtyData = async (id: string, callback: (data: string) => void): Promise<UnlistenFn> => {

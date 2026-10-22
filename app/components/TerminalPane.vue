@@ -213,7 +213,9 @@ const performFit = () => {
         if (cols !== lastCols || rows !== lastRows) {
           lastCols = cols
           lastRows = rows
-          resizePty(props.paneId, cols, rows)
+          if (!isPtyExited.value) {
+            resizePty(props.paneId, cols, rows)
+          }
         }
       }
       term.scrollToBottom()
@@ -756,7 +758,9 @@ const initTerminal = async () => {
 
       // Listen to user input keystrokes & track executed commands
       term.onData((data) => {
-        writePty(props.paneId, data)
+        if (!isPtyExited.value) {
+          writePty(props.paneId, data)
+        }
         if (isBroadcastInput.value && props.isActive) {
           for (const other of terminals.value) {
             if (other.id !== props.paneId) {

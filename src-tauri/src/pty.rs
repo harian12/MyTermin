@@ -340,35 +340,51 @@ impl PtyManager {
     pub fn write_pty(&self, id: &str, data: &str) -> Result<(), String> {
         let mut sessions = self.sessions.lock().map_err(|e| e.to_string())?;
         if let Some(session) = sessions.get_mut(id) {
-            session
-                .writer
-                .write_all(data.as_bytes())
-                .map_err(|e| format!("Write failed: {}", e))?;
-            session
-                .writer
-                .flush()
-                .map_err(|e| format!("Flush failed: {}", e))?;
+            if let Err(e) = session.writer.write_all(data.as_bytes()) {
+                // Jangan gagal jika pipe terminal sudah ditutup di Windows (os error 232 / BrokenPipe)
+                if e.kind() == std::io::ErrorKind::BrokenPipe
+                    || e.raw_os_error() == Some(232)
+                {
+                    return Ok(());
+                }
+                return Err(format!("Write failed: {}", e));
+            }
+            if let Err(e) = session.writer.flush() {
+                if e.kind() == std::io::ErrorKind::BrokenPipe
+                    || e.raw_os_error() == Some(232)
+                {
+                    return Ok(());
+                }
+                return Err(format!("Flush failed: {}", e));
+            }
             Ok(())
         } else {
-            Err("Session not found".into())
+            Ok(())
         }
     }
 
     pub fn resize_pty(&self, id: &str, cols: u16, rows: u16) -> Result<(), String> {
         let sessions = self.sessions.lock().map_err(|e| e.to_string())?;
         if let Some(session) = sessions.get(id) {
-            session
-                .master
-                .resize(PtySize {
-                    rows,
-                    cols,
-                    pixel_width: 0,
-                    pixel_height: 0,
-                })
-                .map_err(|e| format!("Resize failed: {}", e))?;
+            if let Err(e) = session.master.resize(PtySize {
+                rows,
+                cols,
+                pixel_width: 0,
+                pixel_height: 0,
+            }) {
+                let err_str = e.to_string();
+                // -2147024664 (0x800700E8) adalah ERROR_NO_DATA (The pipe is being closed) saat console ditutup
+                if err_str.contains("-2147024664")
+                    || err_str.contains("232")
+                    || err_str.to_lowercase().contains("pipe")
+                {
+                    return Ok(());
+                }
+                return Err(format!("Resize failed: {}", err_str));
+            }
             Ok(())
         } else {
-            Err("Session not found".into())
+            Ok(())
         }
     }
 

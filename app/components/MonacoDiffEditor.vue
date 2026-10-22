@@ -292,18 +292,30 @@ onBeforeUnmount(() => {
     resizeObserver.disconnect()
     resizeObserver = null
   }
-  if (originalModel && !originalModel.isDisposed() && oldOriginalDecorationIds.length > 0) {
-    originalModel.deltaDecorations(oldOriginalDecorationIds, [])
+  // Reset model diffEditor sebelum dispose model agar Monaco tidak melempar error
+  if (diffEditor) {
+    try {
+      diffEditor.setModel(null)
+    } catch (_) {}
+    diffEditor.dispose()
+    diffEditor = null
   }
-  if (modifiedModel && !modifiedModel.isDisposed() && oldModifiedDecorationIds.length > 0) {
-    modifiedModel.deltaDecorations(oldModifiedDecorationIds, [])
+  if (originalModel && !originalModel.isDisposed()) {
+    if (oldOriginalDecorationIds.length > 0) {
+      originalModel.deltaDecorations(oldOriginalDecorationIds, [])
+    }
+    originalModel.dispose()
+    originalModel = null
+  }
+  if (modifiedModel && !modifiedModel.isDisposed()) {
+    if (oldModifiedDecorationIds.length > 0) {
+      modifiedModel.deltaDecorations(oldModifiedDecorationIds, [])
+    }
+    modifiedModel.dispose()
+    modifiedModel = null
   }
   oldOriginalDecorationIds = []
   oldModifiedDecorationIds = []
-  originalModel?.dispose()
-  modifiedModel?.dispose()
-  diffEditor?.dispose()
-  diffEditor = null
 })
 </script>
 
