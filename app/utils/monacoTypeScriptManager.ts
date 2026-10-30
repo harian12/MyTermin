@@ -6,6 +6,14 @@ let lastLoadedProjectRoot = ''
 let lastLoadedTsConfigSummary = 'default (bundler / ESNext)'
 
 /**
+ * Akses modul TypeScript Monaco yang kompatibel dengan runtime ESM maupun AMD
+ */
+export function getTsModule(): any {
+  if (typeof monaco === 'undefined') return null
+  return (monaco as any).typescript || (monaco as any).languages?.typescript || null
+}
+
+/**
  * Hapus komentar single-line //, multi-line /* *\/ dan trailing commas dari file JSONC
  */
 export function stripJsonComments(json: string): string {
@@ -15,57 +23,64 @@ export function stripJsonComments(json: string): string {
     .replace(/,(\s*[}\]])/g, '$1')
 }
 
-export function mapScriptTarget(target?: string): monaco.languages.typescript.ScriptTarget {
-  if (!target) return monaco.languages.typescript.ScriptTarget.ESNext
+export function mapScriptTarget(target?: string): number {
+  const ts = getTsModule()
+  const fallback = ts?.ScriptTarget?.ESNext ?? 99
+  if (!target) return fallback
   const t = target.toLowerCase()
-  if (t === 'es3') return monaco.languages.typescript.ScriptTarget.ES3
-  if (t === 'es5') return monaco.languages.typescript.ScriptTarget.ES5
-  if (t === 'es2015' || t === 'es6') return monaco.languages.typescript.ScriptTarget.ES2015
-  if (t === 'es2016') return monaco.languages.typescript.ScriptTarget.ES2016
-  if (t === 'es2017') return monaco.languages.typescript.ScriptTarget.ES2017
-  if (t === 'es2018') return monaco.languages.typescript.ScriptTarget.ES2018
-  if (t === 'es2019') return monaco.languages.typescript.ScriptTarget.ES2019
-  if (t === 'es2020') return monaco.languages.typescript.ScriptTarget.ES2020
-  if (t === 'es2021') return monaco.languages.typescript.ScriptTarget.ES2021
-  if (t === 'es2022') return monaco.languages.typescript.ScriptTarget.ES2022
-  return monaco.languages.typescript.ScriptTarget.ESNext
+  if (t === 'es3') return ts?.ScriptTarget?.ES3 ?? 0
+  if (t === 'es5') return ts?.ScriptTarget?.ES5 ?? 1
+  if (t === 'es2015' || t === 'es6') return ts?.ScriptTarget?.ES2015 ?? 2
+  if (t === 'es2016') return ts?.ScriptTarget?.ES2016 ?? 3
+  if (t === 'es2017') return ts?.ScriptTarget?.ES2017 ?? 4
+  if (t === 'es2018') return ts?.ScriptTarget?.ES2018 ?? 5
+  if (t === 'es2019') return ts?.ScriptTarget?.ES2019 ?? 6
+  if (t === 'es2020') return ts?.ScriptTarget?.ES2020 ?? 7
+  if (t === 'es2021') return ts?.ScriptTarget?.ES2021 ?? 8
+  if (t === 'es2022') return ts?.ScriptTarget?.ES2022 ?? 9
+  return fallback
 }
 
-export function mapModuleKind(mod?: string): monaco.languages.typescript.ModuleKind {
-  if (!mod) return monaco.languages.typescript.ModuleKind.ESNext
+export function mapModuleKind(mod?: string): number {
+  const ts = getTsModule()
+  const fallback = ts?.ModuleKind?.ESNext ?? 99
+  if (!mod) return fallback
   const m = mod.toLowerCase()
-  if (m === 'none') return monaco.languages.typescript.ModuleKind.None
-  if (m === 'commonjs') return monaco.languages.typescript.ModuleKind.CommonJS
-  if (m === 'amd') return monaco.languages.typescript.ModuleKind.AMD
-  if (m === 'umd') return monaco.languages.typescript.ModuleKind.UMD
-  if (m === 'system') return monaco.languages.typescript.ModuleKind.System
-  if (m === 'es2015' || m === 'es6') return monaco.languages.typescript.ModuleKind.ES2015
-  if (m === 'es2020') return monaco.languages.typescript.ModuleKind.ES2020
-  if (m === 'node16') return 100 as any
-  if (m === 'nodenext') return 199 as any
-  return monaco.languages.typescript.ModuleKind.ESNext
+  if (m === 'none') return ts?.ModuleKind?.None ?? 0
+  if (m === 'commonjs') return ts?.ModuleKind?.CommonJS ?? 1
+  if (m === 'amd') return ts?.ModuleKind?.AMD ?? 2
+  if (m === 'umd') return ts?.ModuleKind?.UMD ?? 3
+  if (m === 'system') return ts?.ModuleKind?.System ?? 4
+  if (m === 'es2015' || m === 'es6') return ts?.ModuleKind?.ES2015 ?? 5
+  if (m === 'es2020') return ts?.ModuleKind?.ES2020 ?? 7
+  if (m === 'node16') return 100
+  if (m === 'nodenext') return 199
+  return fallback
 }
 
-export function mapModuleResolution(res?: string): monaco.languages.typescript.ModuleResolutionKind {
-  if (!res) return 100 as any // Modern Bundler
+export function mapModuleResolution(res?: string): number {
+  const ts = getTsModule()
+  if (!res) return 100 // Modern Bundler
   const r = res.toLowerCase()
-  if (r === 'classic') return monaco.languages.typescript.ModuleResolutionKind.Classic
-  if (r === 'node' || r === 'nodejs' || r === 'node10') return monaco.languages.typescript.ModuleResolutionKind.NodeJs
-  if (r === 'node16') return 3 as any
-  if (r === 'nodenext') return 99 as any
-  if (r === 'bundler') return 100 as any
-  return 100 as any
+  if (r === 'classic') return ts?.ModuleResolutionKind?.Classic ?? 1
+  if (r === 'node' || r === 'nodejs' || r === 'node10') return ts?.ModuleResolutionKind?.NodeJs ?? 2
+  if (r === 'node16') return 3
+  if (r === 'nodenext') return 99
+  if (r === 'bundler') return 100
+  return 100
 }
 
-export function mapJsxEmit(jsx?: string): monaco.languages.typescript.JsxEmit {
-  if (!jsx) return monaco.languages.typescript.JsxEmit.ReactJSX
+export function mapJsxEmit(jsx?: string): number {
+  const ts = getTsModule()
+  const fallback = ts?.JsxEmit?.ReactJSX ?? 4
+  if (!jsx) return fallback
   const j = jsx.toLowerCase()
-  if (j === 'preserve') return monaco.languages.typescript.JsxEmit.Preserve
-  if (j === 'react') return monaco.languages.typescript.JsxEmit.React
-  if (j === 'react-native') return monaco.languages.typescript.JsxEmit.ReactNative
-  if (j === 'react-jsx') return monaco.languages.typescript.JsxEmit.ReactJSX
-  if (j === 'react-jsxdev') return monaco.languages.typescript.JsxEmit.ReactJSXDev
-  return monaco.languages.typescript.JsxEmit.ReactJSX
+  if (j === 'preserve') return ts?.JsxEmit?.Preserve ?? 1
+  if (j === 'react') return ts?.JsxEmit?.React ?? 2
+  if (j === 'react-native') return ts?.JsxEmit?.ReactNative ?? 3
+  if (j === 'react-jsx') return ts?.JsxEmit?.ReactJSX ?? 4
+  if (j === 'react-jsxdev') return ts?.JsxEmit?.ReactJSXDev ?? 5
+  return fallback
 }
 
 /**
@@ -74,45 +89,62 @@ export function mapJsxEmit(jsx?: string): monaco.languages.typescript.JsxEmit {
 export function initTypeScriptDefaults() {
   if (typeof window === 'undefined' || typeof monaco === 'undefined') return
   if (isDefaultsInitialized) return
-  isDefaultsInitialized = true
 
-  const ts = monaco.languages.typescript
+  try {
+    const ts = getTsModule()
+    if (!ts || !ts.typescriptDefaults) return
+    isDefaultsInitialized = true
 
-  // Aktifkan eager model sync agar model antar file sinkron ke worker
-  ts.typescriptDefaults.setEagerModelSync(true)
-  ts.javascriptDefaults.setEagerModelSync(true)
+    // Aktifkan eager model sync agar model antar file sinkron ke worker
+    if (typeof ts.typescriptDefaults.setEagerModelSync === 'function') {
+      ts.typescriptDefaults.setEagerModelSync(true)
+    }
+    if (ts.javascriptDefaults && typeof ts.javascriptDefaults.setEagerModelSync === 'function') {
+      ts.javascriptDefaults.setEagerModelSync(true)
+    }
 
-  const defaultCompilerOptions: monaco.languages.typescript.CompilerOptions = {
-    target: ts.ScriptTarget.ESNext,
-    module: ts.ModuleKind.ESNext,
-    moduleResolution: 100 as any, // Bundler
-    allowSyntheticDefaultImports: true,
-    esModuleInterop: true,
-    allowJs: true,
-    checkJs: false,
-    jsx: ts.JsxEmit.ReactJSX,
-    allowNonTsExtensions: true,
-    resolveJsonModule: true,
-    isolatedModules: true,
-    skipLibCheck: true
+    const defaultCompilerOptions: any = {
+      target: mapScriptTarget('esnext'),
+      module: mapModuleKind('esnext'),
+      moduleResolution: 100, // Bundler
+      allowSyntheticDefaultImports: true,
+      esModuleInterop: true,
+      allowJs: true,
+      checkJs: false,
+      jsx: mapJsxEmit('react-jsx'),
+      allowNonTsExtensions: true,
+      resolveJsonModule: true,
+      isolatedModules: true,
+      skipLibCheck: true
+    }
+
+    if (typeof ts.typescriptDefaults.setCompilerOptions === 'function') {
+      ts.typescriptDefaults.setCompilerOptions(defaultCompilerOptions)
+    }
+    if (ts.javascriptDefaults && typeof ts.javascriptDefaults.setCompilerOptions === 'function') {
+      ts.javascriptDefaults.setCompilerOptions(defaultCompilerOptions)
+    }
+
+    // Abaikan error missing module deklarasi untuk paket eksternal agar tidak merah semua
+    const defaultDiagnostics = {
+      noSemanticValidation: false,
+      noSyntaxValidation: false,
+      diagnosticCodesToIgnore: [
+        2792, // Cannot find module ... Did you mean to set 'moduleResolution' to 'nodenext'...
+        2307, // Cannot find module ... or its corresponding type declarations
+        7016  // Could not find declaration file for module
+      ]
+    }
+
+    if (typeof ts.typescriptDefaults.setDiagnosticsOptions === 'function') {
+      ts.typescriptDefaults.setDiagnosticsOptions(defaultDiagnostics)
+    }
+    if (ts.javascriptDefaults && typeof ts.javascriptDefaults.setDiagnosticsOptions === 'function') {
+      ts.javascriptDefaults.setDiagnosticsOptions(defaultDiagnostics)
+    }
+  } catch (err) {
+    console.warn('[Monaco] initTypeScriptDefaults warning:', err)
   }
-
-  ts.typescriptDefaults.setCompilerOptions(defaultCompilerOptions)
-  ts.javascriptDefaults.setCompilerOptions(defaultCompilerOptions)
-
-  // Abaikan error missing module deklarasi untuk paket eksternal agar tidak merah semua
-  const defaultDiagnostics: monaco.languages.typescript.DiagnosticsOptions = {
-    noSemanticValidation: false,
-    noSyntaxValidation: false,
-    diagnosticCodesToIgnore: [
-      2792, // Cannot find module ... Did you mean to set 'moduleResolution' to 'nodenext'...
-      2307, // Cannot find module ... or its corresponding type declarations
-      7016  // Could not find declaration file for module
-    ]
-  }
-
-  ts.typescriptDefaults.setDiagnosticsOptions(defaultDiagnostics)
-  ts.javascriptDefaults.setDiagnosticsOptions(defaultDiagnostics)
 }
 
 /**
@@ -124,6 +156,11 @@ export async function syncTsConfig(projectRoot?: string): Promise<{ found: boole
   }
 
   initTypeScriptDefaults()
+
+  const ts = getTsModule()
+  if (!ts || !ts.typescriptDefaults) {
+    return { found: false, info: 'TypeScript language service tidak tersedia' }
+  }
 
   const normRoot = projectRoot.replace(/[/\\]+$/, '')
   const tsConfigPaths = [
@@ -161,9 +198,9 @@ export async function syncTsConfig(projectRoot?: string): Promise<{ found: boole
     const parsed = JSON.parse(clean)
     const rawOpts = parsed.compilerOptions || {}
 
-    const ts = monaco.languages.typescript
-    const mergedOpts: monaco.languages.typescript.CompilerOptions = {
-      ...ts.typescriptDefaults.getCompilerOptions(),
+    const existingOpts = ts.typescriptDefaults.getCompilerOptions ? ts.typescriptDefaults.getCompilerOptions() : {}
+    const mergedOpts: any = {
+      ...existingOpts,
       target: mapScriptTarget(rawOpts.target),
       module: mapModuleKind(rawOpts.module),
       moduleResolution: mapModuleResolution(rawOpts.moduleResolution),
@@ -181,8 +218,12 @@ export async function syncTsConfig(projectRoot?: string): Promise<{ found: boole
     if (rawOpts.baseUrl) mergedOpts.baseUrl = rawOpts.baseUrl
     if (rawOpts.paths) mergedOpts.paths = rawOpts.paths
 
-    ts.typescriptDefaults.setCompilerOptions(mergedOpts)
-    ts.javascriptDefaults.setCompilerOptions(mergedOpts)
+    if (typeof ts.typescriptDefaults.setCompilerOptions === 'function') {
+      ts.typescriptDefaults.setCompilerOptions(mergedOpts)
+    }
+    if (ts.javascriptDefaults && typeof ts.javascriptDefaults.setCompilerOptions === 'function') {
+      ts.javascriptDefaults.setCompilerOptions(mergedOpts)
+    }
 
     lastLoadedProjectRoot = projectRoot
     const resName = rawOpts.moduleResolution || 'bundler'
@@ -215,6 +256,9 @@ export async function resolveFileImports(
   }
 
   initTypeScriptDefaults()
+
+  const ts = getTsModule()
+  if (!ts || !ts.typescriptDefaults) return 0
 
   const normCurrent = filePath.replace(/^[/\\]+([A-Za-z]:)/, '$1').replace(/\//g, '\\')
   const lastSlash = Math.max(normCurrent.lastIndexOf('\\'), normCurrent.lastIndexOf('/'))
@@ -258,16 +302,14 @@ export async function resolveFileImports(
         try {
           const fileContent = await invoke<string>('read_file_content', { path: fullCandidate })
           if (fileContent !== undefined && fileContent !== null) {
-            const disposable = monaco.languages.typescript.typescriptDefaults.addExtraLib(
-              fileContent,
-              fileUriStr
-            )
-            registeredExtraLibs.set(fileUriStr, disposable)
+            if (typeof ts.typescriptDefaults.addExtraLib === 'function') {
+              const disposable = ts.typescriptDefaults.addExtraLib(fileContent, fileUriStr)
+              registeredExtraLibs.set(fileUriStr, disposable)
+            }
 
-            monaco.languages.typescript.javascriptDefaults.addExtraLib(
-              fileContent,
-              fileUriStr
-            )
+            if (ts.javascriptDefaults && typeof ts.javascriptDefaults.addExtraLib === 'function') {
+              ts.javascriptDefaults.addExtraLib(fileContent, fileUriStr)
+            }
             resolvedCount++
             break
           }
@@ -298,6 +340,11 @@ export async function restartTypeScriptServer(
   try {
     initTypeScriptDefaults()
 
+    const ts = getTsModule()
+    if (!ts || !ts.typescriptDefaults) {
+      return { success: false, message: 'TypeScript service tidak ditemukan di editor' }
+    }
+
     // 1. Bersihkan extraLibs cache
     for (const disposable of registeredExtraLibs.values()) {
       try {
@@ -322,9 +369,13 @@ export async function restartTypeScriptServer(
     }
 
     // 4. Force restart TS Worker & recompute diagnostics
-    const currentOpts = monaco.languages.typescript.typescriptDefaults.getCompilerOptions()
-    monaco.languages.typescript.typescriptDefaults.setCompilerOptions({ ...currentOpts })
-    monaco.languages.typescript.javascriptDefaults.setCompilerOptions({ ...currentOpts })
+    if (typeof ts.typescriptDefaults.getCompilerOptions === 'function' && typeof ts.typescriptDefaults.setCompilerOptions === 'function') {
+      const currentOpts = ts.typescriptDefaults.getCompilerOptions()
+      ts.typescriptDefaults.setCompilerOptions({ ...currentOpts })
+      if (ts.javascriptDefaults && typeof ts.javascriptDefaults.setCompilerOptions === 'function') {
+        ts.javascriptDefaults.setCompilerOptions({ ...currentOpts })
+      }
+    }
 
     const parts = [
       'TypeScript Server direstart',

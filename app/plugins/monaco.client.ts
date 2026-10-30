@@ -27,5 +27,9 @@ export default defineNuxtPlugin(() => {
   }
 
   // Terapkan modern TypeScript compiler options & eager model sync
-  initTypeScriptDefaults()
+  try {
+    initTypeScriptDefaults()
+  } catch (err) {
+    console.warn('[Monaco Plugin] Failed to initialize TS defaults:', err)
+  }
 })

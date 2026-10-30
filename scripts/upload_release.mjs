@@ -45,22 +45,17 @@ async function run() {
 
   const releaseBody = `## MyTermin ${tag} 🚀
 
-Pembaruan **MyTermin ${tag}** — fitur File Explorer lengkap (Copy, Cut, Paste, Duplicate, Drag-and-Drop Move), penguatan disposal WebGL Terminal, dan resolusi model otomatis pada Go-To-Definition Monaco Editor.
+Pembaruan **MyTermin ${tag}** — Hotfix krusial kompatibilitas runtime Monaco TypeScript module (mengatasi error 500 saat aplikasi dibuka), penguatan fallback ESM, dan inisialisasi plugin fail-safe.
 
 ---
 
 ### ✨ Apa yang Baru di ${tag}
-1. **Peningkatan Fitur File Explorer**:
-   - Dukungan operasi **Copy**, **Cut**, **Paste**, dan **Duplicate** pada file dan folder di sidebar workspace.
-   - Peningkatan **Drag and Drop**: pindahkan berkas atau folder dengan drag langsung ke folder tujuan (dengan auto-expand folder saat di-hover).
-   - Dialog peringatan dan validasi agar folder tidak bisa dipindahkan atau disalin ke dalam dirinya sendiri.
-   - Sinkronisasi otomatis path editor yang terbuka saat berkas dipindahkan atau diubah namanya.
-2. **Terminal & WebGL Renderer Hardening**:
-   - Pencegahan error disposal pada modul \`@xterm/addon-webgl\` dengan polyfill store core terminal yang aman.
-   - Error handling penutupan terminal tab dan hot reload yang lebih tangguh.
-3. **Monaco Editor Definition Provider**:
-   - Penanganan otomatis pembuatan model file lokal yang belum dimuat saat user menekan F12 / Go-to-Definition.
-   - Eliminasi error *"Model not found"* pada Monaco text model service.
+1. **Hotfix Monaco TypeScript Defaults**:
+   - Memperbaiki akses modul TypeScript Monaco pada bundling ESM (\`(monaco as any).typescript\` vs \`monaco.languages.typescript\`) yang memicu error *\"Cannot read properties of undefined (reading 'typescriptDefaults')\"*.
+   - Inisialisasi plugin dibungkus dengan perlindungan fail-safe sehingga tidak akan pernah menggagalkan bootstrap aplikasi.
+2. **Robust Fallback & Safe Diagnostics**:
+   - Deteksi modul TypeScript runtime dengan fallback aman jika service worker belum siap.
+   - Pengecekan method yang lebih defensif saat runtime memuat opsi compiler dan diagnostik.
 
 ---
 

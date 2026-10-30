@@ -1,15 +1,15 @@
 {
-  "version": "0.2.27",
-  "notes": "Release v0.2.27 - File explorer copy, cut, paste, duplicate, drag-and-drop file/folder move, terminal xterm webgl disposal hardening, and automatic Monaco model creation on definition lookup.",
-  "pub_date": "2026-10-30T15:05:00.000Z",
+  "version": "0.2.28",
+  "notes": "Release v0.2.28 - Hotfix Monaco TypeScript language defaults runtime compatibility (fix 500 error on app launch) and ESM resolution resilience.",
+  "pub_date": "2026-10-30T15:30:00.000Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcjU5M1ZFMWtCZWRDR3FvZWE0RnRVM2ZONmpSYXB3L21LZmx6MjJzbGp2ekM4RWo3OW02aVRiTExLaEF2SkhWUzcyMjBoQUFwZGFveEFrWmRpbXlNM2oxaW91K0laNkFjPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkzMzcyNTY4CWZpbGU6TXlUZXJtaW5fMC4yLjI3X3g2NC1zZXR1cC5leGUKMW1WQzVPVmE2ZXJ3NWNGZmpjU2RSZUc0Tks0MEtPN1kvVzJWYnNOaWJCN2VlMEt5emRXem1XakFJdUl6REVrM0xxaVJpandPczdkSkNXb0l5MFZMQXc9PQo=",
-      "url": "https://github.com/harian12/MyTermin/releases/download/v0.2.27/MyTermin_0.2.27_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcjU5M1ZFMWtCZWFJLzZQUjAyWG1TYm1lYmxZVWk3dlFxSGlnaEd3MnhmdU1YdC96SVFhQXRINm9Ld21UYWhzajRkQ2JCeVpXcWJ6NUFIQVB5SGY1bXNCeWxXempaU3c4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkzMzc0MTg0CWZpbGU6TXlUZXJtaW5fMC4yLjI4X3g2NC1zZXR1cC5leGUKSTlHMjdVTDY4Mjd4VlFQZ0xzc3BUUkV5eFhLWmRoSW9qSnJoYUxiMDB3d3JjZkM0VlQreHJKMU9OdGx2UWY2S0xTRDUvcit3U01XamRDaVNSMnluQlE9PQo=",
+      "url": "https://github.com/harian12/MyTermin/releases/download/v0.2.28/MyTermin_0.2.28_x64-setup.exe"
     },
     "windows-x86_64-nsis": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcjU5M1ZFMWtCZWRDR3FvZWE0RnRVM2ZONmpSYXB3L21LZmx6MjJzbGp2ekM4RWo3OW02aVRiTExLaEF2SkhWUzcyMjBoQUFwZGFveEFrWmRpbXlNM2oxaW91K0laNkFjPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkzMzcyNTY4CWZpbGU6TXlUZXJtaW5fMC4yLjI3X3g2NC1zZXR1cC5leGUKMW1WQzVPVmE2ZXJ3NWNGZmpjU2RSZUc0Tks0MEtPN1kvVzJWYnNOaWJCN2VlMEt5emRXem1XakFJdUl6REVrM0xxaVJpandPczdkSkNXb0l5MFZMQXc9PQo=",
-      "url": "https://github.com/harian12/MyTermin/releases/download/v0.2.27/MyTermin_0.2.27_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcjU5M1ZFMWtCZWFJLzZQUjAyWG1TYm1lYmxZVWk3dlFxSGlnaEd3MnhmdU1YdC96SVFhQXRINm9Ld21UYWhzajRkQ2JCeVpXcWJ6NUFIQVB5SGY1bXNCeWxXempaU3c4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkzMzc0MTg0CWZpbGU6TXlUZXJtaW5fMC4yLjI4X3g2NC1zZXR1cC5leGUKSTlHMjdVTDY4Mjd4VlFQZ0xzc3BUUkV5eFhLWmRoSW9qSnJoYUxiMDB3d3JjZkM0VlQreHJKMU9OdGx2UWY2S0xTRDUvcit3U01XamRDaVNSMnluQlE9PQo=",
+      "url": "https://github.com/harian12/MyTermin/releases/download/v0.2.28/MyTermin_0.2.28_x64-setup.exe"
     }
   }
 }
