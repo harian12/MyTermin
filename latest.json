@@ -1,15 +1,15 @@
 {
-  "version": "0.2.25",
-  "notes": "Release v0.2.25 - Interactive Git diff code review toolbar (Approve, Reject, Approve & Next), keyboard shortcuts, line diff stats, and auto-persist open editor session per project in .mytermin.",
-  "pub_date": "2026-10-30T11:40:00.000Z",
+  "version": "0.2.26",
+  "notes": "Release v0.2.26 - Fitur TypeScript Language Server restart & auto-sync tsconfig.json di built-in editor MyTermin, resolusi modul import relatif, tombol toolbar TS Server, dan pintasan keyboard Ctrl+Alt+T.",
+  "pub_date": "2026-10-30T14:48:00.000Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcjU5M1ZFMWtCZVQ5SnBLSUo1dys4YUU4Z2t5cjE5NkhUQ1Y1ejIvQ0NlcVVmTC8rUGRTZzd1WTZ5RnJoaE5udUwvMG5OVDRyd01qV0p2WnFPUURWc0VRNW8wa1Mra2djPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkzMzYwMDk2CWZpbGU6TXlUZXJtaW5fMC4yLjI1X3g2NC1zZXR1cC5leGUKR0hHR0FwOHNGbTRCQ0g4RURkTithR09zdjB4OTNUcFlpMm5lWHZoNjFsMzZJVS8yY0kxUmh1UmV2c0ZjVDMvbnZhMWpNbXZYQkZoMEIvS2pwcGpQQlE9PQo=",
-      "url": "https://github.com/harian12/MyTermin/releases/download/v0.2.25/MyTermin_0.2.25_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcjU5M1ZFMWtCZVlwRTVVaHUxSWpZM3VhOGt4bVlkNGRkd1dXRE0yZEFjZlFaeHJWWmtJSHZWdEExYjZnczJZT1lXMXowWS9pR3JiZFhQeXhHMHQwcHB5cklzVWFMeWdjPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkzMzcxMzg2CWZpbGU6TXlUZXJtaW5fMC4yLjI2X3g2NC1zZXR1cC5leGUKRnZsVkhjSnFPZDV6ZXptQVNFZFM4VFFzRUpWblJZY3N2VnNvdEx2Tjlka3pVV0hFdWh6RnRnQTZQZjlHUldmbTZtbDBRdjhzUkprTWY3Vk1pVEdVREE9PQo=",
+      "url": "https://github.com/harian12/MyTermin/releases/download/v0.2.26/MyTermin_0.2.26_x64-setup.exe"
     },
     "windows-x86_64-nsis": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcjU5M1ZFMWtCZVQ5SnBLSUo1dys4YUU4Z2t5cjE5NkhUQ1Y1ejIvQ0NlcVVmTC8rUGRTZzd1WTZ5RnJoaE5udUwvMG5OVDRyd01qV0p2WnFPUURWc0VRNW8wa1Mra2djPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkzMzYwMDk2CWZpbGU6TXlUZXJtaW5fMC4yLjI1X3g2NC1zZXR1cC5leGUKR0hHR0FwOHNGbTRCQ0g4RURkTithR09zdjB4OTNUcFlpMm5lWHZoNjFsMzZJVS8yY0kxUmh1UmV2c0ZjVDMvbnZhMWpNbXZYQkZoMEIvS2pwcGpQQlE9PQo=",
-      "url": "https://github.com/harian12/MyTermin/releases/download/v0.2.25/MyTermin_0.2.25_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcjU5M1ZFMWtCZVlwRTVVaHUxSWpZM3VhOGt4bVlkNGRkd1dXRE0yZEFjZlFaeHJWWmtJSHZWdEExYjZnczJZT1lXMXowWS9pR3JiZFhQeXhHMHQwcHB5cklzVWFMeWdjPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkzMzcxMzg2CWZpbGU6TXlUZXJtaW5fMC4yLjI2X3g2NC1zZXR1cC5leGUKRnZsVkhjSnFPZDV6ZXptQVNFZFM4VFFzRUpWblJZY3N2VnNvdEx2Tjlka3pVV0hFdWh6RnRnQTZQZjlHUldmbTZtbDBRdjhzUkprTWY3Vk1pVEdVREE9PQo=",
+      "url": "https://github.com/harian12/MyTermin/releases/download/v0.2.26/MyTermin_0.2.26_x64-setup.exe"
     }
   }
 }

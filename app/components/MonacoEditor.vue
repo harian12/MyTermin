@@ -6,6 +6,7 @@ import { useSettingsStore } from '~/composables/useSettingsStore'
 import { useWorkspaceStore } from '~/composables/useWorkspaceStore'
 import { registerUniversalDefinitionProvider, setGlobalFileOpener } from '~/utils/monacoDefinitionProvider'
 import { saveMonacoViewState, getMonacoViewState } from '~/utils/monacoModelManager'
+import { initTypeScriptDefaults, syncTsConfig, resolveFileImports } from '~/utils/monacoTypeScriptManager'
 
 interface Props {
   modelValue: string
@@ -27,7 +28,7 @@ const emit = defineEmits<{
   (e: 'toggle-word-wrap'): void
   (e: 'blur'): void
   (e: 'run'): void
-  (e: 'toggle-word-wrap'): void
+  (e: 'restart-ts'): void
 }>()
 
 const { targetNavigatePosition, editorCursorPos, openFileAtPosition } = useEditorStore()
@@ -303,6 +304,11 @@ onMounted(() => {
     editor?.getAction('editor.action.blockComment')?.run()
   })
 
+  // Ctrl+Alt+T / Cmd+Alt+T Restart TypeScript Server & Sync tsconfig
+  editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Alt | monaco.KeyCode.KeyT, () => {
+    emit('restart-ts')
+  })
+
   // Auto resize observer
   resizeObserver = new ResizeObserver(() => {
     editor?.layout()
@@ -314,6 +320,11 @@ onMounted(() => {
     editor.revealLineInCenter(pos.line)
     editor.setPosition({ lineNumber: pos.line, column: pos.col })
     editor.focus()
+  }
+
+  if (language === 'typescript' || language === 'javascript') {
+    syncTsConfig(activeWorkstation.value?.folderPath).catch(() => {})
+    resolveFileImports(resolvedPath, props.modelValue, activeWorkstation.value?.folderPath).catch(() => {})
   }
 })
 
@@ -349,6 +360,11 @@ const syncEditorModel = (newPath: string | undefined, newFilename: string | unde
     const savedViewState = getMonacoViewState(targetUriStr)
     if (savedViewState) {
       editor.restoreViewState(savedViewState)
+    }
+
+    if (language === 'typescript' || language === 'javascript') {
+      syncTsConfig(activeWorkstation.value?.folderPath).catch(() => {})
+      resolveFileImports(resolvedPath, newVal, activeWorkstation.value?.folderPath).catch(() => {})
     }
     return
   }

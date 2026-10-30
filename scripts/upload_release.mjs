@@ -45,25 +45,21 @@ async function run() {
 
   const releaseBody = `## MyTermin ${tag} 🚀
 
-Pembaruan **MyTermin ${tag}** — fitur Code Review (Approve/Reject) ala IDE modern pada Git Diff, pintasan keyboard review, dan pemulihan otomatis berkas terbuka editor per-project via \`.mytermin\`.
+Pembaruan **MyTermin ${tag}** — integrasi restart dan sinkronisasi TypeScript Language Server worker pada Monaco Editor bawaan, sinkronisasi otomatis \`tsconfig.json\`, pemindaian impor modul relatif lokal, dan pintasan shortcut editor.
 
 ---
 
 ### ✨ Apa yang Baru di ${tag}
-1. **Interactive Git Diff Code Review**:
-   - Toolbar review khusus di atas Monaco Diff Editor dengan tombol **Approve (Stage)**, **Reject (Discard)**, **Approve & Next**, dan **Unstage**.
-   - Indikator statistik perubahan baris (\`+X -Y\`) dan nomor urut berkas (\`1/N\`).
-   - Tombol batch **Approve All** dan **Reject All** pada bagian Changes di sidebar workstation.
-2. **Keyboard Shortcuts Code Review**:
-   - \`Ctrl + Enter\`: Approve file aktif & lompat otomatis ke file perubahan berikutnya (*Approve & Next*).
-   - \`Alt + A\`: Approve (Stage) file aktif.
-   - \`Alt + R\`: Reject (Discard) file aktif dengan konfirmasi dialog aman.
-   - \`Alt + ←\` / \`Alt + →\`: Navigasi cepat antar berkas diff yang sedang ditinjau.
-   - Terintegrasi di cheatsheet modal (\`F1\` / \`Ctrl + /\`).
-3. **Persistensi Sesi Berkas Editor Project (\`.mytermin\`)**:
-   - Daftar berkas yang sedang dibuka, tab aktif, dan split pane otomatis disimpan ke \`.mytermin/workspace.json\` di folder proyek.
-   - Saat membuka kembali proyek atau berpindah workstation, berkas-berkas sebelumnya otomatis dimuat dan dibuka ke editor.
-   - Dilengkapi opsi pengaturan di Settings (\`Ctrl + ,\`): *"Pulihkan Berkas Sebelumnya (.mytermin)"*.
+1. **TypeScript Server Restart & Sync**:
+   - Fitur restart worker TypeScript / JavaScript Monaco secara on-demand untuk mengatasi file merah / cache worker lama.
+   - Sinkronisasi otomatis konfigurasi dari \`tsconfig.json\` / \`jsconfig.json\` pada root direktori project aktif (\`moduleResolution: bundler\`, \`target: ESNext\`, dsb.).
+2. **Local Relative Module Import Resolution**:
+   - Monaco Editor memindai berkas impor relatif lokal (\`./modules/...\`, \`@/...\`, dsb.) dan memuatnya ke extraLibs memori agar tidak lagi muncul error 2792 / 2307.
+3. **Pintasan Keyboard & Toolbar Editor**:
+   - Tombol toolbar **TS Server** khusus saat membuka berkas TypeScript / JavaScript / Vue.
+   - Menu klik kanan pada Tab Editor: **Restart TS Server & Sync**.
+   - Integrasi perintah pada Command Palette (\`Ctrl + K\`): *"TypeScript: Restart TS Server & Sync tsconfig.json"*.
+   - Pintasan editor: \`Ctrl + Alt + T\` untuk restart cepat.
 
 ---
 

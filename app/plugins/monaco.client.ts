@@ -3,6 +3,7 @@ import jsonWorker from 'monaco-editor/language/json/json.worker?worker'
 import cssWorker from 'monaco-editor/language/css/css.worker?worker'
 import htmlWorker from 'monaco-editor/language/html/html.worker?worker'
 import tsWorker from 'monaco-editor/language/typescript/ts.worker?worker'
+import { initTypeScriptDefaults } from '~/utils/monacoTypeScriptManager'
 
 export default defineNuxtPlugin(() => {
   if (typeof window === 'undefined') return
@@ -24,4 +25,7 @@ export default defineNuxtPlugin(() => {
       return new editorWorker()
     }
   }
+
+  // Terapkan modern TypeScript compiler options & eager model sync
+  initTypeScriptDefaults()
 })

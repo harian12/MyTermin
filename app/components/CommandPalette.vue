@@ -24,10 +24,12 @@ import {
   ListTodo,
   Search as SearchIcon,
   FileEdit,
-  PlayCircle
+  PlayCircle,
+  RotateCw
 } from 'lucide-vue-next'
 import { TERMINAL_THEMES } from '~/composables/useThemes'
 import { useEditorStore } from '~/composables/useEditorStore'
+import { restartTypeScriptServer } from '~/utils/monacoTypeScriptManager'
 
 const emit = defineEmits<{
   (e: 'open-settings'): void
@@ -38,6 +40,7 @@ const emit = defineEmits<{
 const {
   workstations,
   activeWorkstationId,
+  activeWorkstation,
   switchWorkstation,
   addWorkstation,
   terminals,
@@ -54,7 +57,7 @@ const {
 } = useWorkspaceStore()
 
 const { isOpen, closePalette } = useCommandPalette()
-const { createScratchpadFile } = useEditorStore()
+const { createScratchpadFile, activeFile, editorNotification } = useEditorStore()
 const { settings, updateSettings } = useSettingsStore()
 const { writePty, isTauri } = useTauriPty()
 
@@ -142,6 +145,24 @@ const allCommands = computed<CommandItem[]>(() => {
       category: 'Editor',
       icon: FileEdit,
       action: () => createScratchpadFile()
+    },
+    {
+      id: 'ts-restart-server',
+      title: 'TypeScript: Restart TS Server & Sync tsconfig.json',
+      subtitle: 'Ctrl+Alt+T - Muat ulang worker TypeScript, sinkronisasi tsconfig.json, dan perbarui modul',
+      category: 'Editor',
+      icon: RotateCw,
+      action: async () => {
+        const res = await restartTypeScriptServer(
+          activeWorkstation.value?.folderPath,
+          activeFile.value?.path,
+          activeFile.value?.content
+        )
+        editorNotification.value = res.message
+        setTimeout(() => {
+          editorNotification.value = null
+        }, 4500)
+      }
     },
     {
       id: 'tab-new',

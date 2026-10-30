@@ -45,6 +45,7 @@ import { detectConflicts, resolveAllConflicts } from '~/utils/mergeConflict'
 import { parseMarkdown } from '~/utils/markdownParser'
 import { computeLineDiff, type DetailedLineRangeMapping } from '~/utils/diffComputer'
 import { applyChangeToOriginal, discardChangeFromModified, type HunkItem } from '~/utils/diffHunkManager'
+import { restartTypeScriptServer } from '~/utils/monacoTypeScriptManager'
 import MonacoEditor from './MonacoEditor.vue'
 import MonacoDiffEditor from './MonacoDiffEditor.vue'
 
@@ -869,6 +870,42 @@ const handleFormat = async () => {
   }
 }
 
+const isTsRestarting = ref(false)
+const isTsOrJsFile = computed(() => {
+  if (!activeFile.value?.name) return false
+  const ext = activeFile.value.name.split('.').pop()?.toLowerCase() || ''
+  return ['ts', 'tsx', 'js', 'jsx', 'mjs', 'cjs', 'vue'].includes(ext)
+})
+
+const isTabTsOrJs = (name?: string) => {
+  if (!name) return false
+  const ext = name.split('.').pop()?.toLowerCase() || ''
+  return ['ts', 'tsx', 'js', 'jsx', 'mjs', 'cjs', 'vue'].includes(ext)
+}
+
+const handleRestartTs = async () => {
+  if (isTsRestarting.value) return
+  isTsRestarting.value = true
+  try {
+    const res = await restartTypeScriptServer(
+      activeWorkstation.value?.folderPath,
+      activeFile.value?.path,
+      activeFile.value?.content
+    )
+    editorNotification.value = res.message
+    setTimeout(() => {
+      editorNotification.value = null
+    }, 4500)
+  } catch (err: any) {
+    editorNotification.value = `Gagal me-restart TS Server: ${err?.message || err}`
+    setTimeout(() => {
+      editorNotification.value = null
+    }, 4000)
+  } finally {
+    isTsRestarting.value = false
+  }
+}
+
 const toggleFullscreenEditor = () => {
   if (viewportMode.value === 'editor-full') {
     viewportMode.value = 'split'
@@ -1098,6 +1135,28 @@ const handleEditorPaneFocus = () => {
             @click="reloadFile(activeFile.id)"
           >
             <RotateCw class="w-3.5 h-3.5" />
+          </button>
+        </UiTooltip>
+
+        <!-- Restart TypeScript Server Button -->
+        <UiTooltip
+          v-if="isTsOrJsFile"
+          text="Restart TypeScript Server & Sinkronkan tsconfig.json (Ctrl+Alt+T)"
+          side="bottom"
+          class="flex-shrink-0"
+        >
+          <button
+            :class="[
+              'flex items-center gap-1 px-2 py-0.5 rounded text-xs transition-colors font-mono font-medium',
+              isTsRestarting
+                ? 'bg-blue-600/30 text-blue-300 animate-pulse'
+                : 'bg-blue-950/60 hover:bg-blue-900 border border-blue-700/50 text-blue-300 hover:text-white'
+            ]"
+            :disabled="isTsRestarting"
+            @click="handleRestartTs"
+          >
+            <RotateCw :class="['w-3 h-3 text-blue-400', isTsRestarting ? 'animate-spin' : '']" />
+            <span class="text-[11px]">TS Server</span>
           </button>
         </UiTooltip>
 
@@ -1500,6 +1559,7 @@ const handleEditorPaneFocus = () => {
                 @update:model-value="updateContent(activeFile.id, $event)"
                 @save="saveFile"
                 @format="handleFormat"
+                @restart-ts="handleRestartTs"
                 @toggle-word-wrap="isWordWrap = !isWordWrap"
                 @blur="handleFocusLoss"
               />
@@ -1558,6 +1618,7 @@ const handleEditorPaneFocus = () => {
                 :word-wrap="isWordWrap"
                 @update:model-value="updateContent(secondaryFile.id, $event)"
                 @save="saveFile(secondaryFile.id)"
+                @restart-ts="handleRestartTs"
                 @toggle-word-wrap="isWordWrap = !isWordWrap"
                 @blur="handleFocusLoss"
               />
@@ -1642,6 +1703,14 @@ const handleEditorPaneFocus = () => {
         >
           <RotateCw class="w-3.5 h-3.5 text-muted-foreground" />
           <span>Muat Ulang dari Disk</span>
+        </button>
+        <button
+          v-if="isTabTsOrJs(tabContextMenu.file?.name)"
+          class="w-full flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-accent text-left transition-colors text-blue-300 hover:text-blue-200"
+          @click="handleRestartTs(); closeTabContextMenu()"
+        >
+          <RotateCw class="w-3.5 h-3.5 text-blue-400" />
+          <span>Restart TS Server & Sync</span>
         </button>
         <div class="my-1 border-t border-border/50" />
         <button
