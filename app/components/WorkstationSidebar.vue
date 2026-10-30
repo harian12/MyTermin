@@ -93,6 +93,7 @@ const {
   pushGit,
   pullGit,
   getFileHead,
+  getFileIndex,
   scanProjectFiles,
   recentProjects,
   loadRecentProjects,
@@ -224,7 +225,7 @@ const treeContextMenu = ref<{
 
 const treeContextMenuStyle = computed(() => {
   const menuWidth = 190
-  const menuHeight = 240
+  const menuHeight = 380
   const winWidth = typeof window !== 'undefined' ? window.innerWidth : 1280
   const winHeight = typeof window !== 'undefined' ? window.innerHeight : 800
 
@@ -351,8 +352,8 @@ const handleOpenDiff = async (relPath: string) => {
   const root = activeWorkstation.value?.folderPath
   if (!root) return
   const fullPath = `${root.replace(/[\\/]+$/, '')}/${relPath.replace(/^[\\/]+/, '')}`.replace(/\//g, '\\')
-  const headContent = await getFileHead(relPath)
-  await openGitDiffTab(fullPath, relPath, headContent)
+  const indexContent = await getFileIndex(relPath)
+  await openGitDiffTab(fullPath, relPath, indexContent)
 }
 
 const handlePush = async () => {
@@ -1556,7 +1557,7 @@ const resetSidebarWidth = () => {
     <Teleport to="body">
       <div
         v-if="treeContextMenu.visible && treeContextMenu.entry"
-        class="fixed z-[100] min-w-[175px] bg-[#14151f] border border-border/80 rounded-lg shadow-2xl p-1 text-xs font-sans text-foreground animate-in fade-in zoom-in-95 duration-100"
+        class="fixed z-[100] min-w-[175px] max-h-[calc(100vh-16px)] overflow-y-auto bg-[#14151f] border border-border/80 rounded-lg shadow-2xl p-1 text-xs font-sans text-foreground animate-in fade-in zoom-in-95 duration-100"
         :style="treeContextMenuStyle"
         @click.stop
       >

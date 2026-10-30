@@ -37,11 +37,19 @@ const emit = defineEmits<{
 const menuRef = ref<HTMLElement | null>(null)
 
 // Adjust position to stay inside viewport
-const stylePosition = computed(() => {
-  const menuWidth = 210
-  const menuHeight = 310
-  const winWidth = typeof window !== 'undefined' ? window.innerWidth : 1280
-  const winHeight = typeof window !== 'undefined' ? window.innerHeight : 800
+const pos = ref({
+  left: '0px',
+  top: '0px'
+})
+
+const updatePosition = () => {
+  if (typeof window === 'undefined') return
+  const winWidth = window.innerWidth
+  const winHeight = window.innerHeight
+
+  const el = menuRef.value
+  const menuWidth = el?.offsetWidth || 216
+  const menuHeight = el?.offsetHeight || 560
 
   let posX = props.x
   let posY = props.y
@@ -53,11 +61,23 @@ const stylePosition = computed(() => {
     posY = winHeight - menuHeight - 8
   }
 
-  return {
-    left: `${Math.max(8, posX)}px`,
-    top: `${Math.max(8, posY)}px`
+  pos.value = {
+    left: `${Math.max(8, Math.round(posX))}px`,
+    top: `${Math.max(8, Math.round(posY))}px`
   }
-})
+}
+
+watch(
+  () => [props.visible, props.x, props.y],
+  async ([visible]) => {
+    if (visible) {
+      updatePosition()
+      await nextTick()
+      updatePosition()
+    }
+  },
+  { immediate: true }
+)
 
 const handleAction = (action: string) => {
   emit('action', action)
@@ -71,13 +91,19 @@ const handleClickOutside = (e: MouseEvent) => {
   }
 }
 
+const handleResize = () => {
+  emit('close')
+}
+
 onMounted(() => {
   window.addEventListener('click', handleClickOutside)
   window.addEventListener('blur', () => emit('close'))
+  window.addEventListener('resize', handleResize)
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('click', handleClickOutside)
+  window.removeEventListener('resize', handleResize)
 })
 </script>
 
@@ -85,8 +111,8 @@ onBeforeUnmount(() => {
   <div
     v-if="visible"
     ref="menuRef"
-    :style="stylePosition"
-    class="fixed z-50 w-52 rounded-lg border border-border/80 bg-[#151622]/95 backdrop-blur-md p-1 shadow-2xl text-popover-foreground animate-in fade-in zoom-in-95 select-none"
+    :style="pos"
+    class="fixed z-50 w-52 max-h-[calc(100vh-16px)] overflow-y-auto rounded-lg border border-border/80 bg-[#151622]/95 backdrop-blur-md p-1 shadow-2xl text-popover-foreground animate-in fade-in zoom-in-95 select-none"
     @contextmenu.prevent
   >
     <!-- Terminal Clipboard Section -->
@@ -244,8 +270,6 @@ onBeforeUnmount(() => {
       </div>
       <kbd class="text-[10px] text-muted-foreground font-mono">Ctrl+W</kbd>
     </button>
-
-    <div class="h-px bg-border/50 my-1" />
 
     <div class="h-px bg-border/50 my-1" />
 

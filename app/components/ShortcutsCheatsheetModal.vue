@@ -114,6 +114,9 @@ const groups = computed<ShortcutGroup[]>(() => [
       { keys: ['Ctrl+Enter'], label: 'Review: Approve & Next (Setujui & Lompat)' },
       { keys: ['Alt+A'], label: 'Review: Approve File (Stage)' },
       { keys: ['Alt+R'], label: 'Review: Reject File (Discard)' },
+      { keys: ['Alt+S'], label: 'Review: Stage Hunk / Blok Terpilih' },
+      { keys: ['Alt+D'], label: 'Review: Discard Hunk / Blok Terpilih' },
+      { keys: ['Alt+[', 'Alt+]'], label: 'Review: Navigasi Antar Hunk / Blok' },
       { keys: ['Alt+←', 'Alt+→'], label: 'Review: Navigasi File Diff Sebelum / Sesudah' }
     ]
   },

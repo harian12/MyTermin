@@ -590,6 +590,100 @@ fn git_get_file_head(repo_path: String, rel_path: String) -> Result<String, Stri
 }
 
 #[tauri::command]
+fn git_get_file_index(repo_path: String, rel_path: String) -> Result<String, String> {
+    let root = Path::new(&repo_path);
+    if !root.exists() {
+        return Err("Path tidak ditemukan".into());
+    }
+    let norm_path = rel_path.replace('\\', "/");
+    let mut cmd = std::process::Command::new("git");
+    cmd.arg("show").arg(format!(":{}", norm_path)).current_dir(root);
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x08000000);
+    }
+    let output = cmd.output().map_err(|e| format!("Git show index error: {}", e))?;
+    if !output.status.success() {
+        return git_get_file_head(repo_path, rel_path);
+    }
+    Ok(String::from_utf8_lossy(&output.stdout).to_string())
+}
+
+#[tauri::command]
+fn git_stage_content(repo_path: String, rel_path: String, content: String) -> Result<(), String> {
+    use std::io::Write;
+    let root = Path::new(&repo_path);
+    if !root.exists() {
+        return Err("Path repo tidak ditemukan".into());
+    }
+
+    let mut hash_cmd = std::process::Command::new("git");
+    hash_cmd
+        .arg("hash-object")
+        .arg("-w")
+        .arg("--stdin")
+        .current_dir(root)
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped());
+
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        hash_cmd.creation_flags(0x08000000);
+    }
+
+    let mut child = hash_cmd
+        .spawn()
+        .map_err(|e| format!("Gagal menjalankan git hash-object: {}", e))?;
+
+    if let Some(mut stdin) = child.stdin.take() {
+        stdin
+            .write_all(content.as_bytes())
+            .map_err(|e| format!("Gagal menulis konten ke stdin git: {}", e))?;
+    }
+
+    let output = child
+        .wait_with_output()
+        .map_err(|e| format!("Git hash-object selesai dengan error: {}", e))?;
+
+    if !output.status.success() {
+        return Err(String::from_utf8_lossy(&output.stderr).to_string());
+    }
+
+    let blob_sha = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if blob_sha.is_empty() {
+        return Err("Blob SHA kosong dari git hash-object".into());
+    }
+
+    let norm_path = rel_path.replace('\\', "/");
+    let mut update_cmd = std::process::Command::new("git");
+    update_cmd
+        .arg("update-index")
+        .arg("--add")
+        .arg("--cacheinfo")
+        .arg(format!("100644,{},{}", blob_sha, norm_path))
+        .current_dir(root);
+
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        update_cmd.creation_flags(0x08000000);
+    }
+
+    let update_out = update_cmd
+        .output()
+        .map_err(|e| format!("Git update-index error: {}", e))?;
+
+    if !update_out.status.success() {
+        return Err(String::from_utf8_lossy(&update_out.stderr).to_string());
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
 fn git_stage(repo_path: String, rel_path: String) -> Result<(), String> {
     let root = Path::new(&repo_path);
     let mut cmd = std::process::Command::new("git");
@@ -2972,6 +3066,8 @@ fn main() {
             get_git_status_overview,
             get_git_branch,
             git_get_file_head,
+            git_get_file_index,
+            git_stage_content,
             git_stage,
             git_unstage,
             git_stage_all,

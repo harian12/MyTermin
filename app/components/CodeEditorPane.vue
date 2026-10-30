@@ -28,6 +28,8 @@ import {
   FileEdit,
   ChevronRight,
   ChevronLeft,
+  ChevronUp,
+  ChevronDown,
   RotateCcw,
   Folder,
   ExternalLink,
@@ -41,7 +43,8 @@ import { useProjectExplorer } from '~/composables/useProjectExplorer'
 import { formatCode } from '~/utils/formatter'
 import { detectConflicts, resolveAllConflicts } from '~/utils/mergeConflict'
 import { parseMarkdown } from '~/utils/markdownParser'
-import { computeLineDiff } from '~/utils/diffComputer'
+import { computeLineDiff, type DetailedLineRangeMapping } from '~/utils/diffComputer'
+import { applyChangeToOriginal, discardChangeFromModified, type HunkItem } from '~/utils/diffHunkManager'
 import MonacoEditor from './MonacoEditor.vue'
 import MonacoDiffEditor from './MonacoDiffEditor.vue'
 
@@ -90,7 +93,9 @@ const {
   unstageFile,
   discardFile,
   refreshGitStatus,
-  getFileHead
+  getFileHead,
+  getFileIndex,
+  stageContent
 } = useProjectExplorer()
 const { settings, updateSettings } = useSettingsStore()
 const { activeWorkstation } = useWorkspaceStore()
@@ -511,8 +516,8 @@ const openDiffForRelativePath = async (relPath: string) => {
   const root = activeWorkstation.value?.folderPath
   if (!root) return
   const fullPath = `${root.replace(/[\\/]+$/, '')}/${relPath.replace(/^[\\/]+/, '')}`.replace(/\//g, '\\')
-  const headContent = await getFileHead(relPath)
-  await openGitDiffTab(fullPath, relPath, headContent)
+  const indexContent = await getFileIndex(relPath)
+  await openGitDiffTab(fullPath, relPath, indexContent)
 }
 
 const handlePrevDiff = async () => {
@@ -630,6 +635,108 @@ const handleUnstageDiff = async () => {
   }
 }
 
+// Hunk-level Staging Logic
+const monacoDiffRef = ref<any>(null)
+const fileHunks = ref<HunkItem[]>([])
+const focusedHunkIndex = ref<number>(0)
+
+const onHunksUpdated = (hunks: HunkItem[]) => {
+  fileHunks.value = hunks
+  if (focusedHunkIndex.value >= hunks.length) {
+    focusedHunkIndex.value = Math.max(0, hunks.length - 1)
+  }
+}
+
+const onActiveHunkChanged = (index: number) => {
+  if (index >= 0 && index < fileHunks.value.length) {
+    focusedHunkIndex.value = index
+  }
+}
+
+const goToPrevHunk = () => {
+  if (focusedHunkIndex.value > 0) {
+    focusedHunkIndex.value--
+    const hunk = fileHunks.value[focusedHunkIndex.value]
+    if (hunk) {
+      monacoDiffRef.value?.revealHunkLine(hunk.startLineModified)
+    }
+  }
+}
+
+const goToNextHunk = () => {
+  if (focusedHunkIndex.value < fileHunks.value.length - 1) {
+    focusedHunkIndex.value++
+    const hunk = fileHunks.value[focusedHunkIndex.value]
+    if (hunk) {
+      monacoDiffRef.value?.revealHunkLine(hunk.startLineModified)
+    }
+  }
+}
+
+const handleStageHunk = async (change: DetailedLineRangeMapping) => {
+  const rel = activeDiffRelPath.value
+  if (!rel || !activeFile.value || isReviewProcessing.value) return
+  isReviewProcessing.value = true
+  try {
+    const orig = activeFile.value.diffOriginalContent || ''
+    const mod = activeFile.value.content || ''
+    const newOrig = applyChangeToOriginal(orig, change, mod)
+    const success = await stageContent(rel, newOrig)
+    if (success) {
+      activeFile.value.diffOriginalContent = newOrig
+      editorNotification.value = `Hunk disetujui (Staged): ${rel}`
+      setTimeout(() => {
+        editorNotification.value = null
+      }, 2000)
+      await refreshGitStatus()
+    }
+  } finally {
+    isReviewProcessing.value = false
+  }
+}
+
+const handleDiscardHunk = async (change: DetailedLineRangeMapping) => {
+  const rel = activeDiffRelPath.value
+  if (!rel || !activeFile.value || isReviewProcessing.value) return
+  isReviewProcessing.value = true
+  try {
+    const orig = activeFile.value.diffOriginalContent || ''
+    const mod = activeFile.value.content || ''
+    const newMod = discardChangeFromModified(mod, change, orig)
+    updateContent(activeFile.value.id, newMod)
+    await saveFile()
+    editorNotification.value = `Hunk dibatalkan (Reverted): ${rel}`
+    setTimeout(() => {
+      editorNotification.value = null
+    }, 2000)
+    await refreshGitStatus()
+  } finally {
+    isReviewProcessing.value = false
+  }
+}
+
+const handleStageFocusedHunk = () => {
+  const hunk = fileHunks.value[focusedHunkIndex.value]
+  if (hunk) {
+    handleStageHunk(hunk.change)
+  }
+}
+
+const handleDiscardFocusedHunk = () => {
+  const hunk = fileHunks.value[focusedHunkIndex.value]
+  if (hunk) {
+    handleDiscardHunk(hunk.change)
+  }
+}
+
+watch(
+  () => activeFile.value?.id,
+  () => {
+    fileHunks.value = []
+    focusedHunkIndex.value = 0
+  }
+)
+
 const handleDiffKeydown = (e: KeyboardEvent) => {
   if (!activeFile.value?.isDiff) return
 
@@ -652,7 +759,7 @@ const handleDiffKeydown = (e: KeyboardEvent) => {
     return
   }
 
-  // Alt+A: Approve
+  // Alt+A: Approve entire file
   if (e.altKey && (e.key === 'a' || e.key === 'A')) {
     e.preventDefault()
     e.stopPropagation()
@@ -662,13 +769,45 @@ const handleDiffKeydown = (e: KeyboardEvent) => {
     return
   }
 
-  // Alt+R: Reject (Discard)
+  // Alt+R: Reject entire file (Discard)
   if (e.altKey && (e.key === 'r' || e.key === 'R')) {
     e.preventDefault()
     e.stopPropagation()
     if (activeDiffStatus.value?.type !== 'staged') {
       handleRejectDiff()
     }
+    return
+  }
+
+  // Alt+S: Stage focused hunk
+  if (e.altKey && (e.key === 's' || e.key === 'S')) {
+    e.preventDefault()
+    e.stopPropagation()
+    handleStageFocusedHunk()
+    return
+  }
+
+  // Alt+D: Discard focused hunk
+  if (e.altKey && (e.key === 'd' || e.key === 'D')) {
+    e.preventDefault()
+    e.stopPropagation()
+    handleDiscardFocusedHunk()
+    return
+  }
+
+  // Alt+[: Previous hunk
+  if (e.altKey && e.key === '[') {
+    e.preventDefault()
+    e.stopPropagation()
+    goToPrevHunk()
+    return
+  }
+
+  // Alt+]: Next hunk
+  if (e.altKey && e.key === ']') {
+    e.preventDefault()
+    e.stopPropagation()
+    goToNextHunk()
     return
   }
 
@@ -1180,6 +1319,50 @@ const handleEditorPaneFocus = () => {
             <span v-if="diffStats.added > 0" class="text-emerald-400 font-semibold">+{{ diffStats.added }}</span>
             <span v-if="diffStats.deleted > 0" class="text-rose-400 font-semibold">-{{ diffStats.deleted }}</span>
           </div>
+
+          <!-- Hunk Navigation & Action Controls -->
+          <div
+            v-if="fileHunks.length > 0 && activeDiffStatus?.type !== 'staged'"
+            class="flex items-center gap-1 font-mono text-[10px] px-1.5 py-0.5 rounded bg-[#181924] border border-border/60 shrink-0 select-none"
+            title="Navigasi dan aksi per-blok perubahan (hunk)"
+          >
+            <span class="text-muted-foreground font-medium mr-0.5">
+              Hunk {{ focusedHunkIndex + 1 }}/{{ fileHunks.length }}
+            </span>
+            <div class="flex items-center gap-0.5">
+              <button
+                :disabled="focusedHunkIndex <= 0"
+                class="p-0.5 rounded hover:bg-white/10 text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                title="Hunk Sebelumnya (Alt+[)"
+                @click="goToPrevHunk"
+              >
+                <ChevronUp class="w-3 h-3" />
+              </button>
+              <button
+                :disabled="focusedHunkIndex >= fileHunks.length - 1"
+                class="p-0.5 rounded hover:bg-white/10 text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                title="Hunk Berikutnya (Alt+])"
+                @click="goToNextHunk"
+              >
+                <ChevronDown class="w-3 h-3" />
+              </button>
+            </div>
+            <div class="h-3 w-px bg-border/60 mx-0.5" />
+            <button
+              class="flex items-center gap-0.5 px-1 py-0.5 rounded hover:bg-emerald-500/20 text-emerald-400 font-semibold cursor-pointer transition-colors"
+              title="Stage Hunk ini saja ke index git (Alt+S)"
+              @click="handleStageFocusedHunk"
+            >
+              <span>Stage Hunk</span>
+            </button>
+            <button
+              class="flex items-center gap-0.5 px-1 py-0.5 rounded hover:bg-rose-500/20 text-rose-400 font-semibold cursor-pointer transition-colors ml-0.5"
+              title="Batalkan (Discard) perubahan pada Hunk ini (Alt+D)"
+              @click="handleDiscardFocusedHunk"
+            >
+              <span>Discard Hunk</span>
+            </button>
+          </div>
         </div>
 
         <div class="flex items-center gap-1.5 font-sans flex-shrink-0">
@@ -1282,6 +1465,7 @@ const handleEditorPaneFocus = () => {
         >
           <!-- Monaco Diff Editor Mode -->
           <MonacoDiffEditor
+            ref="monacoDiffRef"
             v-if="activeFile.isDiff"
             :original-value="activeFile.diffOriginalContent || ''"
             :modified-value="activeFile.content"
@@ -1294,6 +1478,14 @@ const handleEditorPaneFocus = () => {
             @reject="handleRejectDiff"
             @prev-diff="handlePrevDiff"
             @next-diff="handleNextDiff"
+            @stage-hunk="handleStageHunk"
+            @discard-hunk="handleDiscardHunk"
+            @stage-focused-hunk="handleStageFocusedHunk"
+            @discard-focused-hunk="handleDiscardFocusedHunk"
+            @prev-hunk="goToPrevHunk"
+            @next-hunk="goToNextHunk"
+            @hunks-updated="onHunksUpdated"
+            @active-hunk-changed="onActiveHunkChanged"
           />
 
           <!-- Regular Monaco Editor Mode (with optional Markdown Live Preview) -->
@@ -1411,7 +1603,7 @@ const handleEditorPaneFocus = () => {
     <Teleport to="body">
       <div
         v-if="tabContextMenu.visible && tabContextMenu.file"
-        class="fixed z-[100] min-w-[190px] bg-[#14151f] border border-border/80 rounded-lg shadow-2xl p-1 text-xs font-sans text-foreground animate-in fade-in zoom-in-95 duration-100"
+        class="fixed z-[100] min-w-[190px] max-h-[calc(100vh-16px)] overflow-y-auto bg-[#14151f] border border-border/80 rounded-lg shadow-2xl p-1 text-xs font-sans text-foreground animate-in fade-in zoom-in-95 duration-100"
         :style="tabContextMenuStyle"
         @click.stop
       >

@@ -620,6 +620,33 @@ export const useProjectExplorer = () => {
     }
   }
 
+  // Get file content at git index (staged)
+  const getFileIndex = async (relPath: string): Promise<string> => {
+    const root = activeWorkstation.value.folderPath
+    if (!root || !isTauri.value) return ''
+    try {
+      const { invoke } = await import('@tauri-apps/api/core')
+      const content = await invoke<string>('git_get_file_index', { repoPath: root, relPath })
+      return content || ''
+    } catch (e) {
+      return ''
+    }
+  }
+
+  // Stage exact content to git index (partial hunk staging)
+  const stageContent = async (relPath: string, content: string): Promise<boolean> => {
+    const root = activeWorkstation.value.folderPath
+    if (!root || !isTauri.value) return false
+    try {
+      const { invoke } = await import('@tauri-apps/api/core')
+      await invoke('git_stage_content', { repoPath: root, relPath, content })
+      await refreshGitStatus()
+      return true
+    } catch (e) {
+      return false
+    }
+  }
+
   // Scan all project files for Quick Open (Ctrl+P)
   const scanProjectFiles = async (force = false) => {
     const root = activeWorkstation.value?.folderPath
@@ -900,6 +927,8 @@ export const useProjectExplorer = () => {
     pushGit,
     pullGit,
     getFileHead,
+    getFileIndex,
+    stageContent,
     scanProjectFiles,
     searchInFiles,
     replaceInFiles,

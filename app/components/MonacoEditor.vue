@@ -191,6 +191,7 @@ onMounted(() => {
     lineNumbers: 'on',
     wordWrap: props.wordWrap ? 'on' : 'off',
     stickyScroll: { enabled: true, maxLineCount: 5 },
+    fixedOverflowWidgets: true,
     minimap: {
       enabled: settings.value.editorMinimap !== false,
       maxColumn: 80,

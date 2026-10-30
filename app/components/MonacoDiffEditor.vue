@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import * as monaco from 'monaco-editor'
-import { computeLineDiff } from '~/utils/diffComputer'
+import { computeLineDiff, type DetailedLineRangeMapping } from '~/utils/diffComputer'
+import type { HunkItem } from '~/utils/diffHunkManager'
 
 const props = withDefaults(
   defineProps<{
@@ -25,6 +26,14 @@ const emit = defineEmits<{
   (e: 'reject'): void
   (e: 'prev-diff'): void
   (e: 'next-diff'): void
+  (e: 'stage-hunk', hunk: DetailedLineRangeMapping): void
+  (e: 'discard-hunk', hunk: DetailedLineRangeMapping): void
+  (e: 'stage-focused-hunk'): void
+  (e: 'discard-focused-hunk'): void
+  (e: 'prev-hunk'): void
+  (e: 'next-hunk'): void
+  (e: 'hunks-updated', hunks: HunkItem[]): void
+  (e: 'active-hunk-changed', index: number): void
 }>()
 
 const containerRef = ref<HTMLDivElement | null>(null)
@@ -36,6 +45,8 @@ let resizeObserver: ResizeObserver | null = null
 let oldOriginalDecorationIds: string[] = []
 let oldModifiedDecorationIds: string[] = []
 let diffDebounceTimer: ReturnType<typeof setTimeout> | null = null
+let activeHunkWidgets: monaco.editor.IContentWidget[] = []
+let currentHunks: HunkItem[] = []
 
 const debouncedUpdateDiffDecorations = (delay = 75) => {
   if (diffDebounceTimer) clearTimeout(diffDebounceTimer)
@@ -182,6 +193,119 @@ const updateDiffDecorations = () => {
   // Gunakan model.deltaDecorations langsung pada ITextModel agar render pasti aktif
   oldOriginalDecorationIds = originalModel.deltaDecorations(oldOriginalDecorationIds, originalDecorations)
   oldModifiedDecorationIds = modifiedModel.deltaDecorations(oldModifiedDecorationIds, modifiedDecorations)
+
+  // Buat Hunk Action Widgets di atas setiap blok perubahan
+  clearHunkWidgets()
+  const hunksList: HunkItem[] = []
+  let hunkIndex = 0
+
+  for (const change of diffResult.changes) {
+    const origStart = change.original.startLineNumber
+    const origEnd = Math.max(origStart, change.original.endLineNumberExclusive - 1)
+    const modStart = change.modified.startLineNumber
+    const modEnd = Math.max(modStart, change.modified.endLineNumberExclusive - 1)
+
+    const addedCount = change.modified.isEmpty
+      ? 0
+      : change.modified.endLineNumberExclusive - change.modified.startLineNumber
+    const deletedCount = change.original.isEmpty
+      ? 0
+      : change.original.endLineNumberExclusive - change.original.startLineNumber
+
+    const hunk: HunkItem = {
+      index: hunkIndex,
+      startLineOriginal: origStart,
+      endLineOriginal: origEnd,
+      startLineModified: modStart,
+      endLineModified: modEnd,
+      addedCount,
+      deletedCount,
+      change
+    }
+    hunksList.push(hunk)
+
+    if (!props.readonly && diffEditor) {
+      const widgetLine = Math.max(1, modStart)
+      const widget = createHunkWidget(hunk, widgetLine)
+      diffEditor.getModifiedEditor().addContentWidget(widget)
+      activeHunkWidgets.push(widget)
+    }
+
+    hunkIndex++
+  }
+
+  currentHunks = hunksList
+  emit('hunks-updated', hunksList)
+}
+
+const clearHunkWidgets = () => {
+  if (!diffEditor) return
+  const ed = diffEditor.getModifiedEditor()
+  for (const w of activeHunkWidgets) {
+    try {
+      ed.removeContentWidget(w)
+    } catch {
+      // Abaikan widget yang sudah lepas
+    }
+  }
+  activeHunkWidgets = []
+}
+
+const createHunkWidget = (hunk: HunkItem, lineNumber: number): monaco.editor.IContentWidget => {
+  const domNode = document.createElement('div')
+  domNode.className = 'monaco-hunk-action-pill'
+  domNode.style.cssText =
+    'display:inline-flex;align-items:center;gap:6px;padding:2px 8px;border-radius:4px;background:#141522;border:1px solid rgba(75,85,99,0.5);box-shadow:0 4px 14px rgba(0,0,0,0.5);font-size:10px;font-family:system-ui,sans-serif;z-index:40;cursor:default;user-select:none;opacity:0.9;transition:opacity 0.15s ease;'
+  domNode.onmouseenter = () => {
+    domNode.style.opacity = '1'
+  }
+  domNode.onmouseleave = () => {
+    domNode.style.opacity = '0.9'
+  }
+
+  const label = document.createElement('span')
+  label.style.cssText = 'color:#a1a1aa;font-family:monospace;font-size:9px;font-weight:600;'
+  let stat = ''
+  if (hunk.addedCount > 0) stat += `+${hunk.addedCount} `
+  if (hunk.deletedCount > 0) stat += `-${hunk.deletedCount}`
+  label.textContent = `Hunk ${hunk.index + 1} (${stat.trim() || 'Mod'})`
+  domNode.appendChild(label)
+
+  const stageBtn = document.createElement('button')
+  stageBtn.style.cssText =
+    'display:inline-flex;align-items:center;gap:3px;padding:1px 6px;border-radius:3px;background:rgba(16,185,129,0.2);color:#34d399;font-weight:600;font-size:10px;cursor:pointer;border:none;'
+  stageBtn.innerHTML = '<span>✓</span><span>Stage Hunk</span>'
+  stageBtn.title = 'Stage blok ini ke git index (Alt+S)'
+  stageBtn.onclick = (e) => {
+    e.stopPropagation()
+    e.preventDefault()
+    emit('stage-hunk', hunk.change)
+  }
+  domNode.appendChild(stageBtn)
+
+  const discardBtn = document.createElement('button')
+  discardBtn.style.cssText =
+    'display:inline-flex;align-items:center;gap:3px;padding:1px 6px;border-radius:3px;background:rgba(239,68,68,0.2);color:#f87171;font-weight:600;font-size:10px;cursor:pointer;border:none;'
+  discardBtn.innerHTML = '<span>↺</span><span>Discard</span>'
+  discardBtn.title = 'Batalkan perubahan di blok ini (Alt+D)'
+  discardBtn.onclick = (e) => {
+    e.stopPropagation()
+    e.preventDefault()
+    emit('discard-hunk', hunk.change)
+  }
+  domNode.appendChild(discardBtn)
+
+  return {
+    getId: () => `hunk-action-widget-${hunk.index}`,
+    getDomNode: () => domNode,
+    getPosition: () => ({
+      position: { lineNumber, column: 1 },
+      preference: [
+        monaco.editor.ContentWidgetPositionPreference.ABOVE,
+        monaco.editor.ContentWidgetPositionPreference.BELOW
+      ]
+    })
+  }
 }
 
 onMounted(() => {
@@ -211,7 +335,8 @@ onMounted(() => {
     renderMarginRevertIcon: true,
     enableSplitViewResizing: true,
     ignoreTrimWhitespace: false,
-    useInlineViewWhenSpaceIsLimited: false
+    useInlineViewWhenSpaceIsLimited: false,
+    fixedOverflowWidgets: true
   })
 
   diffEditor.setModel({
@@ -268,7 +393,33 @@ onMounted(() => {
     ed.addCommand(monaco.KeyMod.Alt | monaco.KeyCode.RightArrow, () => {
       emit('next-diff')
     })
+    // Alt+S: Stage focused hunk
+    ed.addCommand(monaco.KeyMod.Alt | monaco.KeyCode.KeyS, () => {
+      emit('stage-focused-hunk')
+    })
+    // Alt+D: Discard focused hunk
+    ed.addCommand(monaco.KeyMod.Alt | monaco.KeyCode.KeyD, () => {
+      emit('discard-focused-hunk')
+    })
+    // Alt+[: Previous hunk
+    ed.addCommand(monaco.KeyMod.Alt | monaco.KeyCode.BracketLeft, () => {
+      emit('prev-hunk')
+    })
+    // Alt+]: Next hunk
+    ed.addCommand(monaco.KeyMod.Alt | monaco.KeyCode.BracketRight, () => {
+      emit('next-hunk')
+    })
   }
+
+  diffEditor.getModifiedEditor().onDidChangeCursorPosition((e) => {
+    const line = e.position.lineNumber
+    const foundIdx = currentHunks.findIndex(
+      (h) => line >= h.startLineModified && line <= h.endLineModified
+    )
+    if (foundIdx >= 0) {
+      emit('active-hunk-changed', foundIdx)
+    }
+  })
 
   resizeObserver = new ResizeObserver(() => {
     diffEditor?.layout()
@@ -314,6 +465,7 @@ watch(
 )
 
 onBeforeUnmount(() => {
+  clearHunkWidgets()
   if (diffDebounceTimer) {
     clearTimeout(diffDebounceTimer)
     diffDebounceTimer = null
@@ -346,6 +498,18 @@ onBeforeUnmount(() => {
   }
   oldOriginalDecorationIds = []
   oldModifiedDecorationIds = []
+})
+
+defineExpose({
+  revealHunkLine: (line: number) => {
+    const ed = diffEditor?.getModifiedEditor()
+    if (ed) {
+      ed.revealLineInCenter(line)
+      ed.setPosition({ lineNumber: line, column: 1 })
+      ed.focus()
+    }
+  },
+  getCurrentHunks: () => currentHunks
 })
 </script>
 

@@ -156,34 +156,3 @@
   ) !important;
 }
 
-/* Monaco Find Widget Hover Tooltip Positioning Fix */
-.monaco-editor ~ .context-view.top:has(.workbench-hover-container),
-.monaco-editor ~ .context-view.top:has(.monaco-hover.workbench-hover),
-:has(> .monaco-editor) > .context-view.top:has(.workbench-hover-container),
-:has(> .monaco-editor) > .context-view.top:has(.monaco-hover.workbench-hover),
-:has(.find-widget) > .context-view.top:has(.workbench-hover-container),
-:has(.find-widget) > .context-view.top:has(.monaco-hover.workbench-hover),
-.monaco-diff-editor ~ .context-view.top:has(.workbench-hover-container),
-.monaco-diff-editor ~ .context-view.top:has(.monaco-hover.workbench-hover) {
-  top: 42px !important;
-  z-index: 5000 !important;
-}
-
-.monaco-editor:has(.find-widget.replaceToggled) ~ .context-view.top:has(.workbench-hover-container),
-.monaco-editor:has(.find-widget.replaceToggled) ~ .context-view.top:has(.monaco-hover.workbench-hover),
-:has(.find-widget.replaceToggled) > .context-view.top:has(.workbench-hover-container),
-:has(.find-widget.replaceToggled) > .context-view.top:has(.monaco-hover.workbench-hover) {
-  top: 74px !important;
-}
-
-.context-view:has(.workbench-hover-container) .workbench-hover-pointer,
-.context-view:has(.monaco-hover.workbench-hover) .workbench-hover-pointer {
-  top: -3px !important;
-  bottom: auto !important;
-}
-
-.context-view:has(.workbench-hover-container) .workbench-hover-pointer:after,
-.context-view:has(.monaco-hover.workbench-hover) .workbench-hover-pointer:after {
-  transform: rotate(225deg) !important;
-}
-
