@@ -1,15 +1,15 @@
 {
-  "version": "0.2.24",
-  "notes": "Release v0.2.24 - Monaco Diff Editor dispose fix, graceful PTY broken pipe/resize handling on Windows, and diagnostics copy log toast feedback.",
-  "pub_date": "2026-10-22T06:40:13.860Z",
+  "version": "0.2.25",
+  "notes": "Release v0.2.25 - Interactive Git diff code review toolbar (Approve, Reject, Approve & Next), keyboard shortcuts, line diff stats, and auto-persist open editor session per project in .mytermin.",
+  "pub_date": "2026-10-30T11:40:00.000Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcjU5M1ZFMWtCZWZDaG5STURBWWsyTXU2N1Q0SzhKdTFsWW9GWDg4VitDc3RzaTN2OHAyK2pqRVY0YnZDZXFWSSt4WCtWVHBha1ViTjY1RkhqTktDdlpDaU16NCttdkEwPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyNjUxMTg3CWZpbGU6TXlUZXJtaW5fMC4yLjI0X3g2NC1zZXR1cC5leGUKZE94dnRGYjhPRldHS2FzaXQ0S001V25pd1NzSFp2T0xXc3hzVjVhUU9yY0xFMDJNdldHSWRPS3dOWlpPYUQ0TTJGVnBVTWVZZ3dGWUtSZ0c2V2h0RFE9PQo=",
-      "url": "https://github.com/harian12/MyTermin/releases/download/v0.2.24/MyTermin_0.2.24_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcjU5M1ZFMWtCZVQ5SnBLSUo1dys4YUU4Z2t5cjE5NkhUQ1Y1ejIvQ0NlcVVmTC8rUGRTZzd1WTZ5RnJoaE5udUwvMG5OVDRyd01qV0p2WnFPUURWc0VRNW8wa1Mra2djPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkzMzYwMDk2CWZpbGU6TXlUZXJtaW5fMC4yLjI1X3g2NC1zZXR1cC5leGUKR0hHR0FwOHNGbTRCQ0g4RURkTithR09zdjB4OTNUcFlpMm5lWHZoNjFsMzZJVS8yY0kxUmh1UmV2c0ZjVDMvbnZhMWpNbXZYQkZoMEIvS2pwcGpQQlE9PQo=",
+      "url": "https://github.com/harian12/MyTermin/releases/download/v0.2.25/MyTermin_0.2.25_x64-setup.exe"
     },
     "windows-x86_64-nsis": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcjU5M1ZFMWtCZWZDaG5STURBWWsyTXU2N1Q0SzhKdTFsWW9GWDg4VitDc3RzaTN2OHAyK2pqRVY0YnZDZXFWSSt4WCtWVHBha1ViTjY1RkhqTktDdlpDaU16NCttdkEwPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyNjUxMTg3CWZpbGU6TXlUZXJtaW5fMC4yLjI0X3g2NC1zZXR1cC5leGUKZE94dnRGYjhPRldHS2FzaXQ0S001V25pd1NzSFp2T0xXc3hzVjVhUU9yY0xFMDJNdldHSWRPS3dOWlpPYUQ0TTJGVnBVTWVZZ3dGWUtSZ0c2V2h0RFE9PQo=",
-      "url": "https://github.com/harian12/MyTermin/releases/download/v0.2.24/MyTermin_0.2.24_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcjU5M1ZFMWtCZVQ5SnBLSUo1dys4YUU4Z2t5cjE5NkhUQ1Y1ejIvQ0NlcVVmTC8rUGRTZzd1WTZ5RnJoaE5udUwvMG5OVDRyd01qV0p2WnFPUURWc0VRNW8wa1Mra2djPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkzMzYwMDk2CWZpbGU6TXlUZXJtaW5fMC4yLjI1X3g2NC1zZXR1cC5leGUKR0hHR0FwOHNGbTRCQ0g4RURkTithR09zdjB4OTNUcFlpMm5lWHZoNjFsMzZJVS8yY0kxUmh1UmV2c0ZjVDMvbnZhMWpNbXZYQkZoMEIvS2pwcGpQQlE9PQo=",
+      "url": "https://github.com/harian12/MyTermin/releases/download/v0.2.25/MyTermin_0.2.25_x64-setup.exe"
     }
   }
 }

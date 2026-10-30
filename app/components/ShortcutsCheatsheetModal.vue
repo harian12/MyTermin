@@ -109,6 +109,15 @@ const groups = computed<ShortcutGroup[]>(() => [
     ]
   },
   {
+    title: 'Git & Code Review',
+    items: [
+      { keys: ['Ctrl+Enter'], label: 'Review: Approve & Next (Setujui & Lompat)' },
+      { keys: ['Alt+A'], label: 'Review: Approve File (Stage)' },
+      { keys: ['Alt+R'], label: 'Review: Reject File (Discard)' },
+      { keys: ['Alt+←', 'Alt+→'], label: 'Review: Navigasi File Diff Sebelum / Sesudah' }
+    ]
+  },
+  {
     title: 'Tools',
     items: [
       { keys: [kb('taskPanel', 'Ctrl+Shift+M')], label: 'Buka/Tutup Panel Tasks', customizable: true },

@@ -755,7 +755,7 @@ onMounted(async () => {
   try {
     if (!isBlank) {
       initFromStorage()
-      initEditorSession()
+      await initEditorSession()
     }
   } catch (err) {
     logError('startup', `Gagal memulihkan sesi: ${err instanceof Error ? err.message : String(err)}`)

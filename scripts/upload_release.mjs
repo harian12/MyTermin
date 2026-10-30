@@ -45,24 +45,25 @@ async function run() {
 
   const releaseBody = `## MyTermin ${tag} 🚀
 
-Pembaruan **MyTermin ${tag}** — fitur Sidebar Search & Replace ala VS Code, perbaikan Monaco web worker, dan optimalisasi anti not-responding.
+Pembaruan **MyTermin ${tag}** — fitur Code Review (Approve/Reject) ala IDE modern pada Git Diff, pintasan keyboard review, dan pemulihan otomatis berkas terbuka editor per-project via \`.mytermin\`.
 
 ---
 
 ### ✨ Apa yang Baru di ${tag}
-1. **Sidebar Search & Replace (VS Code Style)**:
-   - Panel pencarian & penggantian teks lengkap di sidebar dengan opsi Case Sensitive (\`Aa\`), Whole Word (\`ab\`), dan Regular Expression (\`.*\`).
-   - Filter *files to include* dan *files to exclude*.
-   - Fitur **"Cari di Folder Ini... (Find in Folder)"** via klik kanan folder di File Explorer.
-   - Hasil pencarian dikelompokkan per berkas dengan highlight teks dan tombol ganti satuan / ganti semua.
-   - Shortcut \`Ctrl + Shift + F\` otomatis membuka tab Search di sidebar.
-2. **Perbaikan Monaco Web Worker**:
-   - Inisialisasi Vite worker bundler (\`?worker\`) khusus untuk Monaco Editor (Editor, JSON, HTML, CSS, TypeScript) menghilangkan error \`webWorkerBootstrap.js\`.
-3. **Pintasan Komentar & Positioning Tooltip**:
-   - Pintasan \`Ctrl + /\` kini mengomentari baris kode di editor tanpa salah memicu Cheatsheet modal.
-   - Perbaikan selektor CSS pada tooltip find widget agar tidak terpotong container editor.
-4. **Optimalisasi Anti Not-Responding**:
-   - Algoritma pencarian berkas dan diff computer dilengkapi trimming prefix/suffix, skipping file biner, dan safety break agar tidak membekukan UI thread pada proyek besar.
+1. **Interactive Git Diff Code Review**:
+   - Toolbar review khusus di atas Monaco Diff Editor dengan tombol **Approve (Stage)**, **Reject (Discard)**, **Approve & Next**, dan **Unstage**.
+   - Indikator statistik perubahan baris (\`+X -Y\`) dan nomor urut berkas (\`1/N\`).
+   - Tombol batch **Approve All** dan **Reject All** pada bagian Changes di sidebar workstation.
+2. **Keyboard Shortcuts Code Review**:
+   - \`Ctrl + Enter\`: Approve file aktif & lompat otomatis ke file perubahan berikutnya (*Approve & Next*).
+   - \`Alt + A\`: Approve (Stage) file aktif.
+   - \`Alt + R\`: Reject (Discard) file aktif dengan konfirmasi dialog aman.
+   - \`Alt + ←\` / \`Alt + →\`: Navigasi cepat antar berkas diff yang sedang ditinjau.
+   - Terintegrasi di cheatsheet modal (\`F1\` / \`Ctrl + /\`).
+3. **Persistensi Sesi Berkas Editor Project (\`.mytermin\`)**:
+   - Daftar berkas yang sedang dibuka, tab aktif, dan split pane otomatis disimpan ke \`.mytermin/workspace.json\` di folder proyek.
+   - Saat membuka kembali proyek atau berpindah workstation, berkas-berkas sebelumnya otomatis dimuat dan dibuka ke editor.
+   - Dilengkapi opsi pengaturan di Settings (\`Ctrl + ,\`): *"Pulihkan Berkas Sebelumnya (.mytermin)"*.
 
 ---
 

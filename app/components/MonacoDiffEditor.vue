@@ -20,6 +20,11 @@ const props = withDefaults(
 const emit = defineEmits<{
   (e: 'update:modifiedValue', value: string): void
   (e: 'save'): void
+  (e: 'approve'): void
+  (e: 'approve-and-next'): void
+  (e: 'reject'): void
+  (e: 'prev-diff'): void
+  (e: 'next-diff'): void
 }>()
 
 const containerRef = ref<HTMLDivElement | null>(null)
@@ -239,6 +244,31 @@ onMounted(() => {
   diffEditor.getModifiedEditor().addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Slash, () => {
     diffEditor?.getModifiedEditor().getAction('editor.action.commentLine')?.run()
   })
+
+  // Diff Review Shortcut Commands (Modified & Original Editor)
+  const editors = [diffEditor.getModifiedEditor(), diffEditor.getOriginalEditor()]
+  for (const ed of editors) {
+    // Ctrl+Enter / Cmd+Enter: Approve & Next
+    ed.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
+      emit('approve-and-next')
+    })
+    // Alt+A: Approve
+    ed.addCommand(monaco.KeyMod.Alt | monaco.KeyCode.KeyA, () => {
+      emit('approve')
+    })
+    // Alt+R: Reject
+    ed.addCommand(monaco.KeyMod.Alt | monaco.KeyCode.KeyR, () => {
+      emit('reject')
+    })
+    // Alt+LeftArrow: Previous diff file
+    ed.addCommand(monaco.KeyMod.Alt | monaco.KeyCode.LeftArrow, () => {
+      emit('prev-diff')
+    })
+    // Alt+RightArrow: Next diff file
+    ed.addCommand(monaco.KeyMod.Alt | monaco.KeyCode.RightArrow, () => {
+      emit('next-diff')
+    })
+  }
 
   resizeObserver = new ResizeObserver(() => {
     diffEditor?.layout()

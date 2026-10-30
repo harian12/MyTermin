@@ -429,6 +429,16 @@ onMounted(async () => {
               @update:model-value="updateSettings({ editorRenderIndentGuides: $event })"
             />
           </UiSettingRow>
+
+          <UiSettingRow
+            label="Pulihkan Berkas Sebelumnya (.mytermin)"
+            hint="Simpan daftar tab editor yang terbuka ke folder .mytermin project dan buka kembali saat aplikasi dibuka"
+          >
+            <UiSwitch
+              :model-value="settings.restoreProjectEditorSession !== false"
+              @update:model-value="updateSettings({ restoreProjectEditorSession: $event })"
+            />
+          </UiSettingRow>
         </UiSettingsGroup>
 
         <UiSettingsGroup title="Warna & Kursor" description="Skema warna, palet ANSI, dan bentuk kursor">

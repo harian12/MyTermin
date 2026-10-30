@@ -9,6 +9,7 @@ export interface OpenFileItem {
   isDirty: boolean
   isDiff?: boolean
   diffOriginalContent?: string
+  diffRelPath?: string
   isScratchpad?: boolean
 }
 
@@ -46,8 +47,158 @@ export const useEditorStore = () => {
   const { isTauri } = useTauriPty()
 
   let saveSessionTimer: ReturnType<typeof setTimeout> | null = null
+  let saveProjectEditorSessionTimer: ReturnType<typeof setTimeout> | null = null
 
-  // Save editor state to localStorage (debounced agar tidak blocking saat buka/tutup tab cepat)
+  // Simpan state berkas editor ke .mytermin/workspace.json pada folder project
+  const saveProjectEditorSession = async (rootPath?: string) => {
+    const root = rootPath || activeWorkstation.value?.folderPath
+    if (!root || !isTauri.value || typeof window === 'undefined') return
+    const { settings } = useSettingsStore()
+    if (settings.value.restoreProjectEditorSession === false) return
+
+    const wsId = activeWorkstationId.value || 'ws-default'
+    const state = workstationEditors.value[wsId]
+    if (!state) return
+
+    const normRoot = root.replace(/\\/g, '/').replace(/\/+$/, '')
+
+    // Filter berkas reguler (kecualikan diff & scratchpad)
+    const filesToSave = state.openFiles
+      .filter((f) => !f.isDiff && !f.isScratchpad && f.path)
+      .map((f) => {
+        const norm = f.path.replace(/\\/g, '/')
+        if (norm.startsWith(`${normRoot}/`)) {
+          return norm.slice(normRoot.length + 1)
+        }
+        return f.path
+      })
+
+    const activeItem = state.openFiles.find((f) => f.id === state.activeFileId)
+    let activePath: string | null = null
+    if (activeItem && !activeItem.isScratchpad && activeItem.path) {
+      const norm = activeItem.path.replace(/\\/g, '/')
+      activePath = norm.startsWith(`${normRoot}/`) ? norm.slice(normRoot.length + 1) : activeItem.path
+    }
+
+    const secondaryItem = state.openFiles.find((f) => f.id === state.secondaryFileId)
+    let secondaryPath: string | null = null
+    if (secondaryItem && !secondaryItem.isScratchpad && secondaryItem.path) {
+      const norm = secondaryItem.path.replace(/\\/g, '/')
+      secondaryPath = norm.startsWith(`${normRoot}/`) ? norm.slice(normRoot.length + 1) : secondaryItem.path
+    }
+
+    try {
+      const { invoke } = await import('@tauri-apps/api/core')
+      const dirPath = `${root.replace(/[\\/]+$/, '')}\\.mytermin`
+      const configPath = `${dirPath}\\workspace.json`
+
+      try {
+        await invoke('create_dir', { path: dirPath })
+      } catch {
+        // Folder .mytermin sudah ada
+      }
+
+      let existingData: Record<string, any> = {}
+      try {
+        const raw = await invoke<string>('read_file_content', { path: configPath })
+        existingData = JSON.parse(raw)
+      } catch {
+        existingData = {}
+      }
+
+      existingData.editor = {
+        openFiles: filesToSave,
+        activePath,
+        secondaryPath,
+        isEditorPaneSplit: state.isEditorPaneSplit,
+        splitRatio: state.splitRatio
+      }
+
+      await invoke('save_file_content', {
+        path: configPath,
+        content: `${JSON.stringify(existingData, null, 2)}\n`
+      })
+    } catch (e) {
+      console.warn('Gagal menyimpan editor session ke .mytermin/workspace.json:', e)
+    }
+  }
+
+  // Pulihkan state berkas editor dari .mytermin/workspace.json
+  const restoreProjectEditorSession = async (rootPath?: string, targetWsId?: string): Promise<boolean> => {
+    const root = rootPath || activeWorkstation.value?.folderPath
+    if (!root || !isTauri.value) return false
+    const { settings } = useSettingsStore()
+    if (settings.value.restoreProjectEditorSession === false) return false
+
+    const wsId = targetWsId || activeWorkstationId.value || 'ws-default'
+
+    try {
+      const { invoke } = await import('@tauri-apps/api/core')
+      const configPath = `${root.replace(/[\\/]+$/, '')}\\.mytermin\\workspace.json`
+      const raw = await invoke<string>('read_file_content', { path: configPath })
+      const parsed = JSON.parse(raw)
+      const editorData = parsed?.editor
+      if (!editorData || !Array.isArray(editorData.openFiles) || editorData.openFiles.length === 0) {
+        return false
+      }
+
+      const sep = root.includes('\\') ? '\\' : '/'
+      const restoredFiles: OpenFileItem[] = []
+
+      for (const relOrAbs of editorData.openFiles) {
+        if (!relOrAbs) continue
+        const fullPath = (relOrAbs.startsWith('/') || /^[a-zA-Z]:[\\/]/.test(relOrAbs))
+          ? relOrAbs
+          : `${root.replace(/[\\/]+$/, '')}${sep}${relOrAbs.replace(/^[\\/]+/, '')}`
+
+        const filename = fullPath.split(/[\\/]/).pop() || fullPath
+        try {
+          const content = await invoke<string>('read_file_content', { path: fullPath })
+          restoredFiles.push({
+            id: `file-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+            name: filename,
+            path: fullPath,
+            content,
+            originalContent: content,
+            isDirty: false
+          })
+        } catch {
+          // File mungkin dihapus atau dipindahkan
+          continue
+        }
+      }
+
+      if (restoredFiles.length === 0) return false
+
+      const resolveToFull = (p: string | null) => {
+        if (!p) return null
+        return (p.startsWith('/') || /^[a-zA-Z]:[\\/]/.test(p))
+          ? p
+          : `${root.replace(/[\\/]+$/, '')}${sep}${p.replace(/^[\\/]+/, '')}`
+      }
+
+      const activeFullPath = resolveToFull(editorData.activePath)
+      const secondaryFullPath = resolveToFull(editorData.secondaryPath)
+
+      const activeFound = restoredFiles.find((f) => f.path.replace(/\\/g, '/') === activeFullPath?.replace(/\\/g, '/'))
+      const secondaryFound = restoredFiles.find((f) => f.path.replace(/\\/g, '/') === secondaryFullPath?.replace(/\\/g, '/'))
+
+      workstationEditors.value[wsId] = {
+        openFiles: restoredFiles,
+        activeFileId: activeFound ? activeFound.id : (restoredFiles[0]?.id || null),
+        secondaryFileId: secondaryFound ? secondaryFound.id : null,
+        isEditorPaneSplit: Boolean(editorData.isEditorPaneSplit),
+        splitRatio: editorData.splitRatio || 50,
+        closedTabsHistory: []
+      }
+
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  // Save editor state to localStorage & .mytermin/workspace.json (debounced agar tidak blocking saat buka/tutup tab cepat)
   const saveEditorSession = (immediate = false) => {
     if (typeof window === 'undefined') return
 
@@ -92,11 +243,36 @@ export const useEditorStore = () => {
       if (saveSessionTimer) clearTimeout(saveSessionTimer)
       saveSessionTimer = setTimeout(doSave, 250)
     }
+
+    // Simpan juga ke file project .mytermin/workspace.json
+    const rootPath = activeWorkstation.value?.folderPath
+    if (rootPath && isTauri.value) {
+      if (saveProjectEditorSessionTimer) clearTimeout(saveProjectEditorSessionTimer)
+      if (immediate) {
+        saveProjectEditorSession(rootPath)
+      } else {
+        saveProjectEditorSessionTimer = setTimeout(() => {
+          saveProjectEditorSession(rootPath)
+        }, 500)
+      }
+    }
   }
 
-  // Restore editor state from localStorage on startup
+  // Restore editor state from .mytermin/workspace.json or localStorage on startup
   const initEditorSession = async () => {
     if (typeof window === 'undefined') return
+    const { settings } = useSettingsStore()
+
+    // 1. Coba pulihkan dari file .mytermin/workspace.json project terlebih dahulu
+    if (isTauri.value && settings.value.restoreProjectEditorSession !== false) {
+      const root = activeWorkstation.value?.folderPath
+      if (root) {
+        const restored = await restoreProjectEditorSession(root)
+        if (restored) return
+      }
+    }
+
+    // 2. Fallback: pulihkan dari localStorage jika belum ada file project
     try {
       const raw = localStorage.getItem(EDITOR_SESSION_KEY)
       if (!raw) return
@@ -274,6 +450,7 @@ export const useEditorStore = () => {
       existing.diffOriginalContent = headContent
       existing.content = currentContent
       existing.originalContent = currentContent
+      existing.diffRelPath = relPath
       activeFileId.value = existing.id
       return
     }
@@ -286,7 +463,8 @@ export const useEditorStore = () => {
       originalContent: currentContent,
       isDirty: false,
       isDiff: true,
-      diffOriginalContent: headContent
+      diffOriginalContent: headContent,
+      diffRelPath: relPath
     }
 
     openFiles.value.push(newItem)
@@ -800,6 +978,8 @@ export const useEditorStore = () => {
     targetNavigatePosition,
     initEditorSession,
     saveEditorSession,
+    saveProjectEditorSession,
+    restoreProjectEditorSession,
     removeWorkstationEditor,
     reloadOpenFilesFromDisk,
     reloadFile,

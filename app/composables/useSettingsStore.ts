@@ -47,6 +47,7 @@ const defaultSettings: TerminalSettings = {
   editorAutoSaveDelay: 1500,
   editorRenderWhitespace: 'selection',
   editorRenderIndentGuides: true,
+  restoreProjectEditorSession: true,
   closeToTray: false,
   audioBell: false,
   githubToken: '',

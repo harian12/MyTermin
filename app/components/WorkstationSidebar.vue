@@ -89,6 +89,7 @@ const {
   stageAll,
   unstageAll,
   discardFile,
+  discardAll,
   pushGit,
   pullGit,
   getFileHead,
@@ -1256,7 +1257,7 @@ const resetSidebarWidth = () => {
                     {{ item.status }}
                   </span>
                   <div class="hidden group-hover:flex items-center gap-1">
-                    <UiTooltip text="Unstage File" side="left">
+                    <UiTooltip text="Batalkan Approve (Unstage File)" side="left">
 
                       <button class="p-0.5 hover:bg-accent rounded text-muted-foreground hover:text-foreground transition-colors cursor-pointer" @click.stop="unstageFile(item.path)">
                       <Minus class="w-3 h-3" />
@@ -1274,15 +1275,26 @@ const resetSidebarWidth = () => {
         <div class="flex-1 flex flex-col space-y-1 pt-1 min-h-0">
           <div class="flex items-center justify-between text-[10px] font-bold uppercase text-muted-foreground tracking-wider flex-shrink-0">
             <span>Changes ({{ gitOverview.unstaged.length + gitOverview.untracked.length }})</span>
-            <UiTooltip v-if="gitOverview.unstaged.length + gitOverview.untracked.length > 0" text="Stage Semua" side="left">
-              <button
-                class="hover:text-foreground text-[10px] flex items-center gap-0.5 p-0.5"
-                @click="stageAll"
-              >
-                <Plus class="w-3 h-3" />
-                <span>Stage All</span>
-              </button>
-            </UiTooltip>
+            <div v-if="gitOverview.unstaged.length + gitOverview.untracked.length > 0" class="flex items-center gap-1.5">
+              <UiTooltip text="Batalkan Semua Perubahan (Reject All)" side="left">
+                <button
+                  class="hover:text-destructive text-[10px] flex items-center gap-0.5 p-0.5 text-muted-foreground transition-colors"
+                  @click="discardAll"
+                >
+                  <RotateCcw class="w-3 h-3 text-rose-400" />
+                  <span>Reject All</span>
+                </button>
+              </UiTooltip>
+              <UiTooltip text="Stage Semua (Approve All)" side="left">
+                <button
+                  class="hover:text-emerald-300 text-[10px] flex items-center gap-0.5 p-0.5 text-emerald-400 transition-colors"
+                  @click="stageAll"
+                >
+                  <Plus class="w-3 h-3" />
+                  <span>Approve All</span>
+                </button>
+              </UiTooltip>
+            </div>
           </div>
 
           <div v-if="gitOverview.unstaged.length === 0 && gitOverview.untracked.length === 0 && gitOverview.staged.length === 0" class="p-4 text-center text-xs text-muted-foreground font-mono">
@@ -1330,14 +1342,14 @@ const resetSidebarWidth = () => {
                       {{ item.status }}
                     </span>
                     <div class="hidden group-hover:flex items-center gap-1">
-                      <UiTooltip text="Stage File (+)" side="left">
+                      <UiTooltip text="Approve (Stage File)" side="left">
 
-                        <button class="p-0.5 hover:bg-accent rounded text-muted-foreground hover:text-primary transition-colors cursor-pointer" @click.stop="stageFile(item.path)">
-                        <Plus class="w-3 h-3" />
+                        <button class="p-0.5 hover:bg-accent rounded text-muted-foreground hover:text-emerald-400 transition-colors cursor-pointer" @click.stop="stageFile(item.path)">
+                        <Check class="w-3 h-3" />
                       </button>
 
                       </UiTooltip>
-                      <UiTooltip text="Discard Perubahan" side="left">
+                      <UiTooltip text="Reject (Discard Perubahan)" side="left">
 
                         <button class="p-0.5 hover:bg-destructive/20 rounded text-muted-foreground hover:text-destructive transition-colors cursor-pointer" @click.stop="discardFile(item.path, false)">
                         <RotateCcw class="w-3 h-3" />
@@ -1372,14 +1384,14 @@ const resetSidebarWidth = () => {
                       U
                     </span>
                     <div class="hidden group-hover:flex items-center gap-1">
-                      <UiTooltip text="Stage File (+)" side="left">
+                      <UiTooltip text="Approve (Stage File)" side="left">
 
-                        <button class="p-0.5 hover:bg-accent rounded text-muted-foreground hover:text-primary transition-colors cursor-pointer" @click.stop="stageFile(item.path)">
-                        <Plus class="w-3 h-3" />
+                        <button class="p-0.5 hover:bg-accent rounded text-muted-foreground hover:text-emerald-400 transition-colors cursor-pointer" @click.stop="stageFile(item.path)">
+                        <Check class="w-3 h-3" />
                       </button>
 
                       </UiTooltip>
-                      <UiTooltip text="Hapus File Untracked" side="left">
+                      <UiTooltip text="Reject (Hapus File Untracked)" side="left">
 
                         <button class="p-0.5 hover:bg-destructive/20 rounded text-muted-foreground hover:text-destructive transition-colors cursor-pointer" @click.stop="discardFile(item.path, true)">
                         <Trash2 class="w-3 h-3" />

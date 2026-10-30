@@ -7,6 +7,7 @@ import {
   ChevronDown,
   Plus,
   Minus,
+  Check,
   RotateCcw,
   Trash2,
   FileCode,
@@ -246,7 +247,7 @@ const getFileIcon = (filename: string) => {
         <!-- Actions (Hidden by default, shown on group-hover) -->
         <div class="hidden group-hover:flex items-center gap-1">
           <!-- Actions for Staged -->
-          <UiTooltip v-if="node.isStaged" text="Unstage File (-)" side="right" class="contents">
+          <UiTooltip v-if="node.isStaged" text="Batalkan Approve (Unstage)" side="right" class="contents">
             <button
               class="p-0.5 hover:bg-accent rounded text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
               @click.stop="emit('unstage', node.path)"
@@ -257,15 +258,15 @@ const getFileIcon = (filename: string) => {
 
           <!-- Actions for Unstaged / Untracked -->
           <template v-else>
-            <UiTooltip text="Stage File (+)" side="right" class="contents">
+            <UiTooltip text="Approve Perubahan (Stage)" side="right" class="contents">
               <button
-                class="p-0.5 hover:bg-accent rounded text-muted-foreground hover:text-primary transition-colors cursor-pointer"
+                class="p-0.5 hover:bg-accent rounded text-muted-foreground hover:text-emerald-400 transition-colors cursor-pointer"
                 @click.stop="emit('stage', node.path)"
               >
-                <Plus class="w-3 h-3" />
+                <Check class="w-3 h-3" />
               </button>
             </UiTooltip>
-            <UiTooltip v-if="!node.isUntracked" text="Discard Perubahan" side="right" class="contents">
+            <UiTooltip v-if="!node.isUntracked" text="Reject Perubahan (Discard)" side="right" class="contents">
               <button
                 class="p-0.5 hover:bg-destructive/20 rounded text-muted-foreground hover:text-destructive transition-colors cursor-pointer"
                 @click.stop="emit('discard', { path: node.path, isUntracked: false })"
@@ -273,7 +274,7 @@ const getFileIcon = (filename: string) => {
                 <RotateCcw class="w-3 h-3" />
               </button>
             </UiTooltip>
-            <UiTooltip v-else text="Hapus File Untracked" side="right" class="contents">
+            <UiTooltip v-else text="Reject (Hapus File Untracked)" side="right" class="contents">
               <button
                 class="p-0.5 hover:bg-destructive/20 rounded text-muted-foreground hover:text-destructive transition-colors cursor-pointer"
                 @click.stop="emit('discard', { path: node.path, isUntracked: true })"

@@ -525,6 +525,36 @@ export const useProjectExplorer = () => {
     }
   }
 
+  // Discard all unstaged & untracked changes
+  const discardAll = async (): Promise<boolean> => {
+    const root = activeWorkstation.value.folderPath
+    if (!root || !isTauri.value) return false
+    const count = gitOverview.value.unstaged.length + gitOverview.value.untracked.length
+    if (count === 0) return false
+    const ok = await showAppConfirm(
+      `Batalkan semua ${count} perubahan di working tree? Semua modifikasi file yang belum di-stage/commit akan dibatalkan permanen.`,
+      'Batalkan Semua Perubahan (Reject All)',
+      'destructive',
+      'Batalkan Semua Perubahan'
+    )
+    if (!ok) return false
+    try {
+      const { invoke } = await import('@tauri-apps/api/core')
+      for (const item of gitOverview.value.unstaged) {
+        await invoke('git_discard', { repoPath: root, relPath: item.path, isUntracked: false })
+      }
+      for (const item of gitOverview.value.untracked) {
+        await invoke('git_discard', { repoPath: root, relPath: item.path, isUntracked: true })
+      }
+      await refreshGitStatus()
+      scanProjectFiles(true).catch(() => {})
+      return true
+    } catch (e: any) {
+      await showAppAlert(`Gagal membatalkan perubahan: ${e?.message || e}`, 'Git Error')
+      return false
+    }
+  }
+
   // Discard changes
   const discardFile = async (relPath: string, isUntracked = false): Promise<boolean> => {
     const root = activeWorkstation.value.folderPath
@@ -816,6 +846,15 @@ export const useProjectExplorer = () => {
     saveSession(false)
     saveRecentProject(folderPath)
     await loadExpandedFolders(folderPath)
+
+    // Restore editor session dari .mytermin/workspace.json jika ada
+    try {
+      const { restoreProjectEditorSession } = useEditorStore()
+      await restoreProjectEditorSession(folderPath)
+    } catch {
+      // Abaikan jika store belum siap
+    }
+
     await refreshGitStatus()
     await fetchBranches()
     await fetchCommitLogs()
@@ -857,6 +896,7 @@ export const useProjectExplorer = () => {
     stageAll,
     unstageAll,
     discardFile,
+    discardAll,
     pushGit,
     pullGit,
     getFileHead,

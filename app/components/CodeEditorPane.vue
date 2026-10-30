@@ -14,6 +14,7 @@ import {
   Maximize2,
   Minimize2,
   Check,
+  CheckCheck,
   Sparkles,
   AlertTriangle,
   GitBranch,
@@ -26,6 +27,8 @@ import {
   Plus,
   FileEdit,
   ChevronRight,
+  ChevronLeft,
+  RotateCcw,
   Folder,
   ExternalLink,
   Pilcrow,
@@ -38,6 +41,7 @@ import { useProjectExplorer } from '~/composables/useProjectExplorer'
 import { formatCode } from '~/utils/formatter'
 import { detectConflicts, resolveAllConflicts } from '~/utils/mergeConflict'
 import { parseMarkdown } from '~/utils/markdownParser'
+import { computeLineDiff } from '~/utils/diffComputer'
 import MonacoEditor from './MonacoEditor.vue'
 import MonacoDiffEditor from './MonacoDiffEditor.vue'
 
@@ -73,10 +77,21 @@ const {
   copyRelativePath,
   reloadOpenFilesFromDisk,
   reloadFile,
-  handleFocusLoss
+  handleFocusLoss,
+  openGitDiffTab
 } = useEditorStore()
 
-const { gitBranch, revealInExplorer, openPathDefault } = useProjectExplorer()
+const {
+  gitBranch,
+  gitOverview,
+  revealInExplorer,
+  openPathDefault,
+  stageFile,
+  unstageFile,
+  discardFile,
+  refreshGitStatus,
+  getFileHead
+} = useProjectExplorer()
 const { settings, updateSettings } = useSettingsStore()
 const { activeWorkstation } = useWorkspaceStore()
 
@@ -347,6 +362,7 @@ onMounted(() => {
   window.addEventListener('click', closeBreadcrumbMenu)
   window.addEventListener('focus', onWindowFocus)
   window.addEventListener('blur', onWindowBlur)
+  window.addEventListener('keydown', handleDiffKeydown, true)
 })
 
 onBeforeUnmount(() => {
@@ -354,6 +370,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('click', closeBreadcrumbMenu)
   window.removeEventListener('focus', onWindowFocus)
   window.removeEventListener('blur', onWindowBlur)
+  window.removeEventListener('keydown', handleDiffKeydown, true)
 })
 
 const getFileIcon = (filename: string) => {
@@ -385,6 +402,291 @@ const handleResolveConflicts = (choice: 'current' | 'incoming' | 'both') => {
   setTimeout(() => {
     editorNotification.value = null
   }, 2500)
+}
+
+// Git Diff Review Logic
+const isReviewProcessing = ref(false)
+
+const allDiffFiles = computed(() => {
+  const overview = gitOverview.value
+  if (!overview) return []
+  const files: string[] = []
+  const seen = new Set<string>()
+  for (const item of [...overview.unstaged, ...overview.untracked, ...overview.staged]) {
+    if (!seen.has(item.path)) {
+      seen.add(item.path)
+      files.push(item.path)
+    }
+  }
+  return files
+})
+
+const activeDiffRelPath = computed(() => {
+  if (!activeFile.value?.isDiff) return ''
+  if (activeFile.value.diffRelPath) return activeFile.value.diffRelPath
+  const fullPath = (activeFile.value.path || '').replace(/\\/g, '/')
+  const root = (activeWorkstation.value?.folderPath || '').replace(/\\/g, '/').replace(/\/+$/, '')
+  if (root && fullPath.startsWith(root)) {
+    return fullPath.slice(root.length).replace(/^\/+/, '')
+  }
+  return activeFile.value.name.replace(/\s*\(Diff\)$/i, '')
+})
+
+const activeDiffStatus = computed(() => {
+  if (!activeFile.value?.isDiff) return null
+  const rel = activeDiffRelPath.value
+  const overview = gitOverview.value
+  if (!overview) return null
+  const normalize = (p: string) => p.replace(/\\/g, '/')
+  const staged = overview.staged.find(f => normalize(f.path) === normalize(rel))
+  if (staged) return { type: 'staged', status: staged.status || 'M' }
+  const unstaged = overview.unstaged.find(f => normalize(f.path) === normalize(rel))
+  if (unstaged) return { type: 'unstaged', status: unstaged.status || 'M' }
+  const untracked = overview.untracked.find(f => normalize(f.path) === normalize(rel))
+  if (untracked) return { type: 'untracked', status: 'U' }
+  return { type: 'modified', status: 'M' }
+})
+
+const diffFileIndex = computed(() => {
+  const rel = activeDiffRelPath.value
+  const all = allDiffFiles.value
+  if (!rel || all.length === 0) return { current: 1, total: 1 }
+  const normalize = (p: string) => p.replace(/\\/g, '/')
+  const idx = all.findIndex(p => normalize(p) === normalize(rel))
+  return {
+    current: idx >= 0 ? idx + 1 : 1,
+    total: all.length
+  }
+})
+
+const prevDiffFile = computed(() => {
+  const rel = activeDiffRelPath.value
+  const all = allDiffFiles.value
+  if (!rel || all.length <= 1) return null
+  const normalize = (p: string) => p.replace(/\\/g, '/')
+  const idx = all.findIndex(p => normalize(p) === normalize(rel))
+  if (idx > 0) return all[idx - 1]
+  return null
+})
+
+const nextDiffFile = computed(() => {
+  const rel = activeDiffRelPath.value
+  const all = allDiffFiles.value
+  if (!rel || all.length <= 1) return null
+  const normalize = (p: string) => p.replace(/\\/g, '/')
+  const idx = all.findIndex(p => normalize(p) === normalize(rel))
+  if (idx >= 0 && idx < all.length - 1) return all[idx + 1]
+  return null
+})
+
+const unreviewedDiffFiles = computed(() => {
+  const overview = gitOverview.value
+  if (!overview) return []
+  return [...overview.unstaged, ...overview.untracked].map(f => f.path)
+})
+
+const diffStats = computed(() => {
+  if (!activeFile.value?.isDiff) return { added: 0, deleted: 0 }
+  const orig = activeFile.value.diffOriginalContent || ''
+  const mod = activeFile.value.content || ''
+  if (!orig && !mod) return { added: 0, deleted: 0 }
+  if (!orig) return { added: mod.split('\n').length, deleted: 0 }
+  if (!mod) return { added: 0, deleted: orig.split('\n').length }
+
+  try {
+    const diff = computeLineDiff(orig.split('\n'), mod.split('\n'))
+    let added = 0
+    let deleted = 0
+    for (const c of diff.changes) {
+      if (!c.modified.isEmpty) added += c.modified.length
+      if (!c.original.isEmpty) deleted += c.original.length
+    }
+    return { added, deleted }
+  } catch {
+    return { added: 0, deleted: 0 }
+  }
+})
+
+const openDiffForRelativePath = async (relPath: string) => {
+  const root = activeWorkstation.value?.folderPath
+  if (!root) return
+  const fullPath = `${root.replace(/[\\/]+$/, '')}/${relPath.replace(/^[\\/]+/, '')}`.replace(/\//g, '\\')
+  const headContent = await getFileHead(relPath)
+  await openGitDiffTab(fullPath, relPath, headContent)
+}
+
+const handlePrevDiff = async () => {
+  if (prevDiffFile.value) {
+    await openDiffForRelativePath(prevDiffFile.value)
+  }
+}
+
+const handleNextDiff = async () => {
+  if (nextDiffFile.value) {
+    await openDiffForRelativePath(nextDiffFile.value)
+  }
+}
+
+const handleApproveDiff = async () => {
+  const rel = activeDiffRelPath.value
+  if (!rel || isReviewProcessing.value) return
+  isReviewProcessing.value = true
+  try {
+    if (activeFile.value?.isDirty) {
+      await saveFile()
+    }
+    const success = await stageFile(rel)
+    if (success) {
+      editorNotification.value = `Perubahan disetujui (Staged): ${rel}`
+      setTimeout(() => {
+        editorNotification.value = null
+      }, 2500)
+      await refreshGitStatus()
+    }
+  } finally {
+    isReviewProcessing.value = false
+  }
+}
+
+const handleApproveAndNext = async () => {
+  const rel = activeDiffRelPath.value
+  if (!rel || isReviewProcessing.value) return
+  isReviewProcessing.value = true
+  try {
+    if (activeFile.value?.isDirty) {
+      await saveFile()
+    }
+    const success = await stageFile(rel)
+    if (success) {
+      const normalize = (p: string) => p.replace(/\\/g, '/')
+      const remaining = unreviewedDiffFiles.value.filter(p => normalize(p) !== normalize(rel))
+      const nextFile = remaining[0] || nextDiffFile.value
+
+      if (nextFile) {
+        editorNotification.value = `Disetujui: ${rel}. Beralih ke file berikutnya.`
+        await openDiffForRelativePath(nextFile)
+      } else {
+        editorNotification.value = `Semua perubahan telah disetujui (All Staged)!`
+      }
+
+      setTimeout(() => {
+        editorNotification.value = null
+      }, 2500)
+
+      const currentTabId = activeFile.value?.id
+      if (currentTabId && nextFile) {
+        closeFile(currentTabId)
+      }
+
+      await refreshGitStatus()
+    }
+  } finally {
+    isReviewProcessing.value = false
+  }
+}
+
+const handleRejectDiff = async () => {
+  const rel = activeDiffRelPath.value
+  if (!rel || isReviewProcessing.value) return
+  isReviewProcessing.value = true
+  try {
+    const isUntracked = activeDiffStatus.value?.type === 'untracked'
+    const success = await discardFile(rel, isUntracked)
+    if (success) {
+      editorNotification.value = `Perubahan ditolak (Discarded): ${rel}`
+      setTimeout(() => {
+        editorNotification.value = null
+      }, 2500)
+      const currentTabId = activeFile.value?.id
+      const next = nextDiffFile.value
+      if (next) {
+        await openDiffForRelativePath(next)
+      }
+      if (currentTabId) {
+        closeFile(currentTabId)
+      }
+      await refreshGitStatus()
+    }
+  } finally {
+    isReviewProcessing.value = false
+  }
+}
+
+const handleUnstageDiff = async () => {
+  const rel = activeDiffRelPath.value
+  if (!rel || isReviewProcessing.value) return
+  isReviewProcessing.value = true
+  try {
+    const success = await unstageFile(rel)
+    if (success) {
+      editorNotification.value = `Approval dibatalkan (Unstaged): ${rel}`
+      setTimeout(() => {
+        editorNotification.value = null
+      }, 2500)
+      await refreshGitStatus()
+    }
+  } finally {
+    isReviewProcessing.value = false
+  }
+}
+
+const handleDiffKeydown = (e: KeyboardEvent) => {
+  if (!activeFile.value?.isDiff) return
+
+  const target = e.target as HTMLElement | null
+  if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') && !target.closest('.monaco-diff-editor')) {
+    return
+  }
+
+  // Ctrl+Enter or Cmd+Enter: Approve & Next
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    e.preventDefault()
+    e.stopPropagation()
+    if (activeDiffStatus.value?.type !== 'staged') {
+      if (nextDiffFile.value || unreviewedDiffFiles.value.length > 1) {
+        handleApproveAndNext()
+      } else {
+        handleApproveDiff()
+      }
+    }
+    return
+  }
+
+  // Alt+A: Approve
+  if (e.altKey && (e.key === 'a' || e.key === 'A')) {
+    e.preventDefault()
+    e.stopPropagation()
+    if (activeDiffStatus.value?.type !== 'staged') {
+      handleApproveDiff()
+    }
+    return
+  }
+
+  // Alt+R: Reject (Discard)
+  if (e.altKey && (e.key === 'r' || e.key === 'R')) {
+    e.preventDefault()
+    e.stopPropagation()
+    if (activeDiffStatus.value?.type !== 'staged') {
+      handleRejectDiff()
+    }
+    return
+  }
+
+  // Alt+ArrowLeft: Previous diff file
+  if (e.altKey && e.key === 'ArrowLeft') {
+    e.preventDefault()
+    e.stopPropagation()
+    handlePrevDiff()
+    return
+  }
+
+  // Alt+ArrowRight: Next diff file
+  if (e.altKey && e.key === 'ArrowRight') {
+    e.preventDefault()
+    e.stopPropagation()
+    handleNextDiff()
+    return
+  }
 }
 
 const isMarkdownPreviewOpen = ref(false)
@@ -844,6 +1146,134 @@ const handleEditorPaneFocus = () => {
         </div>
       </div>
 
+      <!-- Git Diff Review Header Banner -->
+      <div
+        v-if="activeFile && activeFile.isDiff"
+        class="bg-[#10121a] border-b border-border/80 px-3 py-1.5 flex items-center justify-between text-xs select-none backdrop-blur-md animate-in fade-in z-20 flex-shrink-0"
+      >
+        <div class="flex items-center gap-2 min-w-0">
+          <GitCompare class="w-4 h-4 text-emerald-400 flex-shrink-0" />
+          <span class="font-medium text-foreground text-xs truncate">
+            Review Perubahan: <span class="font-mono text-emerald-300 font-semibold">{{ activeDiffRelPath }}</span>
+          </span>
+          <span
+            v-if="activeDiffStatus"
+            :class="[
+              'text-[10px] px-1.5 py-0.5 rounded font-mono font-semibold uppercase shrink-0',
+              activeDiffStatus.type === 'staged' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+            ]"
+          >
+            {{ activeDiffStatus.type === 'staged' ? 'Approved (Staged)' : (activeDiffStatus.status || 'Modified') }}
+          </span>
+
+          <!-- File Counter (e.g. 1/3) -->
+          <span v-if="allDiffFiles.length > 0" class="text-[10px] font-mono text-muted-foreground/80 shrink-0">
+            ({{ diffFileIndex.current }}/{{ diffFileIndex.total }})
+          </span>
+
+          <!-- Line Changes Stats (+X -Y) -->
+          <div
+            v-if="diffStats.added > 0 || diffStats.deleted > 0"
+            class="flex items-center gap-1.5 font-mono text-[10px] px-1.5 py-0.5 rounded bg-[#181924] border border-border/50 shrink-0"
+            title="Baris ditambah (+) dan dihapus (-)"
+          >
+            <span v-if="diffStats.added > 0" class="text-emerald-400 font-semibold">+{{ diffStats.added }}</span>
+            <span v-if="diffStats.deleted > 0" class="text-rose-400 font-semibold">-{{ diffStats.deleted }}</span>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-1.5 font-sans flex-shrink-0">
+          <!-- Prev / Next file navigation -->
+          <div v-if="allDiffFiles.length > 1" class="flex items-center bg-[#181924] border border-border/60 rounded p-0.5 mr-1">
+            <button
+              :disabled="!prevDiffFile"
+              class="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-colors"
+              title="File perubahan sebelumnya (Alt+←)"
+              @click="handlePrevDiff"
+            >
+              <ChevronLeft class="w-3.5 h-3.5" />
+            </button>
+            <button
+              :disabled="!nextDiffFile"
+              class="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-colors"
+              title="File perubahan berikutnya (Alt+→)"
+              @click="handleNextDiff"
+            >
+              <ChevronRight class="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          <!-- Reject Button (Discard) -->
+          <button
+            v-if="activeDiffStatus?.type !== 'staged'"
+            class="flex items-center gap-1 px-2.5 py-1 rounded bg-rose-950/70 hover:bg-rose-900 border border-rose-700/60 text-rose-200 hover:text-white font-medium text-[11px] transition-all cursor-pointer shadow-xs disabled:opacity-50"
+            :disabled="isReviewProcessing"
+            title="Tolak / batalkan perubahan file ini (Alt+R)"
+            @click="handleRejectDiff"
+          >
+            <RotateCcw class="w-3 h-3 text-rose-400" />
+            <span>Reject</span>
+            <kbd class="text-[9px] px-1 py-0.2 rounded bg-rose-900/80 font-mono text-rose-300">Alt+R</kbd>
+          </button>
+
+          <!-- Approve Button (Stage) -->
+          <button
+            v-if="activeDiffStatus?.type !== 'staged'"
+            class="flex items-center gap-1 px-2.5 py-1 rounded bg-emerald-950/70 hover:bg-emerald-900 border border-emerald-600/60 text-emerald-300 hover:text-white font-medium text-[11px] transition-all cursor-pointer shadow-xs disabled:opacity-50"
+            :disabled="isReviewProcessing"
+            title="Setujui perubahan file ini (Alt+A)"
+            @click="handleApproveDiff"
+          >
+            <Check class="w-3.5 h-3.5 text-emerald-400" />
+            <span>Approve</span>
+            <kbd class="text-[9px] px-1 py-0.2 rounded bg-emerald-900/80 font-mono text-emerald-300">Alt+A</kbd>
+          </button>
+
+          <!-- Approve & Next Button (Stage & Jump to Next) -->
+          <button
+            v-if="activeDiffStatus?.type !== 'staged' && (nextDiffFile || unreviewedDiffFiles.length > 1)"
+            class="flex items-center gap-1.5 px-3 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-[11px] transition-all cursor-pointer shadow-xs disabled:opacity-50"
+            :disabled="isReviewProcessing"
+            title="Setujui dan otomatis buka file perubahan berikutnya (Ctrl+Enter)"
+            @click="handleApproveAndNext"
+          >
+            <CheckCheck class="w-3.5 h-3.5" />
+            <span>Approve & Next</span>
+            <kbd class="text-[9px] px-1 py-0.2 rounded bg-emerald-700 font-mono text-emerald-100 font-semibold">Ctrl+↵</kbd>
+          </button>
+
+          <!-- Unstage Button if already staged -->
+          <button
+            v-else
+            class="flex items-center gap-1 px-2.5 py-1 rounded bg-amber-950/70 hover:bg-amber-900 border border-amber-700/60 text-amber-200 hover:text-white font-medium text-[11px] transition-all cursor-pointer shadow-xs disabled:opacity-50"
+            :disabled="isReviewProcessing"
+            title="Batalkan approval (unstage file)"
+            @click="handleUnstageDiff"
+          >
+            <RotateCcw class="w-3 h-3 text-amber-400" />
+            <span>Unstage</span>
+          </button>
+
+          <!-- Diff Mode Toggle (Side-by-Side vs Inline) -->
+          <button
+            class="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-[#1e202e] hover:bg-[#282a3c] text-foreground border border-border/60 transition-colors ml-1"
+            title="Beralih antara Side-by-Side dan Inline Diff"
+            @click="renderDiffSideBySide = !renderDiffSideBySide"
+          >
+            <span>{{ renderDiffSideBySide ? 'Side-by-Side' : 'Inline' }}</span>
+          </button>
+
+          <!-- Close Diff Tab Button -->
+          <button
+            class="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-colors ml-0.5"
+            title="Tutup Diff"
+            @click="closeFile(activeFile.id)"
+          >
+            <X class="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
+
       <div id="split-editor-container" class="flex-1 w-full h-full overflow-hidden bg-[#0d0e14] flex flex-row relative">
         <!-- Left / Primary Editor Pane -->
         <div
@@ -859,6 +1289,11 @@ const handleEditorPaneFocus = () => {
             :render-side-by-side="renderDiffSideBySide"
             @update:modified-value="updateContent(activeFile.id, $event)"
             @save="saveFile"
+            @approve="handleApproveDiff"
+            @approve-and-next="handleApproveAndNext"
+            @reject="handleRejectDiff"
+            @prev-diff="handlePrevDiff"
+            @next-diff="handleNextDiff"
           />
 
           <!-- Regular Monaco Editor Mode (with optional Markdown Live Preview) -->

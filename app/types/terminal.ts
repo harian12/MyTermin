@@ -152,6 +152,7 @@ export interface TerminalSettings {
   editorAutoSaveDelay?: number
   editorRenderWhitespace?: 'none' | 'boundary' | 'selection' | 'all'
   editorRenderIndentGuides?: boolean
+  restoreProjectEditorSession?: boolean
   closeToTray?: boolean
   audioBell?: boolean
   cursorStyle: 'block' | 'underline' | 'bar'
