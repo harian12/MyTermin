@@ -496,6 +496,15 @@ const initTerminal = async () => {
     windowsMode: false
   })
 
+  // Polyfill _store pada xterm _core untuk mencegah bug disposal pada @xterm/addon-webgl
+  if ((term as any)._core && !(term as any)._core._store) {
+    ;(term as any)._core._store = {
+      get _isDisposed() {
+        return Boolean((term as any)._core?._isDisposed)
+      }
+    }
+  }
+
   fitAddon = new FitAddon()
   searchAddon = new SearchAddon()
   const webLinksAddon = new WebLinksAddon((event, uri) => {
@@ -567,7 +576,9 @@ const initTerminal = async () => {
     try {
       webglAddon = new WebglAddon()
       webglAddon.onContextLoss(() => {
-        webglAddon?.dispose()
+        try {
+          webglAddon?.dispose()
+        } catch {}
         webglAddon = null
       })
       term.loadAddon(webglAddon)
@@ -1141,7 +1152,9 @@ watch(
         try {
           webglAddon = new WebglAddon()
           webglAddon.onContextLoss(() => {
-            webglAddon?.dispose()
+            try {
+              webglAddon?.dispose()
+            } catch {}
             webglAddon = null
           })
           term.loadAddon(webglAddon)
@@ -1150,7 +1163,9 @@ watch(
         }
       }
     } else if (webglAddon) {
-      webglAddon.dispose()
+      try {
+        webglAddon.dispose()
+      } catch {}
       webglAddon = null
     }
   }
@@ -1275,10 +1290,14 @@ onBeforeUnmount(async () => {
   clearStatus(props.paneId)
   ligaturesAddon?.dispose()
   ligaturesAddon = null
-  webglAddon?.dispose()
+  try {
+    webglAddon?.dispose()
+  } catch {}
   webglAddon = null
   await killPty(props.paneId)
-  term?.dispose()
+  try {
+    term?.dispose()
+  } catch {}
 })
 </script>
 

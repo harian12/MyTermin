@@ -38,6 +38,11 @@ export interface GitStatusOverview {
   untracked: GitStatusItem[]
 }
 
+export interface FileClipboardItem {
+  entry: FileEntry
+  mode: 'copy' | 'cut'
+}
+
 const RECENT_PROJECTS_KEY = 'mytermin_recent_projects_v1'
 const EXPANDED_FOLDERS_STORAGE_KEY = 'mytermin_expanded_folders_v1'
 
@@ -70,6 +75,7 @@ export const useProjectExplorer = () => {
   const expandedFoldersMap = useState<Record<string, string[]>>('project-expanded-folders-map', () => ({}))
   const explorerRefreshVersion = useState<number>('explorer-refresh-version', () => 0)
   const filterOnlyGitChanges = useState<boolean>('explorer-filter-git-only', () => false)
+  const fileClipboard = useState<FileClipboardItem | null>('file-explorer-clipboard', () => null)
 
   const normalizeFolderPath = (p: string) => p.replace(/\\/g, '/').replace(/\/+$/, '')
 
@@ -805,6 +811,10 @@ export const useProjectExplorer = () => {
     try {
       const { invoke } = await import('@tauri-apps/api/core')
       await invoke('rename_path', { oldPath, newPath })
+      try {
+        const { updateFilePath } = useEditorStore()
+        updateFilePath(oldPath, newPath)
+      } catch {}
       await refreshGitStatus()
       scanProjectFiles(true).catch(() => {})
       return true
@@ -812,6 +822,151 @@ export const useProjectExplorer = () => {
       await showAppAlert(e?.message || e || 'Gagal mengubah nama', 'Rename Error')
       return false
     }
+  }
+
+  // Copy file or folder
+  const copyPath = async (src: string, dst: string): Promise<boolean> => {
+    if (!isTauri.value) return false
+    try {
+      const { invoke } = await import('@tauri-apps/api/core')
+      await invoke('copy_path', { src, dst })
+      await refreshGitStatus()
+      scanProjectFiles(true).catch(() => {})
+      return true
+    } catch (e: any) {
+      await showAppAlert(e?.message || e || 'Gagal menyalin file/folder', 'Copy Error')
+      return false
+    }
+  }
+
+  // Check if path exists
+  const checkPathExists = async (path: string): Promise<boolean> => {
+    if (!isTauri.value) return false
+    try {
+      const { invoke } = await import('@tauri-apps/api/core')
+      return await invoke<boolean>('path_exists', { path })
+    } catch {
+      return false
+    }
+  }
+
+  // Get available unique path to avoid collisions
+  const getAvailablePath = async (parentDir: string, originalName: string, isDir: boolean): Promise<string> => {
+    const sep = parentDir.includes('/') ? '/' : '\\'
+    let targetPath = `${parentDir.replace(/[\\/]+$/, '')}${sep}${originalName}`
+    const exists = await checkPathExists(targetPath)
+    if (!exists) return targetPath
+
+    let stem = originalName
+    let ext = ''
+    if (!isDir && originalName.includes('.')) {
+      const lastDot = originalName.lastIndexOf('.')
+      stem = originalName.substring(0, lastDot)
+      ext = originalName.substring(lastDot)
+    }
+
+    let counter = 1
+    while (true) {
+      const candidateName = `${stem} copy${counter > 1 ? ` ${counter}` : ''}${ext}`
+      targetPath = `${parentDir.replace(/[\\/]+$/, '')}${sep}${candidateName}`
+      const candidateExists = await checkPathExists(targetPath)
+      if (!candidateExists) return targetPath
+      counter++
+    }
+  }
+
+  // Clipboard operations
+  const copyEntry = (entry: FileEntry) => {
+    fileClipboard.value = { entry, mode: 'copy' }
+  }
+
+  const cutEntry = (entry: FileEntry) => {
+    fileClipboard.value = { entry, mode: 'cut' }
+  }
+
+  const pasteToTarget = async (targetFolder: string): Promise<boolean> => {
+    if (!fileClipboard.value) return false
+    const { entry, mode } = fileClipboard.value
+    const sep = targetFolder.includes('/') ? '/' : '\\'
+
+    // Prevent pasting folder into itself or child
+    if (entry.is_dir) {
+      const normSource = entry.path.replace(/\\/g, '/').toLowerCase()
+      const normTarget = targetFolder.replace(/\\/g, '/').toLowerCase()
+      if (normTarget === normSource || normTarget.startsWith(`${normSource}/`)) {
+        await showAppAlert('Tidak dapat menempelkan folder ke dalam dirinya sendiri atau subfolder.', 'Paste Error')
+        return false
+      }
+    }
+
+    if (mode === 'copy') {
+      const dstPath = await getAvailablePath(targetFolder, entry.name, entry.is_dir)
+      return await copyPath(entry.path, dstPath)
+    } else if (mode === 'cut') {
+      const sourceParent = entry.path.substring(0, Math.max(entry.path.lastIndexOf('\\'), entry.path.lastIndexOf('/')))
+      const normSourceParent = sourceParent.replace(/\\/g, '/').toLowerCase()
+      const normTargetDir = targetFolder.replace(/\\/g, '/').toLowerCase()
+      if (normSourceParent === normTargetDir) {
+        fileClipboard.value = null
+        return true
+      }
+
+      let dstPath = `${targetFolder.replace(/[\\/]+$/, '')}${sep}${entry.name}`
+      const exists = await checkPathExists(dstPath)
+      if (exists) {
+        dstPath = await getAvailablePath(targetFolder, entry.name, entry.is_dir)
+      }
+
+      const ok = await renamePath(entry.path, dstPath)
+      if (ok) {
+        fileClipboard.value = null
+      }
+      return ok
+    }
+
+    return false
+  }
+
+  const duplicateEntry = async (entry: FileEntry): Promise<boolean> => {
+    const parentDir = entry.path.substring(0, Math.max(entry.path.lastIndexOf('\\'), entry.path.lastIndexOf('/')))
+    const dstPath = await getAvailablePath(parentDir, entry.name, entry.is_dir)
+    return await copyPath(entry.path, dstPath)
+  }
+
+  const moveEntryToFolder = async (sourcePath: string, targetDir: string): Promise<boolean> => {
+    if (!sourcePath || !targetDir) return false
+    const normSource = sourcePath.replace(/\\/g, '/').toLowerCase()
+    const normTarget = targetDir.replace(/\\/g, '/').toLowerCase()
+
+    if (normTarget === normSource || normTarget.startsWith(`${normSource}/`)) {
+      await showAppAlert('Tidak dapat memindahkan folder ke dalam dirinya sendiri atau subfolder.', 'Move Error')
+      return false
+    }
+
+    const sourceParent = sourcePath.substring(0, Math.max(sourcePath.lastIndexOf('\\'), sourcePath.lastIndexOf('/')))
+    if (sourceParent.replace(/\\/g, '/').toLowerCase() === normTarget) {
+      return false
+    }
+
+    const fileName = sourcePath.split(/[\\/]/).pop() || ''
+    if (!fileName) return false
+
+    const targetDirName = targetDir.split(/[\\/]/).pop() || targetDir
+    const confirmed = await showAppConfirm(
+      `Pindahkan "${fileName}" ke folder "${targetDirName}"?`,
+      'Pindahkan Berkas',
+      'Pindahkan'
+    )
+    if (!confirmed) return false
+
+    const sep = targetDir.includes('/') ? '/' : '\\'
+    let targetPath = `${targetDir.replace(/[\\/]+$/, '')}${sep}${fileName}`
+    const exists = await checkPathExists(targetPath)
+    if (exists) {
+      targetPath = await getAvailablePath(targetDir, fileName, false)
+    }
+
+    return await renamePath(sourcePath, targetPath)
   }
 
   // Delete file or folder
@@ -940,6 +1095,15 @@ export const useProjectExplorer = () => {
     createFolder,
     renamePath,
     deletePath,
+    copyPath,
+    checkPathExists,
+    getAvailablePath,
+    fileClipboard,
+    copyEntry,
+    cutEntry,
+    pasteToTarget,
+    duplicateEntry,
+    moveEntryToFolder,
     gitCommit,
     setWorkstationFolder
   }

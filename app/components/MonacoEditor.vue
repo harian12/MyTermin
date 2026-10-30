@@ -5,7 +5,7 @@ import { useEditorStore } from '~/composables/useEditorStore'
 import { useSettingsStore } from '~/composables/useSettingsStore'
 import { useWorkspaceStore } from '~/composables/useWorkspaceStore'
 import { registerUniversalDefinitionProvider, setGlobalFileOpener } from '~/utils/monacoDefinitionProvider'
-import { saveMonacoViewState, getMonacoViewState } from '~/utils/monacoModelManager'
+import { saveMonacoViewState, getMonacoViewState, patchMonacoTextModelService } from '~/utils/monacoModelManager'
 import { initTypeScriptDefaults, syncTsConfig, resolveFileImports } from '~/utils/monacoTypeScriptManager'
 
 interface Props {
@@ -217,6 +217,8 @@ onMounted(() => {
       bottom: 8
     }
   })
+
+  patchMonacoTextModelService(editor)
 
   editor.onDidChangeModelContent(() => {
     if (!editor) return

@@ -949,6 +949,25 @@ export const useEditorStore = () => {
     fetchLineBlame()
   })
 
+  const updateFilePath = (oldPath: string, newPath: string) => {
+    const normOld = oldPath.replace(/\\/g, '/')
+    const newName = newPath.split(/[\\/]/).pop() || newPath
+    for (const state of Object.values(workstationEditors.value)) {
+      for (const f of state.openFiles) {
+        const normF = f.path.replace(/\\/g, '/')
+        if (normF === normOld) {
+          f.path = newPath
+          f.name = newName
+        } else if (normF.startsWith(`${normOld}/`)) {
+          const sub = normF.slice(normOld.length)
+          const sep = newPath.includes('/') ? '/' : '\\'
+          f.path = `${newPath}${sep}${sub.replace(/^\//, '').replace(/\//g, sep)}`
+          f.name = f.path.split(/[\\/]/).pop() || f.path
+        }
+      }
+    }
+  }
+
   const copyRelativePath = async (filePath: string) => {
     const root = (activeWorkstation.value.folderPath || '').replace(/\\/g, '/').replace(/\/+$/, '')
     const norm = filePath.replace(/\\/g, '/')
@@ -1005,6 +1024,7 @@ export const useEditorStore = () => {
     moveFileTab,
     editorCursorPos,
     activeLineBlame,
-    copyRelativePath
+    copyRelativePath,
+    updateFilePath
   }
 }

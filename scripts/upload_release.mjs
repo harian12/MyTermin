@@ -45,21 +45,22 @@ async function run() {
 
   const releaseBody = `## MyTermin ${tag} 🚀
 
-Pembaruan **MyTermin ${tag}** — integrasi restart dan sinkronisasi TypeScript Language Server worker pada Monaco Editor bawaan, sinkronisasi otomatis \`tsconfig.json\`, pemindaian impor modul relatif lokal, dan pintasan shortcut editor.
+Pembaruan **MyTermin ${tag}** — fitur File Explorer lengkap (Copy, Cut, Paste, Duplicate, Drag-and-Drop Move), penguatan disposal WebGL Terminal, dan resolusi model otomatis pada Go-To-Definition Monaco Editor.
 
 ---
 
 ### ✨ Apa yang Baru di ${tag}
-1. **TypeScript Server Restart & Sync**:
-   - Fitur restart worker TypeScript / JavaScript Monaco secara on-demand untuk mengatasi file merah / cache worker lama.
-   - Sinkronisasi otomatis konfigurasi dari \`tsconfig.json\` / \`jsconfig.json\` pada root direktori project aktif (\`moduleResolution: bundler\`, \`target: ESNext\`, dsb.).
-2. **Local Relative Module Import Resolution**:
-   - Monaco Editor memindai berkas impor relatif lokal (\`./modules/...\`, \`@/...\`, dsb.) dan memuatnya ke extraLibs memori agar tidak lagi muncul error 2792 / 2307.
-3. **Pintasan Keyboard & Toolbar Editor**:
-   - Tombol toolbar **TS Server** khusus saat membuka berkas TypeScript / JavaScript / Vue.
-   - Menu klik kanan pada Tab Editor: **Restart TS Server & Sync**.
-   - Integrasi perintah pada Command Palette (\`Ctrl + K\`): *"TypeScript: Restart TS Server & Sync tsconfig.json"*.
-   - Pintasan editor: \`Ctrl + Alt + T\` untuk restart cepat.
+1. **Peningkatan Fitur File Explorer**:
+   - Dukungan operasi **Copy**, **Cut**, **Paste**, dan **Duplicate** pada file dan folder di sidebar workspace.
+   - Peningkatan **Drag and Drop**: pindahkan berkas atau folder dengan drag langsung ke folder tujuan (dengan auto-expand folder saat di-hover).
+   - Dialog peringatan dan validasi agar folder tidak bisa dipindahkan atau disalin ke dalam dirinya sendiri.
+   - Sinkronisasi otomatis path editor yang terbuka saat berkas dipindahkan atau diubah namanya.
+2. **Terminal & WebGL Renderer Hardening**:
+   - Pencegahan error disposal pada modul \`@xterm/addon-webgl\` dengan polyfill store core terminal yang aman.
+   - Error handling penutupan terminal tab dan hot reload yang lebih tangguh.
+3. **Monaco Editor Definition Provider**:
+   - Penanganan otomatis pembuatan model file lokal yang belum dimuat saat user menekan F12 / Go-to-Definition.
+   - Eliminasi error *"Model not found"* pada Monaco text model service.
 
 ---
 

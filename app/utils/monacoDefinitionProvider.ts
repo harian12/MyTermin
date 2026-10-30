@@ -174,13 +174,17 @@ export function registerUniversalDefinitionProvider(
                 try {
                   const targetContent = await invoke<string>('read_file_content', { path: targetFile })
                   if (targetContent) {
+                    const targetUri = monaco.Uri.file(targetFile)
+                    if (!monaco.editor.getModel(targetUri)) {
+                      monaco.editor.createModel(targetContent, undefined, targetUri)
+                    }
                     const lines = targetContent.split('\n')
                     for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
                       const lineText = lines[lineIdx]!
                       if (declRegex.test(lineText)) {
                         const col = lineText.indexOf(word)
                         return {
-                          uri: monaco.Uri.file(targetFile),
+                          uri: targetUri,
                           range: new monaco.Range(
                             lineIdx + 1,
                             col >= 0 ? col + 1 : 1,
@@ -193,7 +197,7 @@ export function registerUniversalDefinitionProvider(
                     // Jika deklarasi tidak ditemukan spesifik tapi file valid di-import,
                     // arahkan ke baris 1 file tersebut
                     return {
-                      uri: monaco.Uri.file(targetFile),
+                      uri: targetUri,
                       range: new monaco.Range(1, 1, 1, 1)
                     }
                   }
@@ -239,6 +243,23 @@ export function registerUniversalDefinitionProvider(
               }
 
               if (matchingLocations.length > 0) {
+                for (const loc of matchingLocations) {
+                  if (!monaco.editor.getModel(loc.uri)) {
+                    const filePath = loc.uri.fsPath || loc.uri.path
+                    if (filePath) {
+                      try {
+                        const content = await invoke<string>('read_file_content', { path: filePath })
+                        if (!monaco.editor.getModel(loc.uri)) {
+                          monaco.editor.createModel(content, undefined, loc.uri)
+                        }
+                      } catch {
+                        if (!monaco.editor.getModel(loc.uri)) {
+                          monaco.editor.createModel('', undefined, loc.uri)
+                        }
+                      }
+                    }
+                  }
+                }
                 return matchingLocations.length === 1 ? matchingLocations[0]! : matchingLocations
               }
             } catch {

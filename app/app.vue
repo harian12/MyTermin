@@ -74,11 +74,21 @@ const envEntriesAreEmpty = () => envEntries.value.length === 0
 // Error runtime global disimpan agar bisa dilihat di Pengaturan > Diagnostik
 // tanpa harus membuka DevTools.
 const handleGlobalError = (event: ErrorEvent) => {
-  logError('runtime', event.message || String(event.error || 'unknown error'))
+  const msg = event.message || String(event.error?.message || event.error || 'unknown error')
+  if (msg.includes('_isDisposed') || msg.includes('Model not found')) {
+    event.preventDefault?.()
+    return
+  }
+  logError('runtime', msg)
 }
 
 const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
-  logError('promise', String(event.reason?.message || event.reason || 'unhandled rejection'))
+  const reasonMsg = String(event.reason?.message || event.reason || 'unhandled rejection')
+  if (reasonMsg.includes('_isDisposed') || reasonMsg.includes('Model not found')) {
+    event.preventDefault?.()
+    return
+  }
+  logError('promise', reasonMsg)
 }
 const {
   status: updateStatus,

@@ -332,7 +332,60 @@ fn rename_path(old_path: String, new_path: String) -> Result<(), String> {
     if new_p.exists() {
         return Err("Path tujuan sudah ada".into());
     }
-    std::fs::rename(old_p, new_p).map_err(|e| format!("Gagal mengubah nama: {}", e))
+    if old_p.is_dir() && new_p.starts_with(old_p) {
+        return Err("Tidak dapat memindahkan folder ke dalam dirinya sendiri".into());
+    }
+    if let Some(parent) = new_p.parent() {
+        if !parent.exists() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+    }
+    std::fs::rename(old_p, new_p).map_err(|e| format!("Gagal memindahkan / mengubah nama: {}", e))
+}
+
+fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> std::io::Result<()> {
+    std::fs::create_dir_all(&dst)?;
+    for entry in std::fs::read_dir(src)? {
+        let entry = entry?;
+        let ty = entry.file_type()?;
+        if ty.is_dir() {
+            copy_dir_all(entry.path(), dst.as_ref().join(entry.file_name()))?;
+        } else {
+            std::fs::copy(entry.path(), dst.as_ref().join(entry.file_name()))?;
+        }
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn copy_path(src: String, dst: String) -> Result<(), String> {
+    let src_p = Path::new(&src);
+    let dst_p = Path::new(&dst);
+    if !src_p.exists() {
+        return Err("Path sumber tidak ditemukan".into());
+    }
+    if dst_p.exists() {
+        return Err("Path tujuan sudah ada".into());
+    }
+    if src_p.is_dir() && dst_p.starts_with(src_p) {
+        return Err("Tidak dapat menyalin folder ke dalam dirinya sendiri".into());
+    }
+    if let Some(parent) = dst_p.parent() {
+        if !parent.exists() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+    }
+    if src_p.is_dir() {
+        copy_dir_all(src_p, dst_p).map_err(|e| format!("Gagal menyalin folder: {}", e))
+    } else {
+        std::fs::copy(src_p, dst_p).map_err(|e| format!("Gagal menyalin file: {}", e))?;
+        Ok(())
+    }
+}
+
+#[tauri::command]
+fn path_exists(path: String) -> bool {
+    Path::new(&path).exists()
 }
 
 #[tauri::command]
@@ -3060,6 +3113,8 @@ fn main() {
             create_file,
             create_dir,
             rename_path,
+            copy_path,
+            path_exists,
             delete_path,
             list_all_files,
             get_git_status,

@@ -55,3 +55,64 @@ export function disposeAllMonacoModels() {
     // Ignore
   }
 }
+
+export function patchMonacoTextModelService(editor: any) {
+  if (typeof window === 'undefined' || !editor) return
+  try {
+    const findService = (insta: any): any => {
+      if (!insta) return null
+      const entries = insta._services?._entries || insta._services
+      if (entries instanceof Map) {
+        for (const [key, val] of entries) {
+          if (val && typeof val.createModelReference === 'function') {
+            return val
+          }
+          if (key && typeof key.toString === 'function' && key.toString().includes('textModelService')) {
+            try {
+              const s = insta.invokeFunction ? insta.invokeFunction((acc: any) => acc.get(key)) : null
+              if (s && typeof s.createModelReference === 'function') return s
+            } catch {}
+          }
+        }
+      }
+      return insta._parent ? findService(insta._parent) : null
+    }
+
+    const textModelService = findService(editor._instantiationService)
+    if (textModelService && !textModelService.__patchedCreateModelReference) {
+      textModelService.__patchedCreateModelReference = true
+      const origFn = textModelService.createModelReference.bind(textModelService)
+      textModelService.createModelReference = async function (resource: any) {
+        try {
+          return await origFn(resource)
+        } catch (err: any) {
+          if (err?.message?.includes('Model not found')) {
+            const rawPath = resource?.fsPath || resource?.path || ''
+            let filePath = rawPath
+            if (filePath.startsWith('/') && filePath.length >= 3 && filePath[2] === ':') {
+              filePath = filePath.substring(1)
+            }
+            filePath = filePath.replace(/\//g, '\\')
+
+            let content = ''
+            if (filePath && typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
+              try {
+                const { invoke } = await import('@tauri-apps/api/core')
+                content = await invoke<string>('read_file_content', { path: filePath })
+              } catch {
+                content = ''
+              }
+            }
+            if (!monaco.editor.getModel(resource)) {
+              monaco.editor.createModel(content, undefined, resource)
+            }
+            return origFn(resource)
+          }
+          throw err
+        }
+      }
+    }
+  } catch {
+    // Ignore
+  }
+}

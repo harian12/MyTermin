@@ -41,6 +41,8 @@ const {
   gitStatusMap,
   readDirectory,
   renamePath,
+  moveEntryToFolder,
+  fileClipboard,
   isFolderExpanded,
   setFolderExpanded,
   explorerRefreshVersion,
@@ -99,6 +101,12 @@ watch(collapseVersion, () => {
   isExpanded.value = false
 })
 
+let dragOverTimer: ReturnType<typeof setTimeout> | null = null
+
+const isCut = computed(() => {
+  return fileClipboard.value?.mode === 'cut' && fileClipboard.value?.entry.path === props.entry.path
+})
+
 const handleDragStart = (e: DragEvent) => {
   if (e.dataTransfer) {
     e.dataTransfer.setData('text/plain', props.entry.path)
@@ -107,47 +115,48 @@ const handleDragStart = (e: DragEvent) => {
 }
 
 const handleDragOver = (e: DragEvent) => {
-  if (props.entry.is_dir) {
-    e.preventDefault()
-    if (e.dataTransfer) {
-      e.dataTransfer.dropEffect = 'move'
-    }
-    isDragOver.value = true
+  e.preventDefault()
+  if (e.dataTransfer) {
+    e.dataTransfer.dropEffect = 'move'
+  }
+  isDragOver.value = true
+
+  // Auto-expand folder jika di-hover selama 500ms
+  if (props.entry.is_dir && !isExpanded.value && !dragOverTimer) {
+    dragOverTimer = setTimeout(() => {
+      if (isDragOver.value && !isExpanded.value) {
+        toggleExpand()
+      }
+    }, 500)
   }
 }
 
 const handleDragLeave = () => {
   isDragOver.value = false
+  if (dragOverTimer) {
+    clearTimeout(dragOverTimer)
+    dragOverTimer = null
+  }
 }
 
 const handleDrop = async (e: DragEvent) => {
-  if (!props.entry.is_dir) return
   e.preventDefault()
   e.stopPropagation()
   isDragOver.value = false
+  if (dragOverTimer) {
+    clearTimeout(dragOverTimer)
+    dragOverTimer = null
+  }
 
   const sourcePath = e.dataTransfer?.getData('text/plain')
   if (!sourcePath || sourcePath === props.entry.path) return
 
-  // Mencegah memindahkan folder ke dalam dirinya sendiri
-  if (props.entry.path.startsWith(sourcePath)) return
+  // Tentukan target directory: jika folder, target adalah folder ini; jika file, target adalah direktori induknya
+  const targetDir = props.entry.is_dir
+    ? props.entry.path
+    : props.entry.path.substring(0, Math.max(props.entry.path.lastIndexOf('\\'), props.entry.path.lastIndexOf('/')))
 
-  const fileName = sourcePath.split(/[\\/]/).pop() || ''
-  if (!fileName) return
-
-  const sep = props.entry.path.includes('/') ? '/' : '\\'
-  const targetPath = `${props.entry.path.replace(/[\\/]+$/, '')}${sep}${fileName}`
-
-  if (targetPath === sourcePath) return
-
-  const confirmed = await showAppConfirm(
-    `Pindahkan "${fileName}" ke folder "${props.entry.name}"?`,
-    'Pindahkan Berkas',
-    'Pindahkan'
-  )
-  if (!confirmed) return
-
-  const ok = await renamePath(sourcePath, targetPath)
+  const ok = await moveEntryToFolder(sourcePath, targetDir)
   if (ok) {
     emit('refresh-tree')
     if (isExpanded.value) {
@@ -280,6 +289,7 @@ const handleContextMenu = (e: MouseEvent) => {
           'flex items-center gap-1.5 py-1 px-1.5 rounded-sm hover:bg-[#1e1f2b] cursor-pointer group transition-colors relative',
           entry.is_dir ? 'text-foreground font-medium' : 'text-muted-foreground hover:text-foreground',
           isDragOver ? 'ring-1 ring-primary bg-primary/20' : '',
+          isCut ? 'opacity-40 italic' : '',
           getGitStatusColor(currentGitStatus)
         ]"
         :style="{ paddingLeft: `${depth * 14 + 6}px` }"

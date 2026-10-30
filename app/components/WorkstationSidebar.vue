@@ -16,6 +16,9 @@ import {
   Sparkles,
   Command,
   Copy,
+  Scissors,
+  ClipboardPaste,
+  CopyPlus,
   Pencil,
   Trash2,
   Check,
@@ -102,6 +105,12 @@ const {
   createFolder,
   renamePath,
   deletePath,
+  fileClipboard,
+  copyEntry,
+  cutEntry,
+  pasteToTarget,
+  duplicateEntry,
+  moveEntryToFolder,
   gitCommit,
   setWorkstationFolder,
   revealInExplorer,
@@ -249,6 +258,144 @@ const closeTreeContextMenu = () => {
   treeContextMenu.value.visible = false
 }
 
+const selectedTreeEntry = ref<FileEntry | null>(null)
+const isContainerDragOver = ref(false)
+const isRootHeaderDragOver = ref(false)
+
+const handleCopyEntry = (entry?: FileEntry | null) => {
+  if (entry) copyEntry(entry)
+}
+
+const handleCutEntry = (entry?: FileEntry | null) => {
+  if (entry) cutEntry(entry)
+}
+
+const handlePasteEntry = async (targetEntry?: FileEntry | null) => {
+  let targetFolder = activeWorkstation.value?.folderPath || ''
+  if (targetEntry) {
+    targetFolder = targetEntry.is_dir
+      ? targetEntry.path
+      : targetEntry.path.substring(0, Math.max(targetEntry.path.lastIndexOf('\\'), targetEntry.path.lastIndexOf('/')))
+  }
+  if (!targetFolder) return
+  const ok = await pasteToTarget(targetFolder)
+  if (ok) {
+    await loadProjectFiles()
+  }
+}
+
+const handleDuplicateEntry = async (entry?: FileEntry | null) => {
+  if (!entry) return
+  const ok = await duplicateEntry(entry)
+  if (ok) {
+    await loadProjectFiles()
+  }
+}
+
+const handleRootHeaderDragOver = (e: DragEvent) => {
+  if (!activeWorkstation.value?.folderPath) return
+  e.preventDefault()
+  if (e.dataTransfer) {
+    e.dataTransfer.dropEffect = 'move'
+  }
+  isRootHeaderDragOver.value = true
+}
+
+const handleRootHeaderDragLeave = () => {
+  isRootHeaderDragOver.value = false
+}
+
+const handleRootHeaderDrop = async (e: DragEvent) => {
+  if (!activeWorkstation.value?.folderPath) return
+  e.preventDefault()
+  isRootHeaderDragOver.value = false
+  const sourcePath = e.dataTransfer?.getData('text/plain')
+  if (!sourcePath) return
+
+  const ok = await moveEntryToFolder(sourcePath, activeWorkstation.value.folderPath)
+  if (ok) {
+    await loadProjectFiles()
+  }
+}
+
+const handleContainerDragOver = (e: DragEvent) => {
+  if (!activeWorkstation.value?.folderPath) return
+  e.preventDefault()
+  if (e.dataTransfer) {
+    e.dataTransfer.dropEffect = 'move'
+  }
+  isContainerDragOver.value = true
+}
+
+const handleContainerDragLeave = () => {
+  isContainerDragOver.value = false
+}
+
+const handleContainerDrop = async (e: DragEvent) => {
+  if (!activeWorkstation.value?.folderPath) return
+  e.preventDefault()
+  isContainerDragOver.value = false
+  const sourcePath = e.dataTransfer?.getData('text/plain')
+  if (!sourcePath) return
+
+  const ok = await moveEntryToFolder(sourcePath, activeWorkstation.value.folderPath)
+  if (ok) {
+    await loadProjectFiles()
+  }
+}
+
+const handleContainerContextMenu = (e: MouseEvent) => {
+  if (!activeWorkstation.value?.folderPath) return
+  e.preventDefault()
+  treeContextMenu.value = {
+    visible: true,
+    x: e.clientX,
+    y: e.clientY,
+    entry: null
+  }
+}
+
+const handleTreeKeydown = async (e: KeyboardEvent) => {
+  const target = e.target as HTMLElement | null
+  const tag = target?.tagName?.toLowerCase()
+  if (
+    tag === 'input' ||
+    tag === 'textarea' ||
+    target?.isContentEditable ||
+    target?.closest('.monaco-editor') ||
+    target?.closest('.xterm')
+  ) {
+    return
+  }
+
+  if (e.key === 'Escape') {
+    if (fileClipboard.value) {
+      fileClipboard.value = null
+    }
+    return
+  }
+
+  const isCtrl = e.ctrlKey || e.metaKey
+  if (!isCtrl) return
+
+  if (e.key === 'c' || e.key === 'C') {
+    if (selectedTreeEntry.value) {
+      e.preventDefault()
+      copyEntry(selectedTreeEntry.value)
+    }
+  } else if (e.key === 'x' || e.key === 'X') {
+    if (selectedTreeEntry.value) {
+      e.preventDefault()
+      cutEntry(selectedTreeEntry.value)
+    }
+  } else if (e.key === 'v' || e.key === 'V') {
+    if (fileClipboard.value) {
+      e.preventDefault()
+      await handlePasteEntry(selectedTreeEntry.value)
+    }
+  }
+}
+
 const onFileSaved = () => {
   refreshGitStatus()
 }
@@ -260,12 +407,14 @@ const onWindowFocus = () => {
 onMounted(() => {
   loadRecentProjects()
   window.addEventListener('click', closeTreeContextMenu)
+  window.addEventListener('keydown', handleTreeKeydown)
   window.addEventListener('mytermin-file-saved', onFileSaved)
   window.addEventListener('focus', onWindowFocus)
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('click', closeTreeContextMenu)
+  window.removeEventListener('keydown', handleTreeKeydown)
   window.removeEventListener('mytermin-file-saved', onFileSaved)
   window.removeEventListener('focus', onWindowFocus)
 })
@@ -315,6 +464,7 @@ const handleOpenFolder = async () => {
 }
 
 const handleSelectFile = (entry: FileEntry) => {
+  selectedTreeEntry.value = entry
   openFile(entry.path)
 }
 
@@ -619,6 +769,7 @@ const handleSearchInFolder = (entry?: FileEntry | null) => {
 }
 
 const handleTreeContextAction = (payload: { action: string; entry: FileEntry; x: number; y: number }) => {
+  selectedTreeEntry.value = payload.entry
   treeContextMenu.value = {
     visible: true,
     x: payload.x,
@@ -901,7 +1052,13 @@ const resetSidebarWidth = () => {
     <!-- Tab 1: Project Explorer -->
     <div v-if="isSidebarOpen && activeTab === 'explorer'" class="flex-1 overflow-y-auto flex flex-col">
       <!-- Folder Header / Open Folder Prompt -->
-      <div class="p-2 border-b border-border/50 bg-[#101118]">
+      <div
+        class="p-2 border-b border-border/50 bg-[#101118] transition-colors"
+        :class="{ 'ring-1 ring-primary/60 bg-primary/10': isRootHeaderDragOver }"
+        @dragover="handleRootHeaderDragOver"
+        @dragleave="handleRootHeaderDragLeave"
+        @drop="handleRootHeaderDrop"
+      >
         <div v-if="activeWorkstation.folderPath" class="flex items-center justify-between">
           <div class="flex items-center gap-1.5 min-w-0 flex-1">
             <FolderOpen class="w-3.5 h-3.5 text-primary flex-shrink-0" />
@@ -991,7 +1148,14 @@ const resetSidebarWidth = () => {
       </div>
 
       <!-- File Tree Container -->
-      <div class="flex-1 overflow-y-auto p-1 font-mono">
+      <div
+        class="flex-1 overflow-y-auto p-1 font-mono transition-colors relative"
+        :class="{ 'ring-1 ring-primary/40 bg-primary/5': isContainerDragOver }"
+        @dragover="handleContainerDragOver"
+        @dragleave="handleContainerDragLeave"
+        @drop="handleContainerDrop"
+        @contextmenu.self="handleContainerContextMenu"
+      >
         <div v-if="isLoadingRoot" class="p-4 text-center text-xs text-muted-foreground">
           Memuat file project...
         </div>
@@ -1556,93 +1720,190 @@ const resetSidebarWidth = () => {
     <!-- Tree Node Right-Click Context Menu -->
     <Teleport to="body">
       <div
-        v-if="treeContextMenu.visible && treeContextMenu.entry"
-        class="fixed z-[100] min-w-[175px] max-h-[calc(100vh-16px)] overflow-y-auto bg-[#14151f] border border-border/80 rounded-lg shadow-2xl p-1 text-xs font-sans text-foreground animate-in fade-in zoom-in-95 duration-100"
+        v-if="treeContextMenu.visible"
+        class="fixed z-[100] min-w-[200px] max-h-[calc(100vh-16px)] overflow-y-auto bg-[#14151f] border border-border/80 rounded-lg shadow-2xl p-1 text-xs font-sans text-foreground animate-in fade-in zoom-in-95 duration-100"
         :style="treeContextMenuStyle"
         @click.stop
       >
-        <template v-if="treeContextMenu.entry.is_dir">
+        <!-- Entry Specific Context Menu -->
+        <template v-if="treeContextMenu.entry">
+          <template v-if="treeContextMenu.entry.is_dir">
+            <button
+              class="w-full flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-accent text-left transition-colors"
+              @click="handleNewFile(treeContextMenu.entry?.path); closeTreeContextMenu()"
+            >
+              <FilePlus class="w-3.5 h-3.5 text-primary" />
+              <span>File Baru di Sini</span>
+            </button>
+            <button
+              class="w-full flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-accent text-left transition-colors"
+              @click="handleNewFolder(treeContextMenu.entry?.path); closeTreeContextMenu()"
+            >
+              <FolderPlus class="w-3.5 h-3.5 text-primary" />
+              <span>Folder Baru di Sini</span>
+            </button>
+            <button
+              class="w-full flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-accent text-left transition-colors"
+              @click="handleOpenTerminalAtFolder(treeContextMenu.entry?.path); closeTreeContextMenu()"
+            >
+              <Terminal class="w-3.5 h-3.5 text-primary" />
+              <span>Buka Terminal di Sini</span>
+            </button>
+            <button
+              class="w-full flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-accent text-left transition-colors"
+              @click="handleSearchInFolder(treeContextMenu.entry); closeTreeContextMenu()"
+            >
+              <Search class="w-3.5 h-3.5 text-primary" />
+              <span>Cari di Folder Ini... (Find in Folder)</span>
+            </button>
+            <div class="my-1 border-t border-border/50" />
+          </template>
+
+          <!-- File / Folder Copy, Cut, Paste, Duplicate -->
+          <button
+            class="w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded hover:bg-accent text-left transition-colors"
+            @click="handleCopyEntry(treeContextMenu.entry); closeTreeContextMenu()"
+          >
+            <div class="flex items-center gap-2">
+              <Copy class="w-3.5 h-3.5 text-primary" />
+              <span>Salin Berkas (Copy)</span>
+            </div>
+            <span class="text-[10px] text-muted-foreground/60 font-mono">Ctrl+C</span>
+          </button>
+          <button
+            class="w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded hover:bg-accent text-left transition-colors"
+            @click="handleCutEntry(treeContextMenu.entry); closeTreeContextMenu()"
+          >
+            <div class="flex items-center gap-2">
+              <Scissors class="w-3.5 h-3.5 text-amber-400" />
+              <span>Potong Berkas (Cut)</span>
+            </div>
+            <span class="text-[10px] text-muted-foreground/60 font-mono">Ctrl+X</span>
+          </button>
+          <button
+            v-if="fileClipboard"
+            class="w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded hover:bg-accent text-left transition-colors text-emerald-400 font-medium"
+            @click="handlePasteEntry(treeContextMenu.entry); closeTreeContextMenu()"
+          >
+            <div class="flex items-center gap-2">
+              <ClipboardPaste class="w-3.5 h-3.5" />
+              <span>Tempel Berkas (Paste)</span>
+            </div>
+            <span class="text-[10px] text-muted-foreground/60 font-mono">Ctrl+V</span>
+          </button>
+          <button
+            class="w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded hover:bg-accent text-left transition-colors"
+            @click="handleDuplicateEntry(treeContextMenu.entry); closeTreeContextMenu()"
+          >
+            <div class="flex items-center gap-2">
+              <CopyPlus class="w-3.5 h-3.5 text-sky-400" />
+              <span>Duplikasi (Duplicate)</span>
+            </div>
+          </button>
+          <div class="my-1 border-t border-border/50" />
+
           <button
             class="w-full flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-accent text-left transition-colors"
-            @click="handleNewFile(treeContextMenu.entry?.path); closeTreeContextMenu()"
+            @click="handleRenameEntry(treeContextMenu.entry); closeTreeContextMenu()"
+          >
+            <Pencil class="w-3.5 h-3.5 text-amber-400" />
+            <span>Ubah Nama (Rename)</span>
+          </button>
+          <button
+            class="w-full flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-accent text-left transition-colors"
+            @click="openPathDefault(treeContextMenu.entry?.path || ''); closeTreeContextMenu()"
+          >
+            <ExternalLink class="w-3.5 h-3.5 text-sky-400" />
+            <span>Buka dengan Aplikasi Bawaan</span>
+          </button>
+          <button
+            class="w-full flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-accent text-left transition-colors"
+            @click="revealInExplorer(treeContextMenu.entry?.path || ''); closeTreeContextMenu()"
+          >
+            <FolderOpen class="w-3.5 h-3.5 text-muted-foreground" />
+            <span>Buka di File Explorer</span>
+          </button>
+          <button
+            class="w-full flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-accent text-left transition-colors"
+            @click="handleCopyPath(treeContextMenu.entry?.path || ''); closeTreeContextMenu()"
+          >
+            <Copy class="w-3.5 h-3.5 text-muted-foreground" />
+            <span>Salin Path Lengkap</span>
+          </button>
+          <button
+            class="w-full flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-accent text-left transition-colors"
+            @click="handleCopyRelativePath(treeContextMenu.entry); closeTreeContextMenu()"
+          >
+            <Copy class="w-3.5 h-3.5 text-primary/80" />
+            <span>Salin Path Relatif</span>
+          </button>
+          <button
+            class="w-full flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-accent text-left transition-colors"
+            @click="handleAddToGitignore(treeContextMenu.entry); closeTreeContextMenu()"
+          >
+            <EyeOff class="w-3.5 h-3.5 text-amber-400" />
+            <span>Tambahkan ke .gitignore</span>
+          </button>
+          <div class="my-1 border-t border-border/50" />
+          <button
+            class="w-full flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-destructive/20 text-destructive text-left transition-colors"
+            @click="handleDeleteEntry(treeContextMenu.entry); closeTreeContextMenu()"
+          >
+            <Trash2 class="w-3.5 h-3.5" />
+            <span>Hapus Permanen</span>
+          </button>
+        </template>
+
+        <!-- Root / Container Blank Area Context Menu -->
+        <template v-else>
+          <button
+            class="w-full flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-accent text-left transition-colors"
+            @click="handleNewFile(); closeTreeContextMenu()"
           >
             <FilePlus class="w-3.5 h-3.5 text-primary" />
-            <span>File Baru di Sini</span>
+            <span>File Baru di Root</span>
           </button>
           <button
             class="w-full flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-accent text-left transition-colors"
-            @click="handleNewFolder(treeContextMenu.entry?.path); closeTreeContextMenu()"
+            @click="handleNewFolder(); closeTreeContextMenu()"
           >
             <FolderPlus class="w-3.5 h-3.5 text-primary" />
-            <span>Folder Baru di Sini</span>
+            <span>Folder Baru di Root</span>
           </button>
           <button
+            v-if="fileClipboard"
+            class="w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded hover:bg-accent text-left transition-colors text-emerald-400 font-medium"
+            @click="handlePasteEntry(null); closeTreeContextMenu()"
+          >
+            <div class="flex items-center gap-2">
+              <ClipboardPaste class="w-3.5 h-3.5" />
+              <span>Tempel Berkas ke Root</span>
+            </div>
+            <span class="text-[10px] text-muted-foreground/60 font-mono">Ctrl+V</span>
+          </button>
+          <div class="my-1 border-t border-border/50" />
+          <button
             class="w-full flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-accent text-left transition-colors"
-            @click="handleOpenTerminalAtFolder(treeContextMenu.entry?.path); closeTreeContextMenu()"
+            @click="handleOpenTerminalAtFolder(activeWorkstation.folderPath); closeTreeContextMenu()"
           >
             <Terminal class="w-3.5 h-3.5 text-primary" />
             <span>Buka Terminal di Sini</span>
           </button>
           <button
             class="w-full flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-accent text-left transition-colors"
-            @click="handleSearchInFolder(treeContextMenu.entry); closeTreeContextMenu()"
+            @click="revealInExplorer(activeWorkstation.folderPath || ''); closeTreeContextMenu()"
           >
-            <Search class="w-3.5 h-3.5 text-primary" />
-            <span>Cari di Folder Ini... (Find in Folder)</span>
+            <FolderOpen class="w-3.5 h-3.5 text-muted-foreground" />
+            <span>Buka di File Explorer</span>
           </button>
-          <div class="my-1 border-t border-border/50" />
+          <button
+            class="w-full flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-accent text-left transition-colors"
+            @click="loadProjectFiles(); closeTreeContextMenu()"
+          >
+            <RefreshCw class="w-3.5 h-3.5 text-primary" />
+            <span>Refresh Berkas</span>
+          </button>
         </template>
-
-        <button
-          class="w-full flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-accent text-left transition-colors"
-          @click="handleRenameEntry(treeContextMenu.entry); closeTreeContextMenu()"
-        >
-          <Pencil class="w-3.5 h-3.5 text-amber-400" />
-          <span>Ubah Nama (Rename)</span>
-        </button>
-        <button
-          class="w-full flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-accent text-left transition-colors"
-          @click="openPathDefault(treeContextMenu.entry?.path || ''); closeTreeContextMenu()"
-        >
-          <ExternalLink class="w-3.5 h-3.5 text-sky-400" />
-          <span>Buka dengan Aplikasi Bawaan</span>
-        </button>
-        <button
-          class="w-full flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-accent text-left transition-colors"
-          @click="revealInExplorer(treeContextMenu.entry?.path || ''); closeTreeContextMenu()"
-        >
-          <FolderOpen class="w-3.5 h-3.5 text-muted-foreground" />
-          <span>Buka di File Explorer</span>
-        </button>
-        <button
-          class="w-full flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-accent text-left transition-colors"
-          @click="handleCopyPath(treeContextMenu.entry?.path || ''); closeTreeContextMenu()"
-        >
-          <Copy class="w-3.5 h-3.5 text-muted-foreground" />
-          <span>Salin Path Lengkap</span>
-        </button>
-        <button
-          class="w-full flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-accent text-left transition-colors"
-          @click="handleCopyRelativePath(treeContextMenu.entry); closeTreeContextMenu()"
-        >
-          <Copy class="w-3.5 h-3.5 text-primary/80" />
-          <span>Salin Path Relatif</span>
-        </button>
-        <button
-          class="w-full flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-accent text-left transition-colors"
-          @click="handleAddToGitignore(treeContextMenu.entry); closeTreeContextMenu()"
-        >
-          <EyeOff class="w-3.5 h-3.5 text-amber-400" />
-          <span>Tambahkan ke .gitignore</span>
-        </button>
-        <div class="my-1 border-t border-border/50" />
-        <button
-          class="w-full flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-destructive/20 text-destructive text-left transition-colors"
-          @click="handleDeleteEntry(treeContextMenu.entry); closeTreeContextMenu()"
-        >
-          <Trash2 class="w-3.5 h-3.5" />
-          <span>Hapus Permanen</span>
-        </button>
       </div>
     </Teleport>
 
