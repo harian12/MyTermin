@@ -306,6 +306,7 @@ const startPaneSplitDrag = (e: MouseEvent) => {
 }
 
 // Tab Context Menu State
+const tabContextMenuRef = ref<HTMLElement | null>(null)
 const tabContextMenu = ref<{
   visible: boolean
   x: number
@@ -318,11 +319,16 @@ const tabContextMenu = ref<{
   file: null
 })
 
-const tabContextMenuStyle = computed(() => {
-  const menuWidth = 195
-  const menuHeight = 270
-  const winWidth = typeof window !== 'undefined' ? window.innerWidth : 1280
-  const winHeight = typeof window !== 'undefined' ? window.innerHeight : 800
+const tabContextMenuPos = ref({ left: '0px', top: '0px' })
+
+const updateTabContextMenuPos = () => {
+  if (typeof window === 'undefined') return
+  const winWidth = window.innerWidth
+  const winHeight = window.innerHeight
+
+  const el = tabContextMenuRef.value
+  const menuWidth = el?.offsetWidth || 210
+  const menuHeight = el?.offsetHeight || 380
 
   let posX = tabContextMenu.value.x
   let posY = tabContextMenu.value.y
@@ -334,11 +340,22 @@ const tabContextMenuStyle = computed(() => {
     posY = Math.max(8, winHeight - menuHeight - 8)
   }
 
-  return {
-    left: `${Math.max(8, posX)}px`,
-    top: `${Math.max(8, posY)}px`
+  tabContextMenuPos.value = {
+    left: `${Math.max(8, Math.round(posX))}px`,
+    top: `${Math.max(8, Math.round(posY))}px`
   }
-})
+}
+
+watch(
+  () => [tabContextMenu.value.visible, tabContextMenu.value.x, tabContextMenu.value.y],
+  async ([visible]) => {
+    if (visible) {
+      updateTabContextMenuPos()
+      await nextTick()
+      updateTabContextMenuPos()
+    }
+  }
+)
 
 const handleTabContextMenu = (e: MouseEvent, file: OpenFileItem) => {
   e.preventDefault()
@@ -1664,8 +1681,9 @@ const handleEditorPaneFocus = () => {
     <Teleport to="body">
       <div
         v-if="tabContextMenu.visible && tabContextMenu.file"
+        ref="tabContextMenuRef"
         class="fixed z-[100] min-w-[190px] max-h-[calc(100vh-16px)] overflow-y-auto bg-[#14151f] border border-border/80 rounded-lg shadow-2xl p-1 text-xs font-sans text-foreground animate-in fade-in zoom-in-95 duration-100"
-        :style="tabContextMenuStyle"
+        :style="tabContextMenuPos"
         @click.stop
       >
         <button

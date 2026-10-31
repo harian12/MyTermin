@@ -102,9 +102,23 @@ Buat GitHub Release pada tag `v<VERSION>` dan upload berkas berikut:
 
 ---
 
-## ⚠️ CHECKLIST SEBELUM MERILIS
+### Langkah 7: Pembersihan Folder Build Output (`src-tauri/target`)
+Setelah semua aset rilis sukses terunggah ke GitHub Releases, folder build `target` wajib dihapus untuk menghemat ruang penyimpanan (menghemat beberapa GB):
+```powershell
+Remove-Item -Recurse -Force src-tauri/target
+```
+*Atau gunakan:*
+```powershell
+cargo clean --manifest-path src-tauri/Cargo.toml
+```
+
+---
+
+## ⚠️ CHECKLIST SEBELUM & SESUDAH MERILIS
 - [ ] Versi di `package.json`, `src-tauri/tauri.conf.json`, dan `src-tauri/Cargo.toml` sudah identik.
 - [ ] Build sukses tanpa error kompilasi.
 - [ ] Signature installer sudah diekstrak ke `latest.json`.
 - [ ] URL download di `latest.json` mengarah tepat ke tag rilis `v<VERSION>`.
 - [ ] Commit dan tag Git sudah di-push ke remote repository.
+- [ ] Release dan aset terunggah di GitHub Releases.
+- [ ] Folder `src-tauri/target` sudah dihapus/dibersihkan.

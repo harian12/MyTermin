@@ -220,6 +220,7 @@ const unstagedTree = computed(() => buildGitTree([
 ]))
 
 // Tree Item Context Menu
+const treeContextMenuRef = ref<HTMLElement | null>(null)
 const treeContextMenu = ref<{
   visible: boolean
   x: number
@@ -232,11 +233,16 @@ const treeContextMenu = ref<{
   entry: null
 })
 
-const treeContextMenuStyle = computed(() => {
-  const menuWidth = 190
-  const menuHeight = 380
-  const winWidth = typeof window !== 'undefined' ? window.innerWidth : 1280
-  const winHeight = typeof window !== 'undefined' ? window.innerHeight : 800
+const treeContextMenuPos = ref({ left: '0px', top: '0px' })
+
+const updateTreeContextMenuPos = () => {
+  if (typeof window === 'undefined') return
+  const winWidth = window.innerWidth
+  const winHeight = window.innerHeight
+
+  const el = treeContextMenuRef.value
+  const menuWidth = el?.offsetWidth || 230
+  const menuHeight = el?.offsetHeight || 520
 
   let posX = treeContextMenu.value.x
   let posY = treeContextMenu.value.y
@@ -248,11 +254,22 @@ const treeContextMenuStyle = computed(() => {
     posY = Math.max(8, winHeight - menuHeight - 8)
   }
 
-  return {
-    left: `${Math.max(8, posX)}px`,
-    top: `${Math.max(8, posY)}px`
+  treeContextMenuPos.value = {
+    left: `${Math.max(8, Math.round(posX))}px`,
+    top: `${Math.max(8, Math.round(posY))}px`
   }
-})
+}
+
+watch(
+  () => [treeContextMenu.value.visible, treeContextMenu.value.x, treeContextMenu.value.y],
+  async ([visible]) => {
+    if (visible) {
+      updateTreeContextMenuPos()
+      await nextTick()
+      updateTreeContextMenuPos()
+    }
+  }
+)
 
 const closeTreeContextMenu = () => {
   treeContextMenu.value.visible = false
@@ -1721,8 +1738,9 @@ const resetSidebarWidth = () => {
     <Teleport to="body">
       <div
         v-if="treeContextMenu.visible"
+        ref="treeContextMenuRef"
         class="fixed z-[100] min-w-[200px] max-h-[calc(100vh-16px)] overflow-y-auto bg-[#14151f] border border-border/80 rounded-lg shadow-2xl p-1 text-xs font-sans text-foreground animate-in fade-in zoom-in-95 duration-100"
-        :style="treeContextMenuStyle"
+        :style="treeContextMenuPos"
         @click.stop
       >
         <!-- Entry Specific Context Menu -->
