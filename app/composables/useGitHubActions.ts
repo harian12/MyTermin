@@ -533,6 +533,7 @@ export const useGitHubActions = () => {
 
     pollTimer = setInterval(async () => {
       if (!isPollingActive.value) return
+      if (typeof document !== 'undefined' && document.hidden) return
       const path = currentRepoPath()
       if (!path) return
 

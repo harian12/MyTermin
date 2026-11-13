@@ -68,6 +68,12 @@ watch(scope, () => {
   selectedIndex.value = 0
 })
 
+watch(filteredEntries, (newList) => {
+  if (selectedIndex.value >= newList.length) {
+    selectedIndex.value = Math.max(0, newList.length - 1)
+  }
+})
+
 const handleKeyDown = async (e: KeyboardEvent) => {
   if (e.key === 'ArrowDown') {
     e.preventDefault()

@@ -235,6 +235,7 @@ const handleTabPointerDown = (e: PointerEvent, index: number, fileId: string) =>
   const handlePointerUp = () => {
     window.removeEventListener('pointermove', handlePointerMove)
     window.removeEventListener('pointerup', handlePointerUp)
+    window.removeEventListener('pointercancel', handlePointerUp)
     setTimeout(() => {
       isDraggingTab.value = false
       dragStartIndex.value = null
@@ -245,6 +246,7 @@ const handleTabPointerDown = (e: PointerEvent, index: number, fileId: string) =>
 
   window.addEventListener('pointermove', handlePointerMove)
   window.addEventListener('pointerup', handlePointerUp)
+  window.addEventListener('pointercancel', handlePointerUp)
 }
 
 // Strip tab hanya bisa digeser horizontal, tapi wheel mouse mengirim deltaY.
@@ -1647,6 +1649,11 @@ const handleEditorPaneFocus = () => {
 
     <!-- Breadcrumb Popover -->
     <Teleport to="body">
+      <div
+        v-if="breadcrumbPopover"
+        class="fixed inset-0 z-[99]"
+        @click="closeBreadcrumbMenu"
+      />
       <div
         v-if="breadcrumbPopover"
         class="fixed z-[100] min-w-[200px] max-w-[300px] max-h-[300px] overflow-y-auto overflow-x-hidden bg-[#14151f] border border-border/80 rounded shadow-xl p-1 text-[11px] font-mono text-foreground animate-in fade-in zoom-in-95 duration-100"

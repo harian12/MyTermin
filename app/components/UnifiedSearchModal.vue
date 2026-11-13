@@ -71,6 +71,7 @@ watch(includeFiles, runSearch)
 watch(
   () => props.open,
   (open) => {
+    if (debounceTimer) clearTimeout(debounceTimer)
     if (open) {
       nextTick(() => {
         const el = document.getElementById('unified-search-input') as HTMLInputElement | null
@@ -85,6 +86,10 @@ watch(
     }
   }
 )
+
+onBeforeUnmount(() => {
+  if (debounceTimer) clearTimeout(debounceTimer)
+})
 
 const jumpTerminal = (hit: TerminalHit) => {
   props.onJump?.(hit.termId, hit.line)

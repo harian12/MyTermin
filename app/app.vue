@@ -200,6 +200,8 @@ let windowStateTimer: any = null
 let unlistenResize: (() => void) | null = null
 let unlistenMove: (() => void) | null = null
 let allowWindowClose = false
+let onWindowFocus: (() => void) | null = null
+let cicdTimer: any = null
 
 const persistWindowState = async () => {
   if (!isTauri.value) return
@@ -823,7 +825,6 @@ onMounted(async () => {
     }, 2500)
   }
 
-  let onWindowFocus: (() => void) | null = null
   // Background poller santai untuk hemat CPU/baterai di spek rendah (4GB RAM)
   startPortPolling(15000)
   startGitPolling(8000)
@@ -839,7 +840,6 @@ onMounted(async () => {
   window.addEventListener('focus', onWindowFocus)
 
   // Background check CI/CD pipeline runs (setiap 45 detik jika ada git repo dan jendela tidak hidden)
-  let cicdTimer: any = null
   if (isTauri.value) {
     setTimeout(async () => {
       if (activeWorkstation.value?.folderPath) {
@@ -872,6 +872,7 @@ onBeforeUnmount(() => {
   saveSession(false, true)
   saveEditorSession()
   if (windowStateTimer) clearTimeout(windowStateTimer)
+  if (cicdTimer) clearInterval(cicdTimer)
   unlistenResize?.()
   unlistenMove?.()
   stopPortPolling()

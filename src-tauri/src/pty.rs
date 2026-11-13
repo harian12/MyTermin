@@ -271,7 +271,7 @@ impl PtyManager {
 
         // Background reader thread with UTF-8 byte boundary preservation
         std::thread::spawn(move || {
-            let mut buf = [0u8; 4096];
+            let mut buf = [0u8; 32768];
             let mut leftover = Vec::new();
             let event_name = format!("pty-data-{}", session_id);
             loop {
@@ -429,7 +429,7 @@ impl PtyManager {
                         let _ = std::process::Command::new("taskkill")
                             .args(["/F", "/T", "/PID", &pid.to_string()])
                             .creation_flags(CREATE_NO_WINDOW)
-                            .output();
+                            .spawn();
                     }
                 }
                 let _ = session.child.kill();

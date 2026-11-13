@@ -113,6 +113,7 @@ let ptyStreamBuffer = ''
 let wasProcessBusy = false
 let commandStartTime = 0
 let lastPromptCwdAt = 0
+let cwdDebounceTimer: ReturnType<typeof setTimeout> | null = null
 
 const isPtyReady = ref(false)
 const isPtyExited = ref(false)
@@ -408,38 +409,7 @@ const handleIncomingData = (data: string) => {
   parseStreamForCwd(data)
 }
 
-const parseStreamForCwd = (rawChunk: string) => {
-  // Fast check: Lewati regex berat jika chunk tidak mengandung escape sequence atau prompt delimiter
-  if (!rawChunk.includes('\x1B') && !rawChunk.includes('>') && !rawChunk.includes('\n')) {
-    return
-  }
-
-  // OSC 9;9 (Windows Terminal / ConEmu)
-  const osc9Match = rawChunk.match(/\x1B\]9;9;"?([^"\x07\x1B]+)"?(?:\x07|\x1B\\)/)
-  if (osc9Match && osc9Match[1]) {
-    const p = osc9Match[1].trim()
-    if (p.length >= 2) {
-      updateTerminalCwd(props.paneId, p)
-      return
-    }
-  }
-
-  // OSC 7 (file:// hostname / path)
-  const osc7Match = rawChunk.match(/\x1B\]7;file:\/\/[^/]*\/([^\x07\x1B]+)(?:\x07|\x1B\\)/)
-  if (osc7Match && osc7Match[1]) {
-    let p = decodeURIComponent(osc7Match[1])
-    if (p.startsWith('/') && p.length >= 3 && p[2] === ':') p = p.slice(1)
-    p = p.replace(/\//g, '\\').trim()
-    if (p.length >= 2) {
-      updateTerminalCwd(props.paneId, p)
-      return
-    }
-  }
-
-  // Strip ANSI and match prompts across chunk boundaries
-  const clean = rawChunk.replace(/\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~]|\].*?(?:\x07|\x1B\\))/g, '')
-  ptyStreamBuffer = (ptyStreamBuffer + clean).slice(-1024)
-
+const performPromptCwdParse = () => {
   const psMatches = [...ptyStreamBuffer.matchAll(/PS\s+([A-Za-z]:[\\/][^>\r\n]+)>/g)]
   const lastPsMatch = psMatches[psMatches.length - 1]?.[1]
   if (lastPsMatch) {
@@ -461,6 +431,46 @@ const parseStreamForCwd = (rawChunk: string) => {
   }
 
   applyMsysCwd(matchMsysPrompt(ptyStreamBuffer))
+}
+
+const parseStreamForCwd = (rawChunk: string) => {
+  // OSC 9;9 (Windows Terminal / ConEmu)
+  if (rawChunk.includes('\x1B]9;9;')) {
+    const osc9Match = rawChunk.match(/\x1B\]9;9;"?([^"\x07\x1B]+)"?(?:\x07|\x1B\\)/)
+    if (osc9Match && osc9Match[1]) {
+      const p = osc9Match[1].trim()
+      if (p.length >= 2) {
+        updateTerminalCwd(props.paneId, p)
+        return
+      }
+    }
+  }
+
+  // OSC 7 (file:// hostname / path)
+  if (rawChunk.includes('\x1B]7;')) {
+    const osc7Match = rawChunk.match(/\x1B\]7;file:\/\/[^/]*\/([^\x07\x1B]+)(?:\x07|\x1B\\)/)
+    if (osc7Match && osc7Match[1]) {
+      let p = decodeURIComponent(osc7Match[1])
+      if (p.startsWith('/') && p.length >= 3 && p[2] === ':') p = p.slice(1)
+      p = p.replace(/\//g, '\\').trim()
+      if (p.length >= 2) {
+        updateTerminalCwd(props.paneId, p)
+        return
+      }
+    }
+  }
+
+  // Lewati parsing prompt jika chunk tidak mengandung tanda prompt (> atau $)
+  if (!rawChunk.includes('>') && !rawChunk.includes('$')) {
+    return
+  }
+
+  // Strip ANSI and match prompts across chunk boundaries
+  const clean = rawChunk.replace(/\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~]|\].*?(?:\x07|\x1B\\))/g, '')
+  ptyStreamBuffer = (ptyStreamBuffer + clean).slice(-1024)
+
+  if (cwdDebounceTimer) clearTimeout(cwdDebounceTimer)
+  cwdDebounceTimer = setTimeout(performPromptCwdParse, 120)
 }
 
 // Tunggu sesi dipulihkan dari storage agar cwd spawn tidak kosong (state default
@@ -1274,6 +1284,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(async () => {
+  if (cwdDebounceTimer) clearTimeout(cwdDebounceTimer)
   if (fitRafId !== null) {
     cancelAnimationFrame(fitRafId)
     fitRafId = null

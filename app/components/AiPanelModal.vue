@@ -16,7 +16,7 @@ const AI_TOOLS = [
   { id: 'opencode', label: 'OpenCode', command: 'opencode' },
   { id: 'claude', label: 'Claude Code', command: 'claude' },
   { id: 'codex', label: 'Codex', command: 'codex' },
-  { id: 'custom', label: 'Customâ€¦', command: '' }
+  { id: 'custom', label: 'Custom...', command: '' }
 ]
 
 const { settings, updateSettings } = useSettingsStore()

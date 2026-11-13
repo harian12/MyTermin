@@ -126,8 +126,14 @@ fn get_available_shells() -> Vec<ShellInfo> {
 
 #[tauri::command]
 fn save_temp_image(bytes: Vec<u8>, ext: Option<String>) -> Result<String, String> {
-    let extension = ext.unwrap_or_else(|| "png".to_string());
-    let filename = format!("mytermin_img_{}.{}", uuid::Uuid::new_v4(), extension);
+    let extension = ext
+        .as_deref()
+        .unwrap_or("png")
+        .chars()
+        .filter(|c| c.is_alphanumeric())
+        .collect::<String>();
+    let clean_ext = if extension.is_empty() { "png".to_string() } else { extension };
+    let filename = format!("mytermin_img_{}.{}", uuid::Uuid::new_v4(), clean_ext);
     let temp_path = std::env::temp_dir().join(filename);
     
     std::fs::write(&temp_path, bytes).map_err(|e| e.to_string())?;
@@ -138,10 +144,14 @@ fn save_temp_image(bytes: Vec<u8>, ext: Option<String>) -> Result<String, String
 
 #[tauri::command]
 fn save_temp_file(bytes: Vec<u8>, filename: String) -> Result<String, String> {
-    let safe_filename = if filename.is_empty() {
+    let file_stem = Path::new(&filename)
+        .file_name()
+        .and_then(|f| f.to_str())
+        .unwrap_or("");
+    let safe_filename = if file_stem.is_empty() {
         format!("mytermin_file_{}.bin", uuid::Uuid::new_v4())
     } else {
-        filename
+        format!("mytermin_{}_{}", uuid::Uuid::new_v4(), file_stem)
     };
     let temp_path = std::env::temp_dir().join(safe_filename);
     
@@ -329,16 +339,27 @@ fn rename_path(old_path: String, new_path: String) -> Result<(), String> {
     if !old_p.exists() {
         return Err("Path asal tidak ditemukan".into());
     }
-    if new_p.exists() {
+
+    let is_case_only_rename = old_p.to_string_lossy().eq_ignore_ascii_case(&new_p.to_string_lossy())
+        && old_p.to_string_lossy() != new_p.to_string_lossy();
+
+    if new_p.exists() && !is_case_only_rename {
         return Err("Path tujuan sudah ada".into());
     }
-    if old_p.is_dir() && new_p.starts_with(old_p) {
+    if old_p.is_dir() && new_p.starts_with(old_p) && !is_case_only_rename {
         return Err("Tidak dapat memindahkan folder ke dalam dirinya sendiri".into());
     }
     if let Some(parent) = new_p.parent() {
         if !parent.exists() {
             let _ = std::fs::create_dir_all(parent);
         }
+    }
+    if is_case_only_rename {
+        let temp_name = format!("{}_{}.tmp", old_path, uuid::Uuid::new_v4().simple());
+        let temp_p = Path::new(&temp_name);
+        std::fs::rename(old_p, temp_p).map_err(|e| format!("Gagal mengubah nama: {}", e))?;
+        std::fs::rename(temp_p, new_p).map_err(|e| format!("Gagal mengubah nama: {}", e))?;
+        return Ok(());
     }
     std::fs::rename(old_p, new_p).map_err(|e| format!("Gagal memindahkan / mengubah nama: {}", e))
 }
@@ -348,6 +369,9 @@ fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> std::io::Result
     for entry in std::fs::read_dir(src)? {
         let entry = entry?;
         let ty = entry.file_type()?;
+        if ty.is_symlink() {
+            continue;
+        }
         if ty.is_dir() {
             copy_dir_all(entry.path(), dst.as_ref().join(entry.file_name()))?;
         } else {
@@ -394,6 +418,13 @@ fn delete_path(path: String) -> Result<(), String> {
     if !p.exists() {
         return Err("Path tidak ditemukan".into());
     }
+    if let Ok(metadata) = std::fs::metadata(p) {
+        let mut perms = metadata.permissions();
+        if perms.readonly() {
+            perms.set_readonly(false);
+            let _ = std::fs::set_permissions(p, perms);
+        }
+    }
     if p.is_dir() {
         std::fs::remove_dir_all(p).map_err(|e| format!("Gagal menghapus folder: {}", e))
     } else {
@@ -423,6 +454,12 @@ fn list_all_files(root_path: String, max_files: Option<usize>) -> Result<Vec<Str
 
         if let Ok(entries) = std::fs::read_dir(&dir) {
             for entry in entries.flatten() {
+                if let Ok(ft) = entry.file_type() {
+                    if ft.is_symlink() {
+                        continue;
+                    }
+                }
+
                 let path = entry.path();
                 let file_name = entry.file_name();
                 let name_str = file_name.to_string_lossy();
@@ -858,7 +895,7 @@ fn git_discard(repo_path: String, rel_path: String, is_untracked: bool) -> Resul
 fn git_push(repo_path: String) -> Result<String, String> {
     let root = Path::new(&repo_path);
     let mut cmd = std::process::Command::new("git");
-    cmd.arg("push").current_dir(root);
+    cmd.arg("push").env("GIT_TERMINAL_PROMPT", "0").current_dir(root);
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
@@ -876,7 +913,7 @@ fn git_push(repo_path: String) -> Result<String, String> {
 fn git_pull(repo_path: String) -> Result<String, String> {
     let root = Path::new(&repo_path);
     let mut cmd = std::process::Command::new("git");
-    cmd.arg("pull").current_dir(root);
+    cmd.arg("pull").arg("--no-edit").env("GIT_TERMINAL_PROMPT", "0").current_dir(root);
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
@@ -933,7 +970,10 @@ fn git_switch_branch(repo_path: String, branch_name: String) -> Result<String, S
         clean_name = stripped;
     }
     let mut cmd = std::process::Command::new("git");
-    cmd.arg("checkout").arg(clean_name).current_dir(root);
+    cmd.arg("checkout")
+        .arg(clean_name)
+        .env("GIT_TERMINAL_PROMPT", "0")
+        .current_dir(root);
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
@@ -951,7 +991,11 @@ fn git_switch_branch(repo_path: String, branch_name: String) -> Result<String, S
 fn git_create_branch(repo_path: String, branch_name: String) -> Result<String, String> {
     let root = Path::new(&repo_path);
     let mut cmd = std::process::Command::new("git");
-    cmd.arg("checkout").arg("-b").arg(&branch_name).current_dir(root);
+    cmd.arg("checkout")
+        .arg("-b")
+        .arg(&branch_name)
+        .env("GIT_TERMINAL_PROMPT", "0")
+        .current_dir(root);
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
@@ -1194,7 +1238,10 @@ fn git_get_commit_detail(repo_path: String, commit_hash: String) -> Result<GitCo
 fn git_checkout_commit(repo_path: String, target: String) -> Result<String, String> {
     let root = Path::new(&repo_path);
     let mut cmd = std::process::Command::new("git");
-    cmd.arg("checkout").arg(&target).current_dir(root);
+    cmd.arg("checkout")
+        .arg(&target)
+        .env("GIT_TERMINAL_PROMPT", "0")
+        .current_dir(root);
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
@@ -1213,7 +1260,11 @@ fn git_revert_commit(repo_path: String, commit_hash: String) -> Result<String, S
     let root = Path::new(&repo_path);
     let mut cmd = std::process::Command::new("git");
     // Revert commit safely without opening editor
-    cmd.arg("revert").arg("--no-edit").arg(&commit_hash).current_dir(root);
+    cmd.arg("revert")
+        .arg("--no-edit")
+        .arg(&commit_hash)
+        .env("GIT_TERMINAL_PROMPT", "0")
+        .current_dir(root);
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
@@ -1341,7 +1392,11 @@ fn git_reset_to_commit(repo_path: String, commit_hash: String, mode: String) -> 
         "soft" => "--soft",
         _ => "--mixed",
     };
-    cmd.arg("reset").arg(flag).arg(&commit_hash).current_dir(root);
+    cmd.arg("reset")
+        .arg(flag)
+        .arg(&commit_hash)
+        .env("GIT_TERMINAL_PROMPT", "0")
+        .current_dir(root);
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
@@ -1518,7 +1573,7 @@ fn git_get_file_at_ref(repo_path: String, git_ref: String, rel_path: String) -> 
 fn git_merge_branch(repo_path: String, source_branch: String) -> Result<String, String> {
     let root = Path::new(&repo_path);
     let mut cmd = std::process::Command::new("git");
-    cmd.arg("merge").arg(&source_branch).current_dir(root);
+    cmd.arg("merge").arg("--no-edit").arg(&source_branch).env("GIT_TERMINAL_PROMPT", "0").current_dir(root);
 
     #[cfg(windows)]
     {
@@ -1713,22 +1768,42 @@ fn git_commit(repo_path: String, message: String) -> Result<String, String> {
         return Err("Pesan commit tidak boleh kosong".into());
     }
 
-    // git add -A
-    let mut add_cmd = std::process::Command::new("git");
-    add_cmd.arg("add").arg("-A").current_dir(root);
+    // Cek apakah sudah ada perubahan yang di-stage
+    let mut check_staged = std::process::Command::new("git");
+    check_staged.arg("diff").arg("--staged").arg("--quiet").current_dir(root);
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
-        add_cmd.creation_flags(0x08000000);
+        check_staged.creation_flags(0x08000000);
     }
-    let add_out = add_cmd.output().map_err(|e| format!("Git add error: {}", e))?;
-    if !add_out.status.success() {
-        return Err(String::from_utf8_lossy(&add_out.stderr).to_string());
+    let has_staged = match check_staged.status() {
+        Ok(status) => status.code() == Some(1),
+        Err(_) => false,
+    };
+
+    // Jika belum ada file yang di-stage, auto-stage semua perubahan (git add -A)
+    if !has_staged {
+        let mut add_cmd = std::process::Command::new("git");
+        add_cmd.arg("add").arg("-A").current_dir(root);
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            add_cmd.creation_flags(0x08000000);
+        }
+        let add_out = add_cmd.output().map_err(|e| format!("Git add error: {}", e))?;
+        if !add_out.status.success() {
+            return Err(String::from_utf8_lossy(&add_out.stderr).to_string());
+        }
     }
 
     // git commit -m
     let mut commit_cmd = std::process::Command::new("git");
-    commit_cmd.arg("commit").arg("-m").arg(&message).current_dir(root);
+    commit_cmd
+        .arg("commit")
+        .arg("-m")
+        .arg(&message)
+        .env("GIT_TERMINAL_PROMPT", "0")
+        .current_dir(root);
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
@@ -1792,6 +1867,12 @@ fn search_in_files(
             for entry in entries.flatten() {
                 if results.len() >= limit || scanned_files >= MAX_SCANNED_FILES {
                     break;
+                }
+
+                if let Ok(ft) = entry.file_type() {
+                    if ft.is_symlink() {
+                        continue;
+                    }
                 }
 
                 let path = entry.path();
@@ -1878,9 +1959,24 @@ fn replace_in_files(
             ".git", "node_modules", "target", ".nuxt", ".output", "dist", ".cargo", ".idea", ".vscode", "package-lock.json", "Cargo.lock"
         ].into_iter().collect();
 
+        let ignored_extensions: std::collections::HashSet<&str> = [
+            "png", "jpg", "jpeg", "gif", "ico", "webp", "bmp", "tiff", "mp4", "mp3", "wav", "ogg",
+            "zip", "tar", "gz", "7z", "rar", "exe", "dll", "so", "dylib", "bin", "iso", "pdf",
+            "woff", "woff2", "ttf", "eot", "pyc", "class", "o", "obj", "map"
+        ].into_iter().collect();
+
         while let Some(dir) = stack.pop() {
+            if list.len() >= 5000 {
+                break;
+            }
             if let Ok(entries) = std::fs::read_dir(&dir) {
                 for entry in entries.flatten() {
+                    if let Ok(ft) = entry.file_type() {
+                        if ft.is_symlink() {
+                            continue;
+                        }
+                    }
+
                     let path = entry.path();
                     let name_str = entry.file_name().to_string_lossy().to_string();
                     if ignored_names.contains(name_str.as_str()) {
@@ -1889,6 +1985,11 @@ fn replace_in_files(
                     if path.is_dir() {
                         stack.push(path);
                     } else if path.is_file() {
+                        if let Some(ext) = path.extension().and_then(|s| s.to_str()) {
+                            if ignored_extensions.contains(ext.to_ascii_lowercase().as_str()) {
+                                continue;
+                            }
+                        }
                         if let Ok(meta) = path.metadata() {
                             if meta.len() <= 2 * 1024 * 1024 {
                                 list.push(path);
@@ -2317,7 +2418,7 @@ fn discover_tasks(root_path: String) -> Vec<TaskDefinition> {
 // ===== Utilitas Git =====
 fn run_git_output(root: &Path, args: &[&str]) -> Result<String, String> {
     let mut cmd = std::process::Command::new("git");
-    cmd.args(args).current_dir(root);
+    cmd.args(args).env("GIT_TERMINAL_PROMPT", "0").current_dir(root);
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
@@ -2477,7 +2578,7 @@ fn git_cherry_pick(repo_path: String, commit_hash: String) -> Result<String, Str
     if !root.exists() {
         return Err("Path tidak ditemukan".into());
     }
-    run_git_output(root, &["cherry-pick", commit_hash.trim()])
+    run_git_output(root, &["cherry-pick", "--no-edit", commit_hash.trim()])
 }
 
 #[tauri::command]
@@ -2633,7 +2734,10 @@ fn git_create_tag(repo_path: String, tag_name: String, message: Option<String>) 
 // ===== Utilitas GitHub CLI & Remote =====
 fn run_gh_output(root: &Path, args: &[&str]) -> Result<String, String> {
     let mut cmd = std::process::Command::new("gh");
-    cmd.args(args).current_dir(root);
+    cmd.args(args)
+        .env("GH_PROMPT_DISABLED", "1")
+        .env("NO_COLOR", "1")
+        .current_dir(root);
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
@@ -2748,7 +2852,10 @@ fn gh_workflow_run(repo_path: String, workflow: String, branch: Option<String>) 
 // ===== Utilitas GitLab CLI =====
 fn run_glab_output(root: &Path, args: &[&str]) -> Result<String, String> {
     let mut cmd = std::process::Command::new("glab");
-    cmd.args(args).current_dir(root);
+    cmd.args(args)
+        .env("NO_PROMPT", "1")
+        .env("GITLAB_NO_PROMPT", "1")
+        .current_dir(root);
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
@@ -2823,7 +2930,8 @@ fn glab_pipeline_cancel(repo_path: String, pipeline_id: u64) -> Result<String, S
 fn git_get_credential_token(host: String) -> Result<String, String> {
     use std::io::Write;
     let mut cmd = std::process::Command::new("git");
-    cmd.args(&["credential", "fill"]);
+    cmd.args(&["credential", "fill"])
+        .env("GIT_TERMINAL_PROMPT", "0");
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;

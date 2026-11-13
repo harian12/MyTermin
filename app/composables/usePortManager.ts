@@ -14,6 +14,9 @@ export const usePortManager = () => {
   const { isTauri } = useTauriPty()
 
   const fetchPorts = async () => {
+    if (isLoading.value) return
+    isLoading.value = true
+
     if (!isTauri.value) {
       // Web fallback mock ports
       portsList.value = [
@@ -21,10 +24,12 @@ export const usePortManager = () => {
         { protocol: 'TCP', local_address: '127.0.0.1:5173', port: 5173, pid: 9840, process_name: 'vite.exe' },
         { protocol: 'TCP', local_address: '127.0.0.1:8080', port: 8080, pid: 1120, process_name: 'python.exe' }
       ]
+      isLoading.value = false
       return
     }
 
     if (typeof document !== 'undefined' && document.hidden) {
+      isLoading.value = false
       return
     }
 

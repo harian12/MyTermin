@@ -22,6 +22,7 @@ import { useGitGraph } from '~/composables/useGitGraph'
 import { useProjectExplorer } from '~/composables/useProjectExplorer'
 import { useWorkspaceStore } from '~/composables/useWorkspaceStore'
 import { useAppDialog } from '~/composables/useAppDialog'
+import MonacoDiffEditor from './MonacoDiffEditor.vue'
 
 interface Props {
   open: boolean
@@ -59,8 +60,6 @@ const { showAppConfirm, showAppAlert } = useAppDialog()
 const currentRepoPath = computed(() => {
   return activeWorkstation.value?.folderPath || activeTerminal.value?.cwd || ''
 })
-
-import MonacoDiffEditor from './MonacoDiffEditor.vue'
 
 const copiedHash = ref<string | null>(null)
 const searchQuery = ref('')

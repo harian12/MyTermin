@@ -39,7 +39,11 @@ export const useGitExtras = () => {
   const fetchAll = () => {
     const repo = root()
     if (!repo) return Promise.resolve(null)
-    return run(() => invoke<string>('git_fetch', { repoPath: repo }), 'Fetch selesai')
+    return run(() => invoke<string>('git_fetch', { repoPath: repo }), 'Fetch selesai').then(async (res) => {
+      await refreshAheadBehind()
+      await refreshGitStatus()
+      return res
+    })
   }
 
   const refreshAheadBehind = async () => {
@@ -115,7 +119,11 @@ export const useGitExtras = () => {
     return run(
       () => invoke<string>('git_amend', { repoPath: repo, message: message || null }),
       'Commit terakhir di-amend'
-    )
+    ).then(async (res) => {
+      await refreshAheadBehind()
+      await refreshGitStatus()
+      return res
+    })
   }
 
   const undoLastCommit = () => {
@@ -134,7 +142,14 @@ export const useGitExtras = () => {
   const cherryPick = (commitHash: string) => {
     const repo = root()
     if (!repo) return Promise.resolve(null)
-    return run(() => invoke<string>('git_cherry_pick', { repoPath: repo, commitHash }), 'Cherry-pick selesai')
+    return run(
+      () => invoke<string>('git_cherry_pick', { repoPath: repo, commitHash }),
+      'Cherry-pick selesai'
+    ).then(async (res) => {
+      await refreshAheadBehind()
+      await refreshGitStatus()
+      return res
+    })
   }
 
   const refreshTags = async () => {

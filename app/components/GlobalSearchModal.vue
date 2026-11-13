@@ -117,7 +117,8 @@ const handleReplaceAll = async () => {
 
   isReplacing.value = true
   try {
-    const res = await replaceInFiles(q, replaceQuery.value, matchCase.value)
+    const targetPaths = Array.from(new Set(results.value.map(r => r.file_path)))
+    const res = await replaceInFiles(q, replaceQuery.value, matchCase.value, targetPaths)
     if (res.success) {
       replaceNotification.value = `Berhasil mengganti ${res.count || 0} teks!`
       await performSearch()

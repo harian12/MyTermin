@@ -45,17 +45,24 @@ async function run() {
 
   const releaseBody = `## MyTermin ${tag} 🚀
 
-Pembaruan **MyTermin ${tag}** — Hotfix krusial kompatibilitas runtime Monaco TypeScript module (mengatasi error 500 saat aplikasi dibuka), penguatan fallback ESM, dan inisialisasi plugin fail-safe.
+Pembaruan **MyTermin ${tag}** — Peningkatan stabilitas thread, pencegahan freeze / App Not Responding (ANR) pada subproses Git/CLI, penanganan circular symlink traversal, optimalisasi IPC buffer PTY, dan pemulihan kebersihan data.
 
 ---
 
 ### ✨ Apa yang Baru di ${tag}
-1. **Hotfix Monaco TypeScript Defaults**:
-   - Memperbaiki akses modul TypeScript Monaco pada bundling ESM (\`(monaco as any).typescript\` vs \`monaco.languages.typescript\`) yang memicu error *\"Cannot read properties of undefined (reading 'typescriptDefaults')\"*.
-   - Inisialisasi plugin dibungkus dengan perlindungan fail-safe sehingga tidak akan pernah menggagalkan bootstrap aplikasi.
-2. **Robust Fallback & Safe Diagnostics**:
-   - Deteksi modul TypeScript runtime dengan fallback aman jika service worker belum siap.
-   - Pengecekan method yang lebih defensif saat runtime memuat opsi compiler dan diagnostik.
+1. **Pencegahan Hang / Freeze Subproses Git & CLI**:
+   - Menambahkan guard \`--no-edit\` dan environment variable \`GIT_TERMINAL_PROMPT=0\` / \`NO_PROMPT=1\` pada semua proses Git (push, pull, merge, checkout, cherry-pick, revert, reset) dan CLI (gh, glab) agar tidak menggantung tanpa respon saat meminta prompt/editor interaktif.
+2. **Optimalisasi Main Thread Terminal Parsing**:
+   - Parsing prompt CWD terminal sekarang didebounce 120ms dan difilter hanya pada chunk dengan delimiter prompt, mencegah kelambatan UI saat log streaming deras.
+3. **Peningkatan PTY Reader Buffer**:
+   - Memperbesar buffer IPC reader PTY dari 4KB ke 32KB untuk mengurangi frekuensi event IPC ke frontend.
+4. **Proteksi Infinite Loop & File Traversal**:
+   - Penjelajahan direktori pada file scanner dan global replace kini mendeteksi dan melewati circular symlink / directory junction.
+5. **Koreksi File System Windows & Integrity**:
+   - Mengatasi case-only rename pada sistem file NTFS Windows via temporary bridge.
+   - Otomatis mencabut izin read-only sebelum penghapusan berkas.
+   - Sanitasi nama file dan ekstensi temp untuk mencegah path traversal.
+   - Dukungan pembersihan marker merge conflict Git format 3-way (\`diff3\`).
 
 ---
 

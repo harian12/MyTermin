@@ -1,15 +1,15 @@
 {
-  "version": "0.2.28",
-  "notes": "Release v0.2.28 - Hotfix Monaco TypeScript language defaults runtime compatibility (fix 500 error on app launch) and ESM resolution resilience.",
-  "pub_date": "2026-10-30T15:30:00.000Z",
+  "version": "0.2.29",
+  "notes": "Release v0.2.29 - Peningkatan stabilitas thread, pencegahan ANR/freeze subproses Git/CLI (--no-edit, GIT_TERMINAL_PROMPT=0), mitigasi circular symlink traversal, debounce CWD stream parsing, dan perluasan PTY reader buffer ke 32KB.",
+  "pub_date": "2026-11-13T12:21:25.920Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcjU5M1ZFMWtCZWFJLzZQUjAyWG1TYm1lYmxZVWk3dlFxSGlnaEd3MnhmdU1YdC96SVFhQXRINm9Ld21UYWhzajRkQ2JCeVpXcWJ6NUFIQVB5SGY1bXNCeWxXempaU3c4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkzMzc0MTg0CWZpbGU6TXlUZXJtaW5fMC4yLjI4X3g2NC1zZXR1cC5leGUKSTlHMjdVTDY4Mjd4VlFQZ0xzc3BUUkV5eFhLWmRoSW9qSnJoYUxiMDB3d3JjZkM0VlQreHJKMU9OdGx2UWY2S0xTRDUvcit3U01XamRDaVNSMnluQlE9PQo=",
-      "url": "https://github.com/harian12/MyTermin/releases/download/v0.2.28/MyTermin_0.2.28_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcjU5M1ZFMWtCZVhHUWE1QUhjT0dVdE9IcTRUelYwZWpZc3ZOOXhTMTd2cVU1V0hVYmlRV3NNL0F3YVFodGkzOTVNaDNQcVUxK3ZuUjA3em9aaWJ6K1dnRUJwbkd4MVFVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk0NTcyNDEyCWZpbGU6TXlUZXJtaW5fMC4yLjI5X3g2NC1zZXR1cC5leGUKZnhrV1hVL1B6QVlYUm02OWVWdEhmblhGY0FWUnptcS9PNWVRMFRvcFczM2NWWC9tYTdjd1BMbndhd2I5UTdoZGFCOHljaVNESHd4RDFVNzVqVGZMQkE9PQo=",
+      "url": "https://github.com/harian12/MyTermin/releases/download/v0.2.29/MyTermin_0.2.29_x64-setup.exe"
     },
     "windows-x86_64-nsis": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcjU5M1ZFMWtCZWFJLzZQUjAyWG1TYm1lYmxZVWk3dlFxSGlnaEd3MnhmdU1YdC96SVFhQXRINm9Ld21UYWhzajRkQ2JCeVpXcWJ6NUFIQVB5SGY1bXNCeWxXempaU3c4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkzMzc0MTg0CWZpbGU6TXlUZXJtaW5fMC4yLjI4X3g2NC1zZXR1cC5leGUKSTlHMjdVTDY4Mjd4VlFQZ0xzc3BUUkV5eFhLWmRoSW9qSnJoYUxiMDB3d3JjZkM0VlQreHJKMU9OdGx2UWY2S0xTRDUvcit3U01XamRDaVNSMnluQlE9PQo=",
-      "url": "https://github.com/harian12/MyTermin/releases/download/v0.2.28/MyTermin_0.2.28_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcjU5M1ZFMWtCZVhHUWE1QUhjT0dVdE9IcTRUelYwZWpZc3ZOOXhTMTd2cVU1V0hVYmlRV3NNL0F3YVFodGkzOTVNaDNQcVUxK3ZuUjA3em9aaWJ6K1dnRUJwbkd4MVFVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk0NTcyNDEyCWZpbGU6TXlUZXJtaW5fMC4yLjI5X3g2NC1zZXR1cC5leGUKZnhrV1hVL1B6QVlYUm02OWVWdEhmblhGY0FWUnptcS9PNWVRMFRvcFczM2NWWC9tYTdjd1BMbndhd2I5UTdoZGFCOHljaVNESHd4RDFVNzVqVGZMQkE9PQo=",
+      "url": "https://github.com/harian12/MyTermin/releases/download/v0.2.29/MyTermin_0.2.29_x64-setup.exe"
     }
   }
 }
